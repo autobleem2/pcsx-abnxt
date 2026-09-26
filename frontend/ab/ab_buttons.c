@@ -18,6 +18,7 @@
 #include "ab_console.h"
 #include "ab_debug.h"
 #include "ab_disc.h"
+#include "ab_pad_battery.h"
 
 extern enum sched_action emu_action, emu_action_old;
 
@@ -82,6 +83,8 @@ int ab_filter_action(int action)
 			held = 1;
 			fired = 0;
 			held_since = now;
+			/* E15: the hold is also a quick way to check a pad's battery, low or not */
+			ab_pad_battery_set_show_requested(1);
 		} else if (!fired && now - held_since >= AB_MENU_HOLD_MS) {
 			fired = 1;
 			hud_msg[0] = 0;
@@ -95,6 +98,7 @@ int ab_filter_action(int action)
 	if (held) {
 		/* released: a press, unless the hold already went out as Reset */
 		held = 0;
+		ab_pad_battery_set_show_requested(0);
 		if (strcmp(hud_msg, hold_hint) == 0)
 			hud_msg[0] = 0;
 		if (!fired)
@@ -125,6 +129,7 @@ void ab_frame_tick(void)
 	static int started;
 
 	ab_debug_screen("game");	/* a frame of the game: what the debug driver reports until a menu draws */
+	ab_pad_battery_tick(plat_get_ticks_ms());	/* throttled to AB_PAD_BATTERY_POLL_MS internally */
 	if (!started) {
 		started = 1;
 		ab_console_start();
