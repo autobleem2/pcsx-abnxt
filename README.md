@@ -5,11 +5,13 @@
 ## Building
 
 ```bash
-make                                    # Build on Windows or native Linux
-make -f Makefile.psc                    # Build for PlayStation Classic
+ci/build.sh psc|rpi|rpi64|pcusb|all   # in AutoBleem's autobleem-build Docker image
+./make_psc.sh                          # the console, on the build server over ssh
+./make_rpi.sh / ./make_rpi64.sh        # Raspberry Pi 32-bit / 64-bit
+./make_win.sh                          # a Windows development build (MSYS2)
 ```
 
-See `ci/build.sh` for docker/remote build instructions and platform-specific toolchain setup.
+Each leaves `pcsx-ab` + `plugins/*.so` in `build_<target>/dist/`, laid out as AutoBleem's `Autobleem/bin/emu/` wants them. The header of each script has the details.
 
 ---
 
