@@ -62,6 +62,11 @@ unsigned short in_keystate[8];
 int in_mouse[8][2];
 int in_enable_vibration;
 void *tsdev;
+/* C11, round 3: see plugin_lib.h's comment - set by plat_sdl2.c's pads_changed() to the same gate it uses
+ * for the analog sticks (pad_count >= 2 and the swap requested), so update_input() below can swap the
+ * digital buttons to match. Starts unswapped (a platform without the C11 abfeatures token, or one whose
+ * pads_changed() never runs before the first frame, leaves it at 0). */
+int ab_pads_swapped;
 void *pl_vout_buf;
 int g_layer_x, g_layer_y, g_layer_w, g_layer_h;
 static int pl_vout_w, pl_vout_h, pl_vout_bpp; /* output display/layer */
@@ -805,8 +810,25 @@ static void update_input(void)
 #endif
 	emu_set_action(emu_act);
 
-	in_keystate[0] = actions[IN_BINDTYPE_PLAYER12] & 0xffff;
-	in_keystate[1] = (actions[IN_BINDTYPE_PLAYER12] >> 16) & 0xffff;
+	/* C11, round 3 (Marcus's review): the bit that lands here for a given pad is fixed by libpicofe's
+	 * in_sdl2gc.c:296 from state->player - the pad's own SDL acceptance index + 1, never touched by
+	 * pad_order (we do not edit that submodule) - so without the swap below, port 0 always got pad
+	 * index 0's buttons and port 1 pad index 1's, even with the swap on: pad A's buttons would drive
+	 * port 1 while its sticks (already correctly swapped in plat_sdl2.c's pads_changed(), in_adev[])
+	 * drove port 2. ab_pads_swapped is set by pads_changed() to the exact same gate it applies to the
+	 * sticks (pad_count >= 2 and the swap requested) - one source of truth for "is the swap in effect
+	 * right now" - so swapping these two words here puts the buttons back in step with the sticks.
+	 * This also swaps the keyboard's default binds, which are bound the same way (IN_BINDTYPE_PLAYER12,
+	 * lower half = player 1) - a keyboard player on a dev host ends up on port 2 too while the swap is
+	 * in effect. Acceptable there (no console has two players sharing this window's keyboard); not fixed,
+	 * per Marcus's review. */
+	if (ab_pads_swapped) {
+		in_keystate[0] = (actions[IN_BINDTYPE_PLAYER12] >> 16) & 0xffff;
+		in_keystate[1] = actions[IN_BINDTYPE_PLAYER12] & 0xffff;
+	} else {
+		in_keystate[0] = actions[IN_BINDTYPE_PLAYER12] & 0xffff;
+		in_keystate[1] = (actions[IN_BINDTYPE_PLAYER12] >> 16) & 0xffff;
+	}
 
 	if (tsdev) for (i = 0; i < 2; i++) {
 		int in = 0, x = 0, y = 0, trigger;;
