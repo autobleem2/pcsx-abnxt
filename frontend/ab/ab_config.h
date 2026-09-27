@@ -91,12 +91,17 @@ int ab_bios_set_by_pcsx(void);
  *                   slot 0 first                                             (abfeatures: loadstate)
  *   AB_PAD_ORDER    C11, Options -> "Swap Player 1 / Player 2": "1,0" swaps which of the first two SDL
  *                   pads (by acceptance order, see plat_sdl2.c's pads_changed()) lands on PS1 port 1 vs 2
- *                   - a purely positional permutation, no pad identity involved (abfeatures: padorder) */
+ *                   - a purely positional permutation, no pad identity involved (abfeatures: padorder).
+ *                   Only takes effect with two or more pads connected - pads_changed() forces the identity
+ *                   order itself when its pad_count is under 2, so ab_pad_order() need not know how many
+ *                   pads there are; a lone pad is always player 1, swap on or off. */
 const char *ab_exit_dir(void);
 const char *ab_memcard_dir(void);
 const char *ab_load_state(void);
 /* order[0]/order[1] = the PS1 port (0-based) SDL pad index 0/1 lands on; {0, 1} (AB_PAD_ORDER unset,
- * malformed, or not a permutation of {0, 1}) is the original, unswapped order. */
+ * malformed, or not a permutation of {0, 1}) is the original, unswapped order. Says nothing about how many
+ * pads are actually connected - the caller (plat_sdl2.c's pads_changed()) is what applies the "only with
+ * two or more pads" rule. */
 void ab_pad_order(int order[2]);
 
 #endif

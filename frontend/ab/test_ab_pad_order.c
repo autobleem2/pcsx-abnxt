@@ -51,6 +51,17 @@ static void test_ab_pad_order(int order[2])
 	order[1] = b;
 }
 
+/* verbatim copy of plat_sdl2.c's pads_changed() gate (Marcus's review fix): the swap only takes effect
+ * with two or more pads connected - with fewer, the identity order is forced regardless of AB_PAD_ORDER,
+ * so a lone pad is always player 1. Keep this in step with plat_sdl2.c's pads_changed() too. */
+static void test_effective_pad_order(int pad_count, int order[2])
+{
+	order[0] = 0;
+	order[1] = 1;
+	if (pad_count >= 2)
+		test_ab_pad_order(order);
+}
+
 static void set_env(const char *value)
 {
 #ifdef _WIN32
@@ -109,6 +120,24 @@ int main(void)
 	set_env("1,0,extra");
 	test_ab_pad_order(order);
 	expect(order[0] == 1 && order[1] == 0, "\"1,0,extra\": trailing text ignored, swapped order {1, 0}");
+
+	/* Marcus's review fix: the swap only takes effect with two or more pads */
+	set_env("1,0");
+	test_effective_pad_order(0, order);
+	expect(order[0] == 0 && order[1] == 1, "0 pads, swap requested: identity order (nothing to swap)");
+
+	test_effective_pad_order(1, order);
+	expect(order[0] == 0 && order[1] == 1, "1 pad, swap requested: identity order - a lone pad stays player 1");
+
+	test_effective_pad_order(2, order);
+	expect(order[0] == 1 && order[1] == 0, "2 pads, swap requested: swapped order");
+
+	test_effective_pad_order(3, order);
+	expect(order[0] == 1 && order[1] == 0, "3 pads, swap requested: swapped order (still applies)");
+
+	set_env(NULL);
+	test_effective_pad_order(2, order);
+	expect(order[0] == 0 && order[1] == 1, "2 pads, no swap requested: identity order");
 
 	printf(failures == 0 ? "\nAll tests passed.\n" : "\n%d test(s) FAILED.\n", failures);
 	return failures == 0 ? 0 : 1;

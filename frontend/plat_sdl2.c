@@ -184,9 +184,16 @@ static void pads_changed(int pad_count)
    * or a single transposition, and both are their own inverse, so pad_order[p] + 1 is exactly the player
    * number that belongs at PS1 port p (0-based) whichever way round it is set. AB_PAD_ORDER unset, or
    * this build's abfeatures never having offered "padorder", leaves pad_order == {0, 1} and this loop
-   * behaves exactly as before. */
-  int pad_order[2];
-  ab_pad_order(pad_order);
+   * behaves exactly as before.
+   *
+   * Review fix (Marcus): the swap only takes effect with two or more pads connected. pad_count is exactly
+   * in_sdl2gc's accepted-controller count (in_sdl2gc.c's in_sdl2gc_probe(), capped at SDL2GC_MAX_PADS), so
+   * with one pad or none the identity order is forced here regardless of AB_PAD_ORDER - a lone pad always
+   * lands on PS1 port 1 (player 1), swap on or off. This runs on every hot-plug re-probe too: unplugging
+   * one of two pads mid-game drops pad_count to 1 and un-swaps the remaining pad onto port 1. */
+  int pad_order[2] = { 0, 1 };
+  if (pad_count >= 2)
+    ab_pad_order(pad_order);
   for (p = 0; p < 2; p++) {
     int dev = in_sdl2gc_dev_id(pad_order[p] + 1);
     in_adev[p * 2] = in_adev[p * 2 + 1] = dev;
