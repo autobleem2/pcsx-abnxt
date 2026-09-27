@@ -37,6 +37,7 @@
 #include "revision.h"
 #include "ab/ab_config.h"
 #include "ab/ab_debug.h"
+#include "ab/ab_headless.h"
 
 /* the keyboard: the same keys upstream's SDL 1.2 platform binds, by scancode */
 static const struct in_default_bind in_sdl2_defbinds[] = {
@@ -244,11 +245,19 @@ static void plugin_update(void)
 
 void plat_init(void)
 {
-  int fullscreen, ret;
+  int fullscreen, ret, headless;
 
   plat_sdl2_quit_cb = quit_cb;
   plat_sdl2_resize_cb = resize_cb;
   pl_scanlines_by_plat = 1;
+
+  /* AB_HEADLESS=1: the same automated-test-run policy as the launcher's Platform (autobleem-core's
+   * ableem::Platform) - dummy audio (must be in the environment before SDL's audio subsystem inits,
+   * which happens inside plat_sdl2_init() below) and a window hidden right after it is created, before
+   * the first frame is ever presented, so a tester's desktop never sees it flash up. */
+  headless = ab_headless_requested();
+  if (ab_headless_audio_driver(headless) != NULL)
+    setenv("SDL_AUDIODRIVER", ab_headless_audio_driver(headless), 1);
 
 #if defined(__arm__) || defined(__aarch64__)
   fullscreen = 1;	/* the console and the Pi: the whole display, whatever its mode */
@@ -258,6 +267,9 @@ void plat_init(void)
   ret = plat_sdl2_init("PCSX-ReARMed " REV, 1280, 720, fullscreen, g_opts & OPT_VSYNC);
   if (ret != 0)
     exit(1);
+  if (ab_headless_starts_hidden(headless) && plat_sdl2_window != NULL)
+    SDL_HideWindow(plat_sdl2_window);
+  fprintf(stdout, "Audio driver: %s\n", SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "(none)");
   plat_target.vout_fullscreen = fullscreen_old = plat_sdl2_is_fullscreen();
 
   // enough for the largest frame plugin_lib lets through: 2x-enhanced, or scaled by the smoothing
