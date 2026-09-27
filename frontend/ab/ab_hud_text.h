@@ -3,7 +3,7 @@
  * transparent ARGB8888 pixel buffer using the emulator's existing 8x8 font (libpicofe/fonts.h's
  * fontdata8x8 - the exact glyphs frontend/plugin_lib.c's old hud_print() drew straight into the PSX-
  * resolution frame), plus the RGB565->ARGB8888 widening the SPU channel bar needs. No SDL here on purpose
- * - frontend/plat_sdl2.c is the only caller that turns this into a texture and presents it after the
+ * - frontend/plat_autobleem.c is the only caller that turns this into a texture and presents it after the
  * scanlines; kept SDL-free so it can be tested standalone (test_hud_text.c), the same way ab_pad_battery.c
  * is.
  *

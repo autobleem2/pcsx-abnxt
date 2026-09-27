@@ -426,9 +426,9 @@ endif
 ifeq "$(PLATFORM)" "psclassic"
 # AutoBleem's port for Sony's PlayStation Classic (and its Raspberry Pi / PC targets): the SDL2 platform
 # and the launcher's contract in frontend/ab/, over libpicofe's SDL2 backend
-OBJS += frontend/libpicofe/plat_sdl2.o frontend/libpicofe/in_sdl2.o frontend/libpicofe/in_sdl2gc.o
+OBJS += frontend/libpicofe/plat_autobleem.o frontend/libpicofe/in_sdl2.o frontend/libpicofe/in_sdl2gc.o
 OBJS += frontend/libpicofe/plat_dummy.o
-OBJS += frontend/plat_sdl2.o
+OBJS += frontend/plat_autobleem.o
 OBJS += frontend/ab/ab_config.o frontend/ab/ab_session.o frontend/ab/ab_buttons.o frontend/ab/ab_memcard.o
 OBJS += frontend/ab/ab_console.o frontend/ab/ab_disc.o frontend/ab/ab_ui.o frontend/ab/ab_hacks.o
 OBJS += frontend/ab/ab_debug.o

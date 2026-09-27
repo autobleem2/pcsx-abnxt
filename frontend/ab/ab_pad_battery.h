@@ -30,17 +30,13 @@ void ab_pad_battery_tick(unsigned int now_ms);
  * AB_PAD_BATTERY_RESET_PERCENT (or every pad's battery node goes away - unplugged, or wired) */
 int ab_pad_battery_low(void);
 
-/* the menu button is being held (ab_buttons.c's "HOLD TO EXIT" wait) - while true the icon shows on demand
- * even when the pad is not low (as long as some wireless pad's battery is known at all), so a press is a
- * quick way to check it */
-void ab_pad_battery_set_show_requested(int show);
-
-/* 1 when the corner icon should be drawn this frame: ab_pad_battery_low(), or a show request with a known
- * percent to draw */
+/* 1 when the corner icon should be drawn this frame: only while a pad is low (the in-game menu shows every
+ * pad's battery; the show-while-the-menu-button-is-held is gone - that button opens the menu and, held,
+ * leaves the game) */
 int ab_pad_battery_visible(void);
 
 /* the percent the icon should fill to: whichever reading made ab_pad_battery_low() true, or the lowest
- * known percent for a plain show request; -1 when nothing is known (ab_pad_battery_visible() is then 0) */
+ * known percent; -1 when nothing is known */
 int ab_pad_battery_percent(void);
 
 #endif

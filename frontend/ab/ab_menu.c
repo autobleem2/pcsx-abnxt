@@ -44,16 +44,19 @@ static int ab_disc_screen(void);
 static const char *ab_filter_name(int id, int *offs);
 static void ab_menu_prepare_bg(void);
 
-static const char h_ab_filter[] = "Off = plain pixels, Linear = smoothed, Sharp = crisp pixels without shimmer";
+static const char h_ab_filter[] = "Nearest = plain pixels, Linear = smoothed, Sharp = crisp pixels without"
+                                  " shimmer, CRT = a TV's look";
 static const char h_ab_pcsx[]   = "PCSX-ReARMed's own menu: options, controls, cheats...";
 static const char h_ab_savecfg[] = "Keeps these settings for this game; AutoBleem shows its own locked until"
                                    " you unlock them in the game's settings";
-static const char h_ab_scanlines[] = "Dark lines between the picture's rows, 1-3 rows thick;"
-                                     " brightness is how dark";
-/* upstream's soft_filter (the PCSX menu's "Software Filter"), with our hq2x/hq3x - ab_scaler.c */
+static const char h_ab_scanlines[] = "Dark lines over the screen: 1 = every 2nd row, 2 = every 3rd,"
+                                     " 3 = two of every 3; brightness is how dark (off with a CRT filter)";
+/* upstream's soft_filter (the PCSX menu's "Software Filter"): scale2x/eagle2x on the GPU everywhere, our
+ * hq2x/hq3x on the CPU (ab_scaler.c) - not offered on the console (ab_menu_loop_d picks the list) */
 static const char *men_ab_smooth[] = { "None", "Scale2x", "Eagle2x", "HQ2x", "HQ3x", NULL };
-static const char h_ab_smooth[]  = "Smooths 2D games' pixels before scaling (CPU work: try HQ3x, drop to"
-                                   " Scale2x if the game slows down); low-resolution modes only";
+static const char *men_ab_smooth_psc[] = { "None", "Scale2x", "Eagle2x", NULL };
+static const char h_ab_smooth[]  = "Smooths 2D games' pixels before scaling (on the console: off with a CRT"
+                                   " filter)";
 /* the picture's shape as the launcher's "Widescreen" option sets it (-ratio): 4:3 in the middle of the
  * screen, or the whole 16:9 screen; the PCSX menu's "Scaler" is the full set, this is the switch */
 static int ab_aspect_sel;
@@ -682,6 +685,11 @@ static void ab_menu_loop_d(void)
 	me_enable(e_menu_ab, MA_AB_DISC,      ready_to_go && CdromId[0]);
 	me_enable(e_menu_ab, MA_AB_FILTER,    plat_target.hwfilters != NULL);
 	e_menu_ab[me_id2offset(e_menu_ab, MA_MAIN_EXIT)].help = h_ab_exit;
+	if (ab_console_present()) {
+		e_menu_ab[me_id2offset(e_menu_ab, MA_OPT_SWFILTER)].data = men_ab_smooth_psc;
+		if (soft_filter > SOFT_FILTER_EAGLE2X)
+			soft_filter = SOFT_FILTER_NONE;
+	}
 
 	ab_ui_load(ab_opts.language);
 	ab_menu_prepare_bg();

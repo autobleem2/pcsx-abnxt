@@ -2,7 +2,7 @@
  * A standalone smoke test for ab_hud_text.c's bitmap-font rendering (EMU-15 part 2): the same fontdata8x8
  * glyphs frontend/plugin_lib.c's old hud_print() drew straight into the PSX-resolution frame (where the
  * scanline overlay then covered them) are rendered here into an ARGB8888 buffer instead, for
- * plat_sdl2.c's HUD overlay to present after the scanlines. No SDL needed - this only exercises the pure
+ * plat_autobleem.c's HUD overlay to present after the scanlines. No SDL needed - this only exercises the pure
  * pixel logic. Not part of the emulator's CMake build, same as ab_pad_battery.c's test.
  *
  *   gcc -o test_hud_text ab_hud_text.c ../libpicofe/fonts.c test_hud_text.c && ./test_hud_text

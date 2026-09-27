@@ -127,12 +127,6 @@ int main(void)
 		expect(!ab_pad_battery_low(), "80%: not low");
 		expect(!ab_pad_battery_visible(), "80%: icon hidden");
 		expect(ab_pad_battery_percent() == 80, "80%: percent read back");
-
-		/* the menu-button hold shows it anyway */
-		ab_pad_battery_set_show_requested(1);
-		expect(ab_pad_battery_visible(), "80%, show requested: icon shown");
-		ab_pad_battery_set_show_requested(0);
-		expect(!ab_pad_battery_visible(), "show request released: icon hidden again");
 	}
 
 	/* 4) a DualSense (ps-controller-battery-) at capacity 10: low, icon shown */

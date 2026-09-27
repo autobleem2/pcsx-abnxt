@@ -16,7 +16,6 @@
 
 static int low_latched;	/* 1 once a pad was seen at/under LOW_PERCENT, cleared only at/over RESET_PERCENT */
 static int last_percent = -1;	/* the reading low_latched is based on, or the lowest seen this poll */
-static int show_requested;	/* the menu button's hold, set by ab_buttons.c */
 
 /* the whole of a small sysfs file's first line, trimmed of the trailing newline/whitespace; "" (and 0
  * returned) when the file is not there - a driver that has not written a value yet, or a kernel without
@@ -163,14 +162,9 @@ int ab_pad_battery_low(void)
 	return low_latched;
 }
 
-void ab_pad_battery_set_show_requested(int show)
-{
-	show_requested = show;
-}
-
 int ab_pad_battery_visible(void)
 {
-	return low_latched || (show_requested && last_percent >= 0);
+	return low_latched;
 }
 
 int ab_pad_battery_percent(void)

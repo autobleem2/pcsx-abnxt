@@ -31,7 +31,7 @@ typedef int ab_sock_t;
 #include "../../libpcsxcore/misc.h"
 #include "../libpicofe/input.h"
 #include "../libpicofe/menu.h"
-#include "../libpicofe/plat_sdl2.h"
+#include "../libpicofe/plat_autobleem.h"
 #include "../main.h"
 #include "ab_debug.h"
 
@@ -65,7 +65,7 @@ static void push_key(int scancode, int down)
 	e.type = down ? SDL_KEYDOWN : SDL_KEYUP;
 	e.key.type = e.type;
 	e.key.timestamp = SDL_GetTicks();
-	e.key.windowID = plat_sdl2_window != NULL ? SDL_GetWindowID(plat_sdl2_window) : 0;
+	e.key.windowID = plat_ab_window != NULL ? SDL_GetWindowID(plat_ab_window) : 0;
 	e.key.state = down ? SDL_PRESSED : SDL_RELEASED;
 	e.key.repeat = 0;
 	e.key.keysym.scancode = scancode;
@@ -82,7 +82,7 @@ static void push_expose(void)
 	memset(&e, 0, sizeof(e));
 	e.type = SDL_WINDOWEVENT;
 	e.window.timestamp = SDL_GetTicks();
-	e.window.windowID = plat_sdl2_window != NULL ? SDL_GetWindowID(plat_sdl2_window) : 0;
+	e.window.windowID = plat_ab_window != NULL ? SDL_GetWindowID(plat_ab_window) : 0;
 	e.window.event = SDL_WINDOWEVENT_EXPOSED;
 	SDL_PushEvent(&e);
 }
@@ -91,13 +91,13 @@ static void push_expose(void)
  * three seconds (a game can go that long between presents while the BIOS boots), -1 if that is nothing */
 static int shot(const char *path)
 {
-	unsigned int serial = plat_sdl2_shot_request();
+	unsigned int serial = plat_ab_shot_request();
 	int i;
 
 	push_expose();
-	for (i = 0; i < 300 && plat_sdl2_shot_serial() == serial; i++)
+	for (i = 0; i < 300 && plat_ab_shot_serial() == serial; i++)
 		SDL_Delay(10);
-	return plat_sdl2_shot_save(path);
+	return plat_ab_shot_save(path);
 }
 
 /* the next blank-separated word of *p, terminated in place; NULL at the end of the line */
@@ -160,7 +160,7 @@ static void handle(char *line, char *out, size_t out_size)
 		return;
 	}
 	if (strcmp(cmd, "frames") == 0) {
-		snprintf(out, out_size, "ok %u", plat_sdl2_frame_count());
+		snprintf(out, out_size, "ok %u", plat_ab_frame_count());
 		return;
 	}
 	if (strcmp(cmd, "screen") == 0) {
@@ -173,8 +173,8 @@ static void handle(char *line, char *out, size_t out_size)
 	}
 	if (strcmp(cmd, "status") == 0) {
 		snprintf(out, out_size, "ok game=%s screen=%s row=%s frames=%u ready=%d quit=%d window=%dx%d",
-			CdromId[0] != 0 ? CdromId : "-", screen_name, menu_sel_name, plat_sdl2_frame_count(),
-			ready_to_go, g_emu_want_quit, plat_sdl2_win_w, plat_sdl2_win_h);
+			CdromId[0] != 0 ? CdromId : "-", screen_name, menu_sel_name, plat_ab_frame_count(),
+			ready_to_go, g_emu_want_quit, plat_ab_win_w, plat_ab_win_h);
 		return;
 	}
 	if (strcmp(cmd, "shot") == 0) {
@@ -287,7 +287,7 @@ void ab_debug_start(void)
 		AB_SOCK_CLOSE(listener);
 		return;
 	}
-	plat_sdl2_frame_cache(1);
+	plat_ab_frame_cache(1);
 	if (SDL_CreateThread(server_thread, "ab_debug", (void *)(intptr_t)listener) == NULL) {
 		fprintf(stderr, "ab_debug: SDL_CreateThread failed: %s\n", SDL_GetError());
 		AB_SOCK_CLOSE(listener);

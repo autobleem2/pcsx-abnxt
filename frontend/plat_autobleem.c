@@ -1,9 +1,9 @@
 /*
- * The SDL2 platform of pcsx-abnxt: one window and one accelerated renderer on every target (Wayland on the
+ * The AutoBleem platform of pcsx-abnxt: one window with a GL context on every target (Wayland on the
  * PlayStation Classic, KMSDRM on a Raspberry Pi, the desktop on a PC), the emulator's frame and the menu
- * as RGB565 buffers uploaded to a streaming texture (frontend/libpicofe/plat_sdl2.c), the keyboard and the
- * game controllers through libpicofe's in_sdl2 / in_sdl2gc drivers. Replaces plat_sdl.c (upstream's SDL
- * 1.2 platform, which stays in the tree untouched) for the AutoBleem targets.
+ * drawn by our own GL passes (frontend/libpicofe/plat_autobleem.c, docs/render-pipeline-plan.md), the
+ * keyboard and the game controllers through libpicofe's in_sdl2 / in_sdl2gc drivers. Replaces plat_sdl.c
+ * (upstream's SDL 1.2 platform, which stays in the tree untouched) for the AutoBleem targets.
  *
  * (C) Gražvydas "notaz" Ignotas, 2011-2013 (the plat_sdl.c this follows)
  * (C) AutoBleem team, 2026
@@ -26,7 +26,7 @@
 #include "libpicofe/in_sdl2gc.h"
 #include "libpicofe/menu.h"
 #include "libpicofe/fonts.h"
-#include "libpicofe/plat_sdl2.h"
+#include "libpicofe/plat_autobleem.h"
 #include "libpicofe/plat.h"
 #include "cspace.h"
 #include "plugin_lib.h"
@@ -40,6 +40,8 @@
 #include "ab/ab_headless.h"
 #include "ab/ab_pad_battery.h"
 #include "ab/ab_hud_text.h"
+#include "ab/ab_shaders.h"
+#include "ab/ab_console.h"
 
 /* the keyboard: the same keys upstream's SDL 1.2 platform binds, by scancode */
 static const struct in_default_bind in_sdl2_defbinds[] = {
@@ -132,10 +134,6 @@ static const char * const controller_db_files[] = {
   NULL
 };
 
-/* plat_target.hwfilter indexes this; the values are PLAT_SDL2_FILTER_* (Off = nearest, Linear = bilinear,
- * Sharp = whole-factor prescale + bilinear); the launcher's -filter 0/1 is Off/Linear */
-static const char *hwfilters[] = { "Off", "Linear", "Sharp", NULL };
-
 static int psx_w = 256, psx_h = 240;	/* the emulator's output as plat_gvideo_set_mode() was told it */
 static void *shadow_fb;			/* the frame the GPU plugin draws into, RGB565 */
 static void *menu_fb;			/* what the menu draws into, RGB565, the window's size */
@@ -221,12 +219,12 @@ static void pads_changed(int pad_count)
     in_adev_axis[p * 2 + 1][0] = SDL2GC_AXIS_RX; in_adev_axis[p * 2 + 1][1] = SDL2GC_AXIS_RY;
     in_adev_is_nublike[p * 2] = in_adev_is_nublike[p * 2 + 1] = 0;
   }
-  printf("plat_sdl2: %d pad(s)\n", pad_count);
+  printf("plat_ab: %d pad(s)\n", pad_count);
 }
 
 static void sdl_event_handler(void *event_)
 {
-  plat_sdl2_event_handler(event_);
+  plat_ab_event_handler(event_);
 }
 
 static void get_layer_pos(int *x, int *y, int *w, int *h)
@@ -240,19 +238,27 @@ static void get_layer_pos(int *x, int *y, int *w, int *h)
 static void plugin_update(void)
 {
   // used by some plugins...
-  pl_rearmed_cbs.screen_w = plat_sdl2_win_w;
-  pl_rearmed_cbs.screen_h = plat_sdl2_win_h;
+  pl_rearmed_cbs.screen_w = plat_ab_win_w;
+  pl_rearmed_cbs.screen_h = plat_ab_win_h;
   plugin_call_rearmed_cbs();
 }
 
+/* The HUD's slots in libpicofe's plat_autobleem (plat_ab_hud_image/draw): each image is uploaded when it
+ * changes, into a texture made once, and drawn at screen pixels over the scanlines. */
+enum { HUD_SLOT_BATTERY, HUD_SLOT_MSG, HUD_SLOT_CPU, HUD_SLOT_CHANS };
+
+/* every HUD element's whole-pixel scale and margin, from the screen's height (2x at 480, 3x at 720) - the
+ * HUD belongs to the screen, not to the picture, so the aspect ratio changes nothing */
+static int hud_scale(int screen_h)
+{
+  int scale = screen_h / 240;
+  return scale < 2 ? 2 : scale > 6 ? 6 : scale;
+}
+
 #ifdef PSCLASSIC
-/* EMU-15: the low-battery icon, as a HUD overlay (libpicofe's plat_sdl2_set_hud_cb) instead of baked into
- * the PSX-resolution frame (plugin_lib.c's print_hud used to draw it there, where the scanline overlay -
- * drawn over the presented, already-scaled frame - dimmed or fully hid it; a DualSense at 5-15% capacity
- * reported the icon "never showing on its own", only flashing while Select+Start was held). Drawn here,
- * after plat_sdl2_present() has already drawn the frame and the scanlines, straight at output resolution -
- * never scaled, never covered. A small ARGB8888 texture (like libpicofe's own scan_tex), not
- * SDL_RenderFillRect (SDL's GLES2 on the console draws a fill rect only 1 px high). */
+/* EMU-15: the low-battery icon, in the top-right corner of the screen, only while a pad's battery is low
+ * (the show-while-held of the menu button is gone: Home opens the menu and, held, leaves the game; the
+ * menu shows every pad's battery). */
 #define AB_HUD_ICON_W    22
 #define AB_HUD_ICON_H    11
 #define AB_HUD_NUB_W     2
@@ -307,11 +313,10 @@ static void ab_hud_battery_build(Uint32 *px, int percent)
     ab_hud_battery_fill(px, ox + 2, oy + 2, ox + 2 + fill_w, oy + bh - 2, fill_color);
 }
 
-static void ab_hud_battery_draw(SDL_Renderer *renderer, const SDL_Rect *dst)
+static void ab_hud_battery_draw(int sw, int sh)
 {
-  static SDL_Texture *icon_tex;
-  static int icon_percent = -2;  /* not a real percent: forces the first build */
-  int percent, scale, out_w, out_h, margin;
+  static int icon_percent = -2;  /* not a real percent: forces the first upload */
+  int percent, scale, margin;
   SDL_Rect r;
 
   if (!ab_pad_battery_visible())
@@ -320,210 +325,153 @@ static void ab_hud_battery_draw(SDL_Renderer *renderer, const SDL_Rect *dst)
   if (percent < 0)
     return;
 
-  if (icon_tex == NULL || icon_percent != percent) {
-    Uint32 *px = calloc((size_t)AB_HUD_TEX_W * AB_HUD_TEX_H, 4);  /* transparent black */
-    if (px == NULL)
-      return;
+  if (icon_percent != percent) {
+    Uint32 px[AB_HUD_TEX_W * AB_HUD_TEX_H];
+    memset(px, 0, sizeof(px));  /* transparent black */
     ab_hud_battery_build(px, percent);
-    if (icon_tex != NULL) {
-      SDL_DestroyTexture(icon_tex);
-      icon_tex = NULL;
-    }
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");  /* a crisp icon at any scale, like the old one */
-    icon_tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC,
-      AB_HUD_TEX_W, AB_HUD_TEX_H);
-    if (icon_tex == NULL || SDL_UpdateTexture(icon_tex, NULL, px, AB_HUD_TEX_W * 4) != 0 ||
-        SDL_SetTextureBlendMode(icon_tex, SDL_BLENDMODE_BLEND) != 0) {
-      fprintf(stderr, "plat_sdl2: no %dx%d battery icon: %s\n", AB_HUD_TEX_W, AB_HUD_TEX_H, SDL_GetError());
-      if (icon_tex != NULL)
-        SDL_DestroyTexture(icon_tex);
-      icon_tex = NULL;
-      free(px);
+    if (plat_ab_hud_image(HUD_SLOT_BATTERY, px, AB_HUD_TEX_W, AB_HUD_TEX_H) != 0)
       return;
-    }
-    free(px);
     icon_percent = percent;
   }
-
-  /* readable at 640x480 and at 1280x720 alike: a whole-pixel scale from dst's height (2x at 480, 3x at
-   * 720), clamped so a very small or very large window still gets a sane icon */
-  scale = dst->h / 240;
-  if (scale < 2)
-    scale = 2;
-  if (scale > 6)
-    scale = 6;
-  out_w = AB_HUD_TEX_W * scale;
-  out_h = AB_HUD_TEX_H * scale;
+  scale = hud_scale(sh);
   margin = 6 * scale / 2;
-  r.w = out_w;
-  r.h = out_h;
-  r.x = dst->x + dst->w - out_w - margin;
-  r.y = dst->y + margin;
-  SDL_RenderCopy(renderer, icon_tex, NULL, &r);
+  r.w = AB_HUD_TEX_W * scale;
+  r.h = AB_HUD_TEX_H * scale;
+  r.x = sw - r.w - margin;
+  r.y = margin;
+  plat_ab_hud_draw(HUD_SLOT_BATTERY, &r);
 }
 #endif
 
-/* EMU-15 part 2: hud_msg/FPS/CPU load/the SPU channel bar, as the same kind of HUD overlay as the battery
- * icon above - drawn here, after plat_sdl2_present() has already drawn the frame and the scanlines, at
- * output resolution, in the same corner/edge relative to dst that plugin_lib.c's old print_hud() drew them
- * in relative to the PSX frame (bottom-left for the message/FPS line and the channel bar, bottom-right for
- * CPU load). Unlike the battery icon, this runs on every platform - the notices exist on every platform,
- * not just the console. ab_hud_text.c does the actual glyph/RGB565 pixel work; this only turns its output
- * into textures (rebuilt only when the text or the channel colours change) and presents them. */
+/* EMU-15 part 2: hud_msg/FPS/CPU load/the SPU channel bar, at the bottom of the screen (the message/FPS
+ * line left, CPU load right, the channel bar in the middle), on every platform. ab_hud_text.c does the
+ * glyphs; a line is uploaded to its slot only when its text changes. */
 
-/* one cached text texture + the string it was built from - the same shape ab_hud_battery_draw's
- * icon_tex/icon_percent cache uses above, just keyed by string instead of by percent */
+/* a text line's slot: the text it holds and its width in glyph pixels */
 typedef struct {
-  SDL_Texture *tex;
+  int slot;
   char text[AB_HUD_TEXT_MAXLEN + 1];
   int w;
-} AbHudTextTex;
+} AbHudLine;
 
-static SDL_Texture *ab_hud_text_tex_update(SDL_Renderer *renderer, AbHudTextTex *cache, const char *text)
+/* 1 when the line has something to draw (uploaded now if the text changed) */
+static int ab_hud_line_update(AbHudLine *line, const char *text)
 {
-  Uint32 *px;
+  Uint32 px[AB_HUD_TEXT_MAXLEN * AB_HUD_GLYPH_W * AB_HUD_GLYPH_H];
   int w;
 
   if (text == NULL || text[0] == 0)
-    return NULL;
-  if (cache->tex != NULL && strcmp(cache->text, text) == 0)
-    return cache->tex;
-
+    return 0;
+  if (line->w > 0 && strcmp(line->text, text) == 0)
+    return 1;
   w = ab_hud_text_width(text);
-  px = calloc((size_t)w * AB_HUD_GLYPH_H, 4);  /* transparent black */
-  if (px == NULL)
-    return cache->tex;  /* OOM: keep showing the previous text sooner than nothing at all */
+  if (w <= 0 || w > AB_HUD_TEXT_MAXLEN * AB_HUD_GLYPH_W)
+    return 0;
+  memset(px, 0, (size_t)w * AB_HUD_GLYPH_H * 4);  /* transparent black */
   ab_hud_text_render_argb(px, w, AB_HUD_GLYPH_H, text);
-
-  if (cache->tex != NULL) {
-    SDL_DestroyTexture(cache->tex);
-    cache->tex = NULL;
-  }
-  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");  /* crisp text at any scale, like the battery icon */
-  cache->tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, w, AB_HUD_GLYPH_H);
-  if (cache->tex == NULL || SDL_UpdateTexture(cache->tex, NULL, px, w * 4) != 0 ||
-      SDL_SetTextureBlendMode(cache->tex, SDL_BLENDMODE_BLEND) != 0) {
-    fprintf(stderr, "plat_sdl2: no %dx%d HUD text texture: %s\n", w, AB_HUD_GLYPH_H, SDL_GetError());
-    if (cache->tex != NULL)
-      SDL_DestroyTexture(cache->tex);
-    cache->tex = NULL;
-    free(px);
-    return NULL;
-  }
-  free(px);
-  strncpy(cache->text, text, AB_HUD_TEXT_MAXLEN);
-  cache->text[AB_HUD_TEXT_MAXLEN] = 0;
-  cache->w = w;
-  return cache->tex;
+  if (plat_ab_hud_image(line->slot, px, w, AB_HUD_GLYPH_H) != 0)
+    return 0;
+  strncpy(line->text, text, AB_HUD_TEXT_MAXLEN);
+  line->text[AB_HUD_TEXT_MAXLEN] = 0;
+  line->w = w;
+  return 1;
 }
 
-/* plugin_lib.c's print_hud() skips drawing below h < 192 - a PSX source frame that short (a half-height
- * interlaced field, or a mode PCSX has not finished switching out of yet) is too small for HUD_HEIGHT's
- * 10-line band to make sense against. dst here is not that: it is plat_sdl2's presentation rect, the
- * window/output size after scaling (plat_sdl2_present()'s dst, 1280x720 by default, never smaller than a
- * few hundred px in practice) - the same rect the battery icon already draws into unconditionally. Nothing
- * about scale or margin below depends on the PSX frame's own height, so the guard has nothing to guard
- * against here; an unusually small dst just gets a smaller (whole-pixel-scaled, per the comment below)
- * notice, clipped by SDL like any other texture copy, never a crash or a division by a PSX-frame value. */
-static void ab_hud_notices_draw(SDL_Renderer *renderer, const SDL_Rect *dst)
+static void ab_hud_notices_draw(int sw, int sh)
 {
-  static AbHudTextTex msg_cache, cpu_cache;
-  static SDL_Texture *chans_tex;
+  static AbHudLine msg_line = { HUD_SLOT_MSG }, cpu_line = { HUD_SLOT_CPU };
   static unsigned short chans_cache[AB_HUD_CHANS_N];
   static int chans_cached_n = -1;
   unsigned short colors[AB_HUD_CHANS_N];
-  const char *msg, *cpu;
-  SDL_Texture *tex;
-  int scale, margin, n;
+  int scale = hud_scale(sh), margin = 6 * scale / 2, n;
   SDL_Rect r;
 
-  /* the same whole-pixel scale the battery icon uses, so every HUD element agrees on size at any output
-   * resolution */
-  scale = dst->h / 240;
-  if (scale < 2)
-    scale = 2;
-  if (scale > 6)
-    scale = 6;
-  margin = 6 * scale / 2;
-
-  msg = ab_hud_msg_line();
-  tex = ab_hud_text_tex_update(renderer, &msg_cache, msg);
-  if (tex != NULL) {
-    r.w = msg_cache.w * scale;
+  if (ab_hud_line_update(&msg_line, ab_hud_msg_line())) {
+    r.w = msg_line.w * scale;
     r.h = AB_HUD_GLYPH_H * scale;
-    r.x = dst->x + margin;
-    r.y = dst->y + dst->h - r.h - margin;
-    SDL_RenderCopy(renderer, tex, NULL, &r);
+    r.x = margin;
+    r.y = sh - r.h - margin;
+    plat_ab_hud_draw(HUD_SLOT_MSG, &r);
   }
-
-  cpu = ab_hud_cpu_line();
-  tex = ab_hud_text_tex_update(renderer, &cpu_cache, cpu);
-  if (tex != NULL) {
-    r.w = cpu_cache.w * scale;
+  if (ab_hud_line_update(&cpu_line, ab_hud_cpu_line())) {
+    r.w = cpu_line.w * scale;
     r.h = AB_HUD_GLYPH_H * scale;
-    r.x = dst->x + dst->w - r.w - margin;
-    r.y = dst->y + dst->h - r.h - margin;
-    SDL_RenderCopy(renderer, tex, NULL, &r);
+    r.x = sw - r.w - margin;
+    r.y = sh - r.h - margin;
+    plat_ab_hud_draw(HUD_SLOT_CPU, &r);
   }
 
   n = ab_hud_active_chans(colors, AB_HUD_CHANS_N);
   if (n <= 0) {
-    chans_cached_n = -1;  /* Show SPU channels turned off: force a rebuild if it's turned back on */
+    chans_cached_n = -1;  /* Show SPU channels turned off: upload again if it's turned back on */
     return;
   }
   if (n != chans_cached_n || memcmp(colors, chans_cache, n * sizeof(colors[0])) != 0) {
-    Uint32 *px = calloc((size_t)n * AB_HUD_GLYPH_W * AB_HUD_GLYPH_H, 4);
-    if (px != NULL) {
-      int c, x, y;
-      for (c = 0; c < n; c++) {
-        Uint32 argb = ab_hud_rgb565_to_argb(colors[c]);
-        for (y = 0; y < AB_HUD_GLYPH_H; y++)
-          for (x = 0; x < AB_HUD_GLYPH_W; x++)
-            px[y * (n * AB_HUD_GLYPH_W) + c * AB_HUD_GLYPH_W + x] = argb;
-      }
-      if (chans_tex != NULL) {
-        SDL_DestroyTexture(chans_tex);
-        chans_tex = NULL;
-      }
-      SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
-      chans_tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC,
-        n * AB_HUD_GLYPH_W, AB_HUD_GLYPH_H);
-      if (chans_tex == NULL || SDL_UpdateTexture(chans_tex, NULL, px, n * AB_HUD_GLYPH_W * 4) != 0 ||
-          SDL_SetTextureBlendMode(chans_tex, SDL_BLENDMODE_BLEND) != 0) {
-        if (chans_tex != NULL)
-          SDL_DestroyTexture(chans_tex);
-        chans_tex = NULL;
-      }
-      free(px);
-      memcpy(chans_cache, colors, n * sizeof(colors[0]));
-      chans_cached_n = n;
+    Uint32 px[AB_HUD_CHANS_N * AB_HUD_GLYPH_W * AB_HUD_GLYPH_H];
+    int c, x, y;
+    for (c = 0; c < n; c++) {
+      Uint32 argb = ab_hud_rgb565_to_argb(colors[c]);
+      for (y = 0; y < AB_HUD_GLYPH_H; y++)
+        for (x = 0; x < AB_HUD_GLYPH_W; x++)
+          px[y * (n * AB_HUD_GLYPH_W) + c * AB_HUD_GLYPH_W + x] = argb;
     }
+    if (plat_ab_hud_image(HUD_SLOT_CHANS, px, n * AB_HUD_GLYPH_W, AB_HUD_GLYPH_H) != 0)
+      return;
+    memcpy(chans_cache, colors, n * sizeof(colors[0]));
+    chans_cached_n = n;
   }
-  if (chans_tex != NULL) {
-    r.w = n * AB_HUD_GLYPH_W * scale;
-    r.h = AB_HUD_GLYPH_H * scale;
-    r.x = dst->x + dst->w / 2 - r.w / 2;
-    r.y = dst->y + dst->h - r.h - margin;
-    SDL_RenderCopy(renderer, chans_tex, NULL, &r);
-  }
+  r.w = n * AB_HUD_GLYPH_W * scale;
+  r.h = AB_HUD_GLYPH_H * scale;
+  r.x = sw / 2 - r.w / 2;
+  r.y = sh - r.h - margin;
+  plat_ab_hud_draw(HUD_SLOT_CHANS, &r);
 }
 
-/* the one HUD callback plat_sdl2_set_hud_cb() takes: the battery icon (PSCLASSIC only, as it always was)
- * plus the notices (every platform) */
-static void ab_hud_draw(SDL_Renderer *renderer, const SDL_Rect *dst)
+/* the HUD callback: the battery icon (PSCLASSIC only, as it always was) plus the notices (every platform) */
+static void ab_hud_draw(int sw, int sh)
 {
 #ifdef PSCLASSIC
-  ab_hud_battery_draw(renderer, dst);
+  ab_hud_battery_draw(sw, sh);
 #endif
-  ab_hud_notices_draw(renderer, dst);
+  ab_hud_notices_draw(sw, sh);
+}
+
+/* soft_filter values the GPU smooths (plugin_lib then keeps the frame 1x) */
+static int plat_smooths(int soft_filter)
+{
+  return ab_smooth_shader(soft_filter) != NULL;
+}
+
+/* the pipeline for this frame from the menus' settings: the filter, the smoothing (not with a CRT on the
+ * console - its GPU cannot do both), and our scanlines (not with a CRT, which draws its own) */
+static void update_pipeline(void)
+{
+  static const int pattern[4][2] = { { 0, 1 }, { 1, 1 }, { 1, 2 }, { 2, 1 } };  /* dark, bright rows */
+  int filter = plat_target.hwfilter, crt, level;
+  const struct plat_ab_shader *smooth;
+  static int console = -1;
+
+  if (filter < 0 || filter >= AB_FILTER_COUNT)
+    filter = AB_FILTER_LINEAR;
+  if (console < 0)
+    console = ab_console_present();
+  crt = ab_filter_is_crt(filter);
+  if (console && soft_filter > SOFT_FILTER_EAGLE2X)
+    soft_filter = SOFT_FILTER_NONE;	/* hq2x/hq3x are not offered on the console (a cfg from before) */
+  smooth = ab_smooth_shader(soft_filter);
+  if (console && crt)
+    smooth = NULL;
+  plat_ab_set_pipeline(smooth, ab_filter_shader(filter));
+  level = crt ? 0 : scanlines < 0 ? 0 : scanlines > 3 ? 3 : scanlines;
+  plat_ab_set_scanlines(pattern[level][0], pattern[level][1], (100 - scanline_level) * 255 / 100);
 }
 
 void plat_init(void)
 {
   int fullscreen, ret, headless;
 
-  plat_sdl2_quit_cb = quit_cb;
-  plat_sdl2_resize_cb = resize_cb;
+  plat_ab_quit_cb = quit_cb;
+  plat_ab_resize_cb = resize_cb;
   pl_scanlines_by_plat = 1;
   /* EMU-15 part 2: this platform draws hud_msg/FPS/CPU load/the SPU channel bar itself, in ab_hud_draw()
    * below (registered a few lines down), after its own scanlines - plugin_lib.c's print_hud() must not
@@ -531,10 +479,11 @@ void plat_init(void)
    * (once dim/hidden under the scanlines, once correctly over them). Every other platform never sets
    * this and keeps print_hud()'s original behaviour untouched. */
   pl_hud_by_plat = 1;
+  pl_plat_smooths = plat_smooths;	/* scale2x/eagle2x on the GPU: the frame stays 1x */
 
   /* AB_HEADLESS=1: the same automated-test-run policy as the launcher's Platform (autobleem-core's
    * ableem::Platform) - dummy audio (must be in the environment before SDL's audio subsystem inits,
-   * which happens inside plat_sdl2_init() below) and a window hidden right after it is created, before
+   * which happens inside plat_ab_init() below) and a window hidden right after it is created, before
    * the first frame is ever presented, so a tester's desktop never sees it flash up. SDL_setenv, not
    * POSIX setenv: MinGW (the Windows build) has no setenv, and SDL_setenv has been in SDL since 2.0.0 -
    * well under the console's 2.0.14 ceiling - so this stays one line on every platform, read back by
@@ -548,16 +497,16 @@ void plat_init(void)
 #else
   fullscreen = plat_target.vout_fullscreen || ab_opts.fullscreen;	/* -fullscreen: the launcher's rule */
 #endif
-  ret = plat_sdl2_init("PCSX-ReARMed " REV, 1280, 720, fullscreen, g_opts & OPT_VSYNC);
+  ret = plat_ab_init("PCSX-ReARMed " REV, 1280, 720, fullscreen, g_opts & OPT_VSYNC);
   if (ret != 0)
     exit(1);
-  if (ab_headless_starts_hidden(headless) && plat_sdl2_window != NULL)
-    SDL_HideWindow(plat_sdl2_window);
+  if (ab_headless_starts_hidden(headless) && plat_ab_window != NULL)
+    SDL_HideWindow(plat_ab_window);
   /* EMU-15: the battery icon (PSCLASSIC only) and the hud_msg/FPS/CPU/SPU-channel notices (every
    * platform) - see ab_hud_draw() above. Registered unconditionally: only one HUD callback exists. */
-  plat_sdl2_set_hud_cb(ab_hud_draw);
+  plat_ab_set_hud_cb(ab_hud_draw);
   fprintf(stdout, "Audio driver: %s\n", SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "(none)");
-  plat_target.vout_fullscreen = fullscreen_old = plat_sdl2_is_fullscreen();
+  plat_target.vout_fullscreen = fullscreen_old = plat_ab_is_fullscreen();
 
   // enough for the largest frame plugin_lib lets through: 2x-enhanced, or scaled by the smoothing
   shadow_fb = calloc(PL_VOUT_MAX_W * PL_VOUT_MAX_H, 2);
@@ -566,7 +515,7 @@ void plat_init(void)
     fprintf(stderr, "OOM\n");
     exit(1);
   }
-  resize_cb(plat_sdl2_win_w, plat_sdl2_win_h);
+  resize_cb(plat_ab_win_w, plat_ab_win_h);
   in_menu = 1;
 
   in_sdl2_init(&in_sdl2_platform_data, sdl_event_handler);
@@ -575,7 +524,7 @@ void plat_init(void)
 
   pl_rearmed_cbs.only_16bpp = 1;
   pl_rearmed_cbs.pl_get_layer_pos = get_layer_pos;
-  plat_target.hwfilters = hwfilters;
+  plat_target.hwfilters = ab_filter_names;
   plugin_update();
   ab_debug_start();	/* AB_DEBUG_PORT: the test driver, after the input drivers it pushes keys to */
 }
@@ -588,7 +537,7 @@ void plat_finish(void)
   menubg_img = NULL;
   free(menu_fb);
   menu_fb = NULL;
-  plat_sdl2_finish();
+  plat_ab_finish();
   SDL_Quit();
 }
 
@@ -604,8 +553,8 @@ static void check_fullscreen(void)
   if (ab_opts.fullscreen)
     plat_target.vout_fullscreen = 1;	/* started with -fullscreen: a cfg's vout_fullscreen = 0 does not undo it */
   if (plat_target.vout_fullscreen != fullscreen_old) {
-    plat_sdl2_set_fullscreen(plat_target.vout_fullscreen);
-    plat_target.vout_fullscreen = fullscreen_old = plat_sdl2_is_fullscreen();
+    plat_ab_set_fullscreen(plat_target.vout_fullscreen);
+    plat_target.vout_fullscreen = fullscreen_old = plat_ab_is_fullscreen();
     plugin_update();
   }
 }
@@ -630,10 +579,8 @@ void *plat_gvideo_flip(void)
   SDL_Rect dst = { g_layer_x, g_layer_y, g_layer_w, g_layer_h };
 
   check_fullscreen();
-  // the scanlines are drawn over the presented frame, the screen's own 240 lines (menu: Scanlines 1-3 is
-  // the band's thickness, Scanline brightness how much of the picture shows through)
-  plat_sdl2_set_scanlines(scanlines, scanlines, (100 - scanline_level) * 255 / 100);
-  plat_sdl2_present(shadow_fb, psx_w, psx_h, psx_w, &dst, plat_target.hwfilter);
+  update_pipeline();
+  plat_ab_present(shadow_fb, psx_w, psx_h, psx_w, &dst);
   return shadow_fb;
 }
 
@@ -662,7 +609,7 @@ void plat_video_menu_begin(void)
 
 void plat_video_menu_end(void)
 {
-  plat_sdl2_present(menu_fb, g_menuscreen_w, g_menuscreen_h, g_menuscreen_pp, NULL, PLAT_SDL2_FILTER_LINEAR);
+  plat_ab_present(menu_fb, g_menuscreen_w, g_menuscreen_h, g_menuscreen_pp, NULL);
   g_menuscreen_ptr = NULL;
 }
 
@@ -673,7 +620,7 @@ void plat_video_menu_leave(void)
   in_menu = 0;
   check_fullscreen();
   pl_update_layer_size(psx_w, psx_h, g_menuscreen_w, g_menuscreen_h);
-  plat_sdl2_clear();
+  plat_ab_clear();
 
   for (d = 0; d < IN_MAX_DEVS; d++)
     in_set_config_int(d, IN_CFG_ANALOG_MAP_ULDR, 0);
@@ -701,7 +648,7 @@ void plat_trigger_vibrate(int pad, int low, int high)
 
 void plat_minimize(void)
 {
-  SDL_MinimizeWindow(plat_sdl2_window);
+  SDL_MinimizeWindow(plat_ab_window);
 }
 
 // vim:shiftwidth=2:expandtab

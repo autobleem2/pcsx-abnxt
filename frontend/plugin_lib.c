@@ -61,7 +61,7 @@ unsigned short in_keystate[8];
 int in_mouse[8][2];
 int in_enable_vibration;
 void *tsdev;
-/* C11, round 3: see plugin_lib.h's comment - set by plat_sdl2.c's pads_changed() to the same gate it uses
+/* C11, round 3: see plugin_lib.h's comment - set by plat_autobleem.c's pads_changed() to the same gate it uses
  * for the analog sticks (pad_count >= 2 and the swap requested), so update_input() below can swap the
  * digital buttons to match. Starts unswapped (a platform without the C11 abfeatures token, or one whose
  * pads_changed() never runs before the first frame, leaves it at 0). */
@@ -72,10 +72,11 @@ static int pl_vout_w, pl_vout_h, pl_vout_bpp; /* output display/layer */
 static int pl_vout_scale_w, pl_vout_scale_h;
 int pl_scanlines_by_plat;
 // EMU-15 part 2: like pl_scanlines_by_plat - 1 when a platform draws hud_msg/FPS/CPU load/the SPU channel
-// bar itself, after its own scanline overlay (plat_sdl2.c sets this where it registers its HUD callback);
+// bar itself, after its own scanline overlay (plat_autobleem.c sets this where it registers its HUD callback);
 // print_hud() below then draws none of them into pl_vout_buf. Default 0: unset on any platform that never
 // touches it (plat_sdl.c, plat_dummy), which keeps drawing them the old way.
 int pl_hud_by_plat;
+int (*pl_plat_smooths)(int soft_filter);
 static int psx_w, psx_h, psx_bpp;
 static int vsync_cnt;
 static int is_pal, frame_interval, frame_interval1024;
@@ -112,7 +113,7 @@ static __attribute__((noinline)) int get_cpu_ticks(void)
 
 // EMU-15 part 2: the frontend's own source of truth for what the HUD overlay's notice layer should show -
 // the same priority and formatting print_hud below always used for hud_msg/FPS, CPU load and the SPU
-// channel bar. plat_sdl2.c's ab_hud_notices_draw() calls these every present() and turns the answer into
+// channel bar. plat_autobleem.c's ab_hud_notices_draw() calls these every present() and turns the answer into
 // pixels, drawn after the scanlines - never into pl_vout_buf, which is what buried them under the scanline
 // overlay before (the same bug the low-battery icon had, EMU-15 part 1).
 
@@ -167,13 +168,13 @@ int ab_hud_active_chans(unsigned short *out, int max)
 
 // EMU-15 part 2: the old direct-into-pl_vout_buf drawing, kept for any platform that does not set
 // pl_hud_by_plat (plat_sdl.c's SDL 1.2 "sdl" platform, plat_dummy, any future one). Built from the same
-// ab_hud_msg_line()/ab_hud_cpu_line()/ab_hud_active_chans() accessors plat_sdl2.c's overlay uses, so the
+// ab_hud_msg_line()/ab_hud_cpu_line()/ab_hud_active_chans() accessors plat_autobleem.c's overlay uses, so the
 // text and its priority are defined once - only where it ends up (a HUD overlay vs. baked into the frame)
 // differs.
 
 // note: no hud_printf() any more - print_fps()/print_cpu_usage() used to build their own text with it
 // (vsnprintf straight into a stack buffer), but that formatting now lives once in
-// ab_hud_msg_line()/ab_hud_cpu_line() (plat_sdl2.c's overlay needs the same ready-made strings), so
+// ab_hud_msg_line()/ab_hud_cpu_line() (plat_autobleem.c's overlay needs the same ready-made strings), so
 // hud_print() below only ever gets a string that is already finished.
 static void hud_print(void *fb, int w, int x, int y, const char *text)
 {
@@ -230,7 +231,7 @@ static void print_hud(int x, int w, int h)
 	if (h < 192)
 		return;
 
-	// EMU-15: a platform that draws its own HUD overlay after its own scanlines (plat_sdl2.c, both the
+	// EMU-15: a platform that draws its own HUD overlay after its own scanlines (plat_autobleem.c, both the
 	// low-battery icon from part 1 and hud_msg/FPS/CPU load/the SPU channel bar from part 2) sets
 	// pl_hud_by_plat and this frontend-level path draws none of them - see plugin_lib.h's comment on the
 	// flag and on ab_hud_msg_line()/ab_hud_cpu_line()/ab_hud_active_chans(), its source of truth either
@@ -373,7 +374,10 @@ static void pl_vout_set_mode(int w, int h, int raw_w, int raw_h, int bpp)
 	assert(vout_h >= 192);
 
 	pl_vout_scale_w = pl_vout_scale_h = 1;
-	if (soft_filter) {
+	if (soft_filter && pl_plat_smooths != NULL && pl_plat_smooths(soft_filter)) {
+		// the platform smooths it on the GPU: the frame stays 1x (and the resume picture clean)
+	}
+	else if (soft_filter) {
 		int k = ab_soft_scale_factor(soft_filter);	// ab/ab_scaler.c: 2x or 3x, on every platform
 		if (k > 1 && resolution_ok(w * k, h * k) && bpp == 16) {
 			pl_vout_scale_w = k;
@@ -790,7 +794,7 @@ static void update_input(void)
 	 * in_sdl2gc.c:296 from state->player - the pad's own SDL acceptance index + 1, never touched by
 	 * pad_order (we do not edit that submodule) - so without the swap below, port 0 always got pad
 	 * index 0's buttons and port 1 pad index 1's, even with the swap on: pad A's buttons would drive
-	 * port 1 while its sticks (already correctly swapped in plat_sdl2.c's pads_changed(), in_adev[])
+	 * port 1 while its sticks (already correctly swapped in plat_autobleem.c's pads_changed(), in_adev[])
 	 * drove port 2. ab_pads_swapped is set by pads_changed() to the exact same gate it applies to the
 	 * sticks (pad_count >= 2 and the swap requested) - one source of truth for "is the swap in effect
 	 * right now" - so swapping these two words here puts the buttons back in step with the sticks.

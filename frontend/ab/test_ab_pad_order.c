@@ -51,9 +51,9 @@ static void test_ab_pad_order(int order[2])
 	order[1] = b;
 }
 
-/* verbatim copy of plat_sdl2.c's pads_changed() gate (Marcus's review fix): the swap only takes effect
+/* verbatim copy of plat_autobleem.c's pads_changed() gate (Marcus's review fix): the swap only takes effect
  * with two or more pads connected - with fewer, the identity order is forced regardless of AB_PAD_ORDER,
- * so a lone pad is always player 1. Keep this in step with plat_sdl2.c's pads_changed() too. */
+ * so a lone pad is always player 1. Keep this in step with plat_autobleem.c's pads_changed() too. */
 static void test_effective_pad_order(int pad_count, int order[2])
 {
 	order[0] = 0;
@@ -64,15 +64,15 @@ static void test_effective_pad_order(int pad_count, int order[2])
 
 /* --- C11 round 3 (Marcus's review): buttons and rumble must land on the same physical pad the analog
  * sticks do, for every port, pad count and swap setting. Three call sites decide this:
- *   - analog: plat_sdl2.c's pads_changed() - in_adev[port] <- in_sdl2gc_dev_id(pad_order[port] + 1)
+ *   - analog: plat_autobleem.c's pads_changed() - in_adev[port] <- in_sdl2gc_dev_id(pad_order[port] + 1)
  *   - buttons: plugin_lib.c's update_input() splits actions[IN_BINDTYPE_PLAYER12] into in_keystate[0]/[1];
  *     the bit that lands there for a given pad is fixed by libpicofe's in_sdl2gc.c:296 from state->player
  *     (the pad's own SDL acceptance index + 1 - that submodule is not ours to edit), so BEFORE round 3
  *     in_keystate[port] always carried the pad at acceptance index == port, whatever pad_order said
- *   - rumble: plat_sdl2.c:380's in_sdl2gc_rumble(pad + 1, ...) - "pad" is the PS1 port, so BEFORE round 3
+ *   - rumble: plat_autobleem.c:380's in_sdl2gc_rumble(pad + 1, ...) - "pad" is the PS1 port, so BEFORE round 3
  *     the player argument was always port + 1, also ignoring pad_order
  * `buttons_pad_for_port`/`rumble_pad_for_port` below are verbatim copies of production's CURRENT shape,
- * kept in step with plugin_lib.c's update_input() and plat_sdl2.c's rumble call - a change to one is a
+ * kept in step with plugin_lib.c's update_input() and plat_autobleem.c's rumble call - a change to one is a
  * change to both, in the same commit. */
 static void analog_pad_for_port(int pad_count, int swap_requested, int port_pad[2])
 {
@@ -97,9 +97,9 @@ static void buttons_pad_for_port(int pad_count, int swap_requested, int port_pad
 	port_pad[1] = ab_pads_swapped_ ? 0 : 1;
 }
 
-/* verbatim copy of plat_sdl2.c:380's rumble call, as of the round-3 fix:
+/* verbatim copy of plat_autobleem.c:380's rumble call, as of the round-3 fix:
  * in_sdl2gc_rumble(ab_pad_order_state[pad] + 1, ...) - the same pad_order pads_changed() computes for
- * in_adev, one source of truth. KEEP THIS FUNCTION IN STEP WITH plat_sdl2.c's rumble call. */
+ * in_adev, one source of truth. KEEP THIS FUNCTION IN STEP WITH plat_autobleem.c's rumble call. */
 static int rumble_pad_for_port(int port, int pad_count, int swap_requested)
 {
 	int order[2];

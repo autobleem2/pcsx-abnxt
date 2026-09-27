@@ -6,7 +6,7 @@
  *
  * Keys are pushed into SDL's event queue, so they take the very path a real key takes (in_sdl2 -> the
  * binds -> the menu or the game): what the driver tests is what a person would get. The thread only
- * touches the SDL event queue and the frame cache (libpicofe's plat_sdl2_shot_*), never the emulator's
+ * touches the SDL event queue and the frame cache (libpicofe's plat_ab_shot_*), never the emulator's
  * state - anything else would run between CPU slices, which is the emulator's own rule.
  *
  * One command per line, one reply per command ("ok ..." or "err ..."):

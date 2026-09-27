@@ -83,8 +83,6 @@ int ab_filter_action(int action)
 			held = 1;
 			fired = 0;
 			held_since = now;
-			/* E15: the hold is also a quick way to check a pad's battery, low or not */
-			ab_pad_battery_set_show_requested(1);
 		} else if (!fired && now - held_since >= AB_MENU_HOLD_MS) {
 			fired = 1;
 			hud_msg[0] = 0;
@@ -98,7 +96,6 @@ int ab_filter_action(int action)
 	if (held) {
 		/* released: a press, unless the hold already went out as Reset */
 		held = 0;
-		ab_pad_battery_set_show_requested(0);
 		if (strcmp(hud_msg, hold_hint) == 0)
 			hud_msg[0] = 0;
 		if (!fired)
