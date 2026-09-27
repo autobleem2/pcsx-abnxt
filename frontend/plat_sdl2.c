@@ -38,6 +38,7 @@
 #include "ab/ab_config.h"
 #include "ab/ab_debug.h"
 #include "ab/ab_headless.h"
+#include "ab/ab_pad_battery.h"
 
 /* the keyboard: the same keys upstream's SDL 1.2 platform binds, by scancode */
 static const struct in_default_bind in_sdl2_defbinds[] = {
@@ -243,6 +244,124 @@ static void plugin_update(void)
   plugin_call_rearmed_cbs();
 }
 
+#ifdef PSCLASSIC
+/* EMU-15: the low-battery icon, as a HUD overlay (libpicofe's plat_sdl2_set_hud_cb) instead of baked into
+ * the PSX-resolution frame (plugin_lib.c's print_hud used to draw it there, where the scanline overlay -
+ * drawn over the presented, already-scaled frame - dimmed or fully hid it; a DualSense at 5-15% capacity
+ * reported the icon "never showing on its own", only flashing while Select+Start was held). Drawn here,
+ * after plat_sdl2_present() has already drawn the frame and the scanlines, straight at output resolution -
+ * never scaled, never covered. A small ARGB8888 texture (like libpicofe's own scan_tex), not
+ * SDL_RenderFillRect (SDL's GLES2 on the console draws a fill rect only 1 px high). */
+#define AB_HUD_ICON_W    22
+#define AB_HUD_ICON_H    11
+#define AB_HUD_NUB_W     2
+#define AB_HUD_TEX_W     (AB_HUD_ICON_W + AB_HUD_NUB_W + 2)  /* +2: the 1 px backing border each side */
+#define AB_HUD_TEX_H     (AB_HUD_ICON_H + 2)
+#define AB_HUD_ARGB_BACKING  0xff000000u
+#define AB_HUD_ARGB_OUTLINE  0xffffffffu
+#define AB_HUD_ARGB_LOW      0xffff0000u  /* red:   <= the low threshold */
+#define AB_HUD_ARGB_MED      0xffff6500u  /* amber: <= half */
+#define AB_HUD_ARGB_OK       0xff00ff00u  /* green: a healthy percent (a plain show-request only) */
+
+static void ab_hud_battery_set(Uint32 *px, int x, int y, Uint32 argb)
+{
+  if ((unsigned)x >= (unsigned)AB_HUD_TEX_W || (unsigned)y >= (unsigned)AB_HUD_TEX_H)
+    return;
+  px[y * AB_HUD_TEX_W + x] = argb;
+}
+
+static void ab_hud_battery_fill(Uint32 *px, int x0, int y0, int x1, int y1, Uint32 argb)
+{
+  int x, y;
+  for (y = y0; y < y1; y++)
+    for (x = x0; x < x1; x++)
+      ab_hud_battery_set(px, x, y, argb);
+}
+
+/* fills the AB_HUD_TEX_W x AB_HUD_TEX_H ARGB8888 buffer with the icon for this percent - the same shape
+ * plugin_lib.c's old draw_pad_battery_icon drew, one pixel bigger all around for the backing border */
+static void ab_hud_battery_build(Uint32 *px, int percent)
+{
+  int ox = 1, oy = 1, bw = AB_HUD_ICON_W, bh = AB_HUD_ICON_H;
+  int nub_x0, nub_y0, nub_y1, fill_w;
+  Uint32 fill_color = percent <= AB_PAD_BATTERY_LOW_PERCENT ? AB_HUD_ARGB_LOW :
+                      percent <= 50 ? AB_HUD_ARGB_MED : AB_HUD_ARGB_OK;
+
+  /* solid backing so the outline reads over a bright game frame, then the outline itself */
+  ab_hud_battery_fill(px, ox - 1, oy - 1, ox + bw + AB_HUD_NUB_W + 1, oy + bh + 1, AB_HUD_ARGB_BACKING);
+  ab_hud_battery_fill(px, ox, oy, ox + bw, oy + 1, AB_HUD_ARGB_OUTLINE);
+  ab_hud_battery_fill(px, ox, oy + bh - 1, ox + bw, oy + bh, AB_HUD_ARGB_OUTLINE);
+  ab_hud_battery_fill(px, ox, oy, ox + 1, oy + bh, AB_HUD_ARGB_OUTLINE);
+  ab_hud_battery_fill(px, ox + bw - 1, oy, ox + bw, oy + bh, AB_HUD_ARGB_OUTLINE);
+
+  /* the nub on the right, a third of the body's height, centred */
+  nub_x0 = ox + bw;
+  nub_y0 = oy + bh / 3;
+  nub_y1 = oy + bh - bh / 3;
+  ab_hud_battery_fill(px, nub_x0, nub_y0, nub_x0 + AB_HUD_NUB_W, nub_y1, AB_HUD_ARGB_OUTLINE);
+
+  /* the fill itself, proportional to the percent, inset one pixel inside the outline */
+  fill_w = (bw - 4) * percent / 100;
+  if (fill_w > 0)
+    ab_hud_battery_fill(px, ox + 2, oy + 2, ox + 2 + fill_w, oy + bh - 2, fill_color);
+}
+
+static void ab_hud_battery_draw(SDL_Renderer *renderer, const SDL_Rect *dst)
+{
+  static SDL_Texture *icon_tex;
+  static int icon_percent = -2;  /* not a real percent: forces the first build */
+  int percent, scale, out_w, out_h, margin;
+  SDL_Rect r;
+
+  if (!ab_pad_battery_visible())
+    return;
+  percent = ab_pad_battery_percent();
+  if (percent < 0)
+    return;
+
+  if (icon_tex == NULL || icon_percent != percent) {
+    Uint32 *px = calloc((size_t)AB_HUD_TEX_W * AB_HUD_TEX_H, 4);  /* transparent black */
+    if (px == NULL)
+      return;
+    ab_hud_battery_build(px, percent);
+    if (icon_tex != NULL) {
+      SDL_DestroyTexture(icon_tex);
+      icon_tex = NULL;
+    }
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");  /* a crisp icon at any scale, like the old one */
+    icon_tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC,
+      AB_HUD_TEX_W, AB_HUD_TEX_H);
+    if (icon_tex == NULL || SDL_UpdateTexture(icon_tex, NULL, px, AB_HUD_TEX_W * 4) != 0 ||
+        SDL_SetTextureBlendMode(icon_tex, SDL_BLENDMODE_BLEND) != 0) {
+      fprintf(stderr, "plat_sdl2: no %dx%d battery icon: %s\n", AB_HUD_TEX_W, AB_HUD_TEX_H, SDL_GetError());
+      if (icon_tex != NULL)
+        SDL_DestroyTexture(icon_tex);
+      icon_tex = NULL;
+      free(px);
+      return;
+    }
+    free(px);
+    icon_percent = percent;
+  }
+
+  /* readable at 640x480 and at 1280x720 alike: a whole-pixel scale from dst's height (2x at 480, 3x at
+   * 720), clamped so a very small or very large window still gets a sane icon */
+  scale = dst->h / 240;
+  if (scale < 2)
+    scale = 2;
+  if (scale > 6)
+    scale = 6;
+  out_w = AB_HUD_TEX_W * scale;
+  out_h = AB_HUD_TEX_H * scale;
+  margin = 6 * scale / 2;
+  r.w = out_w;
+  r.h = out_h;
+  r.x = dst->x + dst->w - out_w - margin;
+  r.y = dst->y + margin;
+  SDL_RenderCopy(renderer, icon_tex, NULL, &r);
+}
+#endif
+
 void plat_init(void)
 {
   int fullscreen, ret, headless;
@@ -272,6 +391,9 @@ void plat_init(void)
     exit(1);
   if (ab_headless_starts_hidden(headless) && plat_sdl2_window != NULL)
     SDL_HideWindow(plat_sdl2_window);
+#ifdef PSCLASSIC
+  plat_sdl2_set_hud_cb(ab_hud_battery_draw);  /* EMU-15: see ab_hud_battery_draw() above */
+#endif
   fprintf(stdout, "Audio driver: %s\n", SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "(none)");
   plat_target.vout_fullscreen = fullscreen_old = plat_sdl2_is_fullscreen();
 

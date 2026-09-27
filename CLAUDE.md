@@ -2,7 +2,7 @@
 
 AutoBleem's next PS1 emulator: **upstream PCSX-ReARMed (notaz) with what Sony and AutoBleem added to pcsx-ab
 re-implemented on top**, for the PlayStation Classic, the two Raspberry Pi builds and the Windows dev host.
-Author: screemer (the repo owner). It replaces `pcsx-ab` (`github.com/autobleem/pcsx-ab2`,
+Author: screemer (the repo owner). It replaces `pcsx-ab` (`github.com/autobleem2/pcsx-ab`,
 `E:\Programming\pcsx-rearmed-develop` - a 2017 core with patches), which AutoBleem
 (`E:\Programming\autobleem-develop`) still ships until phase 8 of the plan. This file is the project knowledge
 of record; keep it current in the same commit as any change it describes. Git history has the reasoning per
@@ -98,8 +98,9 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   scaled again: a property of the screen like a CRT's, 240 lines over the picture's height whatever the
   game's mode (3 px each at 720p, 4/5 alternating at 1080p), one ARGB overlay texture made on the CPU when
   size/thickness/level change and blended in one copy (Scanlines 1-3 = thickness/4 of a line, at least 1 px,
-  a pixel of picture kept - 1/2/2 px at 720p; brightness = what shows through). Not fill rects: SDL 2.0.12's
-  GLES2 drew those 1 px high whatever was asked. The menu never has them (`dst == NULL`), FMV does.
+  a pixel of picture kept - 1/2/2 px at 720p; brightness = what shows through). Not fill rects: back when
+  the console shipped SDL 2.0.12, its GLES2 drew those 1 px high whatever was asked - not retested since
+  the move to 2.0.14, so the blended-overlay approach stays. The menu never has them (`dst == NULL`), FMV does.
   `pl_scanlines_by_plat` keeps plugin_lib's own row-darkening off (a C `bgr555_to_rgb565_b` exists for the
   builds without NEON32 all the same). The launcher's GFX Filter sends 0/1. A game with
   `gpu_neon.enhancement_enable = 1` (Crash's PC-era cfg) is 2x before any of this, which is why the owner
@@ -153,23 +154,23 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   `arm-linux-gnueabihf-gdb` (SysGCC's, `C:\SysGCC\raspberry\bin`) reads it with `set sysroot .`,
   `set solib-search-path psc-libs`, `file <unstripped>`, `core-file pcsx-core`, `bt` - the unstripped
   `build_psc/pcsx-ab` stays on the build server (`~/pcsx-abnxt/build_psc/`; check the GNU build id against
-  the shipped one with `readelf -n`). **The console runs the SDL 2.0.12 of AutoBleem's `libs.tar.gz`**
+  the shipped one with `readelf -n`). **The console runs the SDL 2.0.14 of AutoBleem's `libs.tar.gz`**
   (unpacked to `/tmp/lib` at boot, `LD_LIBRARY_PATH` inherited from the launcher; the firmware's own
   `/usr/lib` SDL is 2.0.4) - the same build the emulator links against in the Docker image, so SDL
-  functions newer than 2.0.12 do not exist there and 2.0.12's own bugs do. Kernel 4.4.22 armv7l, Weston,
+  functions newer than 2.0.14 do not exist there and 2.0.14's own bugs do. Kernel 4.4.22 armv7l, Weston,
   the PowerVR GLES2 driver (`libGLESv2_PVR_MESA.so`); "PVR:(Error): glBufferSubData: No memory for object
   data" in the log is the driver's noise at the first present, not a failure.
 
 | | |
 |---|---|
-| Repository | `github.com/autobleem/pcsx-abnxt`, a **public GitHub fork** of `notaz/pcsx_rearmed` (GPL-2; a fork of a public repo cannot be private - the owner's call, 2026-09-20) |
+| Repository | `github.com/autobleem2/pcsx-abnxt`, a **public GitHub fork** of `notaz/pcsx_rearmed` (GPL-2; a fork of a public repo cannot be private - the owner's call, 2026-09-20) |
 | Base | upstream tag **`r26`** (2026-03-29, `56fef013`), the latest stable; `develop` starts there |
 | Branches | `master` mirrors upstream master (fast-forward only, never committed to); `develop` is ours; `feature/<slug>` off `develop`, merged `--no-ff` (gitflow, as in every AutoBleem repo); `upstream` remote = notaz |
-| libpicofe | submodule `frontend/libpicofe` -> **`github.com/autobleem/libpicofe`** (our fork of notaz's), branch `develop`: r26's commit plus our SDL2 files (`plat_sdl2.*`, `in_sdl2.*`, `in_sdl2gc.*`); `upstream` remote there too. The other submodules (`deps/libchdr`, `lightrec`, `lightning`, `libretro-common`, `mman`, `frontend/warm`) are upstream's, untouched |
+| libpicofe | submodule `frontend/libpicofe` -> **`github.com/autobleem2/libpicofe`** (our fork of notaz's), branch `develop`: r26's commit plus our SDL2 files (`plat_sdl2.*`, `in_sdl2.*`, `in_sdl2gc.*`); `upstream` remote there too. The other submodules (`deps/libchdr`, `lightrec`, `lightning`, `libretro-common`, `mman`, `frontend/warm`) are upstream's, untouched |
 | Build | `CMakeLists.txt`: upstream's `configure`/`Makefile` as CMake options (`PCSXAB_*`), the plugins, libchdr/lightrec/lightning/mman compiled from `deps/`; upstream's own build files stay untouched. `PCSXAB_PLATFORM=sdl2` (ours, the default), `sdl` (upstream's SDL 1.2 frontend, needs sdl12-compat on a PC) or `headless` |
 | Windows | `./make_win.sh` -> `build_win/pcsx-ab.exe`: **lightrec + C-SIMD gpu_neon, plays games** - Crash Bandicoot's intro in a 1280x720 window, Esc opens the menu, `tools/emu_drive.py` drives it over the debug driver's socket (see "the debug driver"); `tools/win_drive.ps1` is the older way, keys posted to the window |
 | Pi 32-bit / 64-bit | `./make_rpi.sh`, `./make_rpi64.sh` -> `build_rpi*/dist/`: Ari64 ARM / ARM64 dynarec, NEON asm / C-SIMD GPU, the SDL2 platform - **the 64-bit build runs on the Pi 400** (2026-09-20), 32-bit built, unrun |
-| PlayStation Classic | `ci/build.sh psc` in the Docker image (gcc-6, `/opt/psc`, SDL 2.0.12): builds and links, GLIBC <= 2.12, no RPATH, ARM dynarec + NEON - **runs on the console since 2026-09-21** (`build_psc/dist/` on the PC holds the last fetch; the console's SDL is 2.0.12, see "a crash on the console"); `make_psc.sh` is the Sony-toolchain path over ssh, untested here |
+| PlayStation Classic | `ci/build.sh psc` in the Docker image (gcc-6, `/opt/psc`, SDL 2.0.14): builds and links, GLIBC <= 2.24, no RPATH, ARM dynarec + NEON - **runs on the console since 2026-09-21** (`build_psc/dist/` on the PC holds the last fetch; the console's SDL is 2.0.14, see "a crash on the console"); `make_psc.sh` is the Sony-toolchain path over ssh, untested here |
 | Local checkout | `E:\Programming\pcsx-abnxt` |
 | Packages | `tools/make_packages.sh` -> `dist/packages/pcsx-abnxt-<git describe>-{psc,rpi-armhf,rpi-arm64}.tar.gz`, `-win64.zip` (from `build_win_rel`, a Release configure of the same tree) and a manifest json; the Linux dists come from the build server (`ssh psc-build`, `~/pcsx-abnxt` an rsync copy without `.git`: `AB_GIT_DESCRIBE=$(git describe)` in the environment is what CMake bakes into `REV` there, through `docker/run.sh`'s `AB_*` pass-through - without it the menu's build line says "(no version)"); published with autobleem-develop's `tools/repo_publish.sh pcsx <version> dist/packages/*` to **`https://autobleem.retromenele.pl/emu/pcsx-abnxt/`** (`latest.json`, the newest kept; first publish `r26-20-gb9801962`, 2026-09-20, marked a development build; **`r26-alpha1`, 2026-09-21, the first alpha** - an annotated tag on `develop`, so `git describe` reads `r26-alpha1-N-g...` from there: the upstream base stays visible). **The build server's clock is ~5 min behind this PC's**: rsynced files just edited here have mtimes in its future and ninja loops on them ("manifest still dirty") - `find . -newermt now -exec touch {} +` in `~/pcsx-abnxt` before a build |
 
