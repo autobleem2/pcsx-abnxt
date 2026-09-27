@@ -417,6 +417,14 @@ static SDL_Texture *ab_hud_text_tex_update(SDL_Renderer *renderer, AbHudTextTex 
   return cache->tex;
 }
 
+/* plugin_lib.c's print_hud() skips drawing below h < 192 - a PSX source frame that short (a half-height
+ * interlaced field, or a mode PCSX has not finished switching out of yet) is too small for HUD_HEIGHT's
+ * 10-line band to make sense against. dst here is not that: it is plat_sdl2's presentation rect, the
+ * window/output size after scaling (plat_sdl2_present()'s dst, 1280x720 by default, never smaller than a
+ * few hundred px in practice) - the same rect the battery icon already draws into unconditionally. Nothing
+ * about scale or margin below depends on the PSX frame's own height, so the guard has nothing to guard
+ * against here; an unusually small dst just gets a smaller (whole-pixel-scaled, per the comment below)
+ * notice, clipped by SDL like any other texture copy, never a crash or a division by a PSX-frame value. */
 static void ab_hud_notices_draw(SDL_Renderer *renderer, const SDL_Rect *dst)
 {
   static AbHudTextTex msg_cache, cpu_cache;
@@ -517,6 +525,12 @@ void plat_init(void)
   plat_sdl2_quit_cb = quit_cb;
   plat_sdl2_resize_cb = resize_cb;
   pl_scanlines_by_plat = 1;
+  /* EMU-15 part 2: this platform draws hud_msg/FPS/CPU load/the SPU channel bar itself, in ab_hud_draw()
+   * below (registered a few lines down), after its own scanlines - plugin_lib.c's print_hud() must not
+   * also draw them into pl_vout_buf, or a platform with both paths active would show every notice twice
+   * (once dim/hidden under the scanlines, once correctly over them). Every other platform never sets
+   * this and keeps print_hud()'s original behaviour untouched. */
+  pl_hud_by_plat = 1;
 
   /* AB_HEADLESS=1: the same automated-test-run policy as the launcher's Platform (autobleem-core's
    * ableem::Platform) - dummy audio (must be in the environment before SDL's audio subsystem inits,
