@@ -119,12 +119,14 @@ static __attribute__((noinline)) int get_cpu_ticks(void)
 
 const char *ab_hud_msg_line(void)
 {
-	static char buf[16];
+	static char buf[32];
 
 	if (hud_msg[0] != 0)
 		return hud_msg;
 	if (g_opts & OPT_SHOWFPS) {
-		snprintf(buf, sizeof(buf), "%2d %4.1f", pl_rearmed_cbs.flips_per_sec,
+		// the frames the game drew in the last second / the emulated refreshes per second (the emulation's
+		// speed: 60 NTSC, 50 PAL - less when it cannot keep up)
+		snprintf(buf, sizeof(buf), "FPS %d / %.1f Hz", pl_rearmed_cbs.flips_per_sec,
 			pl_rearmed_cbs.vsps_cur);
 		return buf;
 	}
@@ -133,11 +135,11 @@ const char *ab_hud_msg_line(void)
 
 const char *ab_hud_cpu_line(void)
 {
-	static char buf[8];
+	static char buf[16];
 
 	if (!(g_opts & OPT_SHOWCPU))
 		return NULL;
-	snprintf(buf, sizeof(buf), "%3d", pl_rearmed_cbs.cpu_usage);
+	snprintf(buf, sizeof(buf), "CPU %d%%", pl_rearmed_cbs.cpu_usage);
 	return buf;
 }
 
@@ -198,7 +200,7 @@ static void print_cpu_usage(int x, int h)
 	const char *line = ab_hud_cpu_line();
 
 	if (line != NULL)
-		hud_print(pl_vout_buf, pl_vout_w, x - 28, h - HUD_HEIGHT, line);
+		hud_print(pl_vout_buf, pl_vout_w, x - 8 * (int)strlen(line) - 4, h - HUD_HEIGHT, line);
 }
 
 // draw 192x8 status of up to 24 sound channels - ab_hud_active_chans() already applies the OPT_SHOWSPU

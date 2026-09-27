@@ -42,6 +42,7 @@
 #include "ab/ab_hud_text.h"
 #include "ab/ab_shaders.h"
 #include "ab/ab_console.h"
+#include "ab/ab_ui.h"
 
 /* the keyboard: the same keys upstream's SDL 1.2 platform binds, by scancode */
 static const struct in_default_bind in_sdl2_defbinds[] = {
@@ -344,36 +345,67 @@ static void ab_hud_battery_draw(int sw, int sh)
 #endif
 
 /* EMU-15 part 2: hud_msg/FPS/CPU load/the SPU channel bar, at the bottom of the screen (the message/FPS
- * line left, CPU load right, the channel bar in the middle), on every platform. ab_hud_text.c does the
- * glyphs; a line is uploaded to its slot only when its text changes. */
+ * line left, CPU load right, the channel bar in the middle), on every platform. The text is the menus' TTF
+ * font (ab_ui.c) on a dark translucent strip, at the screen's pixels; without a font, ab_hud_text.c's 8x8
+ * glyphs scaled up. A line is rendered and uploaded to its slot only when its text changes. */
 
-/* a text line's slot: the text it holds and its width in glyph pixels */
+#define HUD_LINE_MAX_W 1280
+#define HUD_LINE_MAX_H 64
+
+/* a text line's slot: the text it holds and the size it is drawn at, in screen pixels */
 typedef struct {
   int slot;
-  char text[AB_HUD_TEXT_MAXLEN + 1];
-  int w;
+  char text[96];
+  int w, h;
 } AbHudLine;
 
-/* 1 when the line has something to draw (uploaded now if the text changed) */
-static int ab_hud_line_update(AbHudLine *line, const char *text)
+/* the line's image: TTF at `size` px on a strip, or the 8x8 font; 0 = none */
+static int ab_hud_line_render(Uint32 *px, const char *text, int size, int scale, int *w, int *h)
 {
-  Uint32 px[AB_HUD_TEXT_MAXLEN * AB_HUD_GLYPH_W * AB_HUD_GLYPH_H];
-  int w;
+  if (ab_ui_has_font()) {
+    int pad = size / 3, tw = ab_ui_text_width(text, size), x, y;
+    *w = tw + pad * 2;
+    *h = size + pad;
+    if (tw <= 0 || *w > HUD_LINE_MAX_W || *h > HUD_LINE_MAX_H)
+      return 0;
+    for (y = 0; y < *h; y++)
+      for (x = 0; x < *w; x++)
+        px[y * *w + x] = 0x90000000u;   /* the strip */
+    ab_ui_text_argb(px, *w, *h, pad + 1, pad / 2 + 1, text, size, 0xff000000u);   /* a shadow */
+    ab_ui_text_argb(px, *w, *h, pad, pad / 2, text, size, 0xffffffffu);
+    return 1;
+  }
+  *w = ab_hud_text_width(text);
+  *h = AB_HUD_GLYPH_H;
+  if (*w <= 0 || *w > HUD_LINE_MAX_W)
+    return 0;
+  memset(px, 0, (size_t)*w * *h * 4);  /* transparent black */
+  ab_hud_text_render_argb(px, *w, *h, text);
+  *w *= scale;   /* drawn scaled up */
+  *h *= scale;
+  return 1;
+}
+
+/* 1 when the line has something to draw (rendered and uploaded now if the text changed) */
+static int ab_hud_line_update(AbHudLine *line, const char *text, int sh)
+{
+  static Uint32 px[HUD_LINE_MAX_W * HUD_LINE_MAX_H];
+  int scale = hud_scale(sh), size = sh / 28, w, h;
 
   if (text == NULL || text[0] == 0)
     return 0;
   if (line->w > 0 && strcmp(line->text, text) == 0)
     return 1;
-  w = ab_hud_text_width(text);
-  if (w <= 0 || w > AB_HUD_TEXT_MAXLEN * AB_HUD_GLYPH_W)
+  ab_ui_load(ab_opts.language);   /* the font and the strings, once (the menu loads them too) */
+  if (size < 12)
+    size = 12;
+  if (!ab_hud_line_render(px, text, size, scale, &w, &h))
     return 0;
-  memset(px, 0, (size_t)w * AB_HUD_GLYPH_H * 4);  /* transparent black */
-  ab_hud_text_render_argb(px, w, AB_HUD_GLYPH_H, text);
-  if (plat_ab_hud_image(line->slot, px, w, AB_HUD_GLYPH_H) != 0)
+  if (plat_ab_hud_image(line->slot, px, ab_ui_has_font() ? w : w / scale, ab_ui_has_font() ? h : h / scale) != 0)
     return 0;
-  strncpy(line->text, text, AB_HUD_TEXT_MAXLEN);
-  line->text[AB_HUD_TEXT_MAXLEN] = 0;
+  snprintf(line->text, sizeof(line->text), "%s", text);
   line->w = w;
+  line->h = h;
   return 1;
 }
 
@@ -386,16 +418,16 @@ static void ab_hud_notices_draw(int sw, int sh)
   int scale = hud_scale(sh), margin = 6 * scale / 2, n;
   SDL_Rect r;
 
-  if (ab_hud_line_update(&msg_line, ab_hud_msg_line())) {
-    r.w = msg_line.w * scale;
-    r.h = AB_HUD_GLYPH_H * scale;
+  if (ab_hud_line_update(&msg_line, ab_hud_msg_line(), sh)) {
+    r.w = msg_line.w;
+    r.h = msg_line.h;
     r.x = margin;
     r.y = sh - r.h - margin;
     plat_ab_hud_draw(HUD_SLOT_MSG, &r);
   }
-  if (ab_hud_line_update(&cpu_line, ab_hud_cpu_line())) {
-    r.w = cpu_line.w * scale;
-    r.h = AB_HUD_GLYPH_H * scale;
+  if (ab_hud_line_update(&cpu_line, ab_hud_cpu_line(), sh)) {
+    r.w = cpu_line.w;
+    r.h = cpu_line.h;
     r.x = sw - r.w - margin;
     r.y = sh - r.h - margin;
     plat_ab_hud_draw(HUD_SLOT_CPU, &r);

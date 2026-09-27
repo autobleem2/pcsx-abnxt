@@ -51,7 +51,10 @@ On the PSC a CRT filter and smoothing are exclusive (a CRT turns smoothing off).
   Home opens the menu and, held, leaves the game).
 - **M2**: the in-game menu - sections (Game / Picture / Controllers / Settings / Exit), a header with the
   game's name and every pad's battery, the last auto screenshot as a thumbnail from RAM, a TTF font and
-  `lang/*.txt` for every language, sized to fit the screen.
+  `lang/*.txt` for every language, sized to fit the screen. The HUD's text (messages, FPS, CPU) in the
+  same TTF font, rendered to its slot only when the text changes; the FPS line labelled - the frames the
+  game drew in the last second and the emulated refreshes per second (the emulation's speed, 60 NTSC /
+  50 PAL), e.g. `FPS 59 · 60.0 Hz` - and the CPU load as `CPU 45%`.
 - **M3**: the launcher's contract - `ab_*` keys in `pcsx.cfg` (`ab_scaler`, `ab_smoothing`, `ab_filter`,
   `ab_scanlines`, `ab_scanline_alpha`) behind an `abfeatures` token, `-ab-*` options for the defaults (the old
   `-filter`/`-ratio` stay as aliases), an `abrender` file next to the binary listing what the build has; the

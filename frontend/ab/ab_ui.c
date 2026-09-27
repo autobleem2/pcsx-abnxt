@@ -297,6 +297,60 @@ int ab_ui_text(struct ab_canvas *c, int x, int y, int align, const char *utf8, i
 	return width;
 }
 
+/* the text into an ARGB8888 buffer (w x h, pitch w): the glyphs' coverage over what is there, in `argb`'s
+ * colour - for the HUD, whose images are blended over the screen */
+int ab_ui_text_argb(unsigned int *px, int w, int h, int x, int y, const char *utf8, int size, unsigned int argb)
+{
+	float scale, pen;
+	const char *s = utf8;
+	int cp, ascent, descent, gap;
+	unsigned int ca = argb >> 24, rgb = argb & 0xffffff;
+
+	if (!font_ok)
+		return 0;
+	scale = stbtt_ScaleForPixelHeight(&font, size);
+	stbtt_GetFontVMetrics(&font, &ascent, &descent, &gap);
+	pen = x;
+	while ((cp = utf8_next(&s)) != 0) {
+		int adv, lsb, gw, gh, gx, gy, gi, row, col;
+		unsigned char *bitmap;
+
+		gi = stbtt_FindGlyphIndex(&font, cp);
+		stbtt_GetGlyphHMetrics(&font, gi, &adv, &lsb);
+		bitmap = stbtt_GetGlyphBitmapSubpixel(&font, scale, scale, pen - (int)pen, 0, gi, &gw, &gh, &gx, &gy);
+		if (bitmap != NULL) {
+			int top = y + (int)(ascent * scale + 0.5f) + gy;
+			int left = (int)pen + gx;
+			for (row = 0; row < gh; row++) {
+				for (col = 0; col < gw; col++) {
+					int tx = left + col, ty = top + row;
+					unsigned int a = bitmap[row * gw + col] * ca / 255, *d, da, oa;
+					if (a == 0 || tx < 0 || ty < 0 || tx >= w || ty >= h)
+						continue;
+					d = px + ty * w + tx;
+					da = *d >> 24;
+					oa = a + da * (255 - a) / 255;
+					if (oa == 0)
+						continue;
+					/* "over" in straight alpha, per channel */
+					{
+						unsigned int sr = (rgb >> 16) & 255, sg = (rgb >> 8) & 255, sb = rgb & 255;
+						unsigned int dr = (*d >> 16) & 255, dg = (*d >> 8) & 255, db = *d & 255;
+						unsigned int k = da * (255 - a) / 255;
+						dr = (sr * a + dr * k) / oa;
+						dg = (sg * a + dg * k) / oa;
+						db = (sb * a + db * k) / oa;
+						*d = (oa << 24) | (dr << 16) | (dg << 8) | db;
+					}
+				}
+			}
+			stbtt_FreeBitmap(bitmap, NULL);
+		}
+		pen += adv * scale;
+	}
+	return (int)(pen - x + 0.5f);
+}
+
 /* coverage of a point at distance d from an edge at radius r: 1 inside, 0 outside, a pixel wide ramp */
 static inline float edge(float r, float d)
 {

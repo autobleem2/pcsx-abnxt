@@ -47,6 +47,9 @@ struct ab_canvas {
  * top and its left/centre/right edge by `align`; returns the box's width */
 int ab_ui_text(struct ab_canvas *c, int x, int y, int align, const char *utf8, int px, unsigned short rgb565);
 int ab_ui_text_width(const char *utf8, int px);
+/* the same text into an ARGB8888 buffer (w x h, pitch w), blended over what is there in argb's colour -
+ * the HUD's images; returns the width drawn, 0 without a font */
+int ab_ui_text_argb(unsigned int *px, int w, int h, int x, int y, const char *utf8, int size, unsigned int argb);
 
 /* a disc: radius r about (cx, cy); accent = tinted (the one in the drive), dim = darker (not focused) */
 void ab_ui_disc(struct ab_canvas *c, int cx, int cy, int r, int accent, int dim);
