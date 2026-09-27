@@ -178,8 +178,17 @@ static void resize_cb(int w, int h)
 static void pads_changed(int pad_count)
 {
   int p;
+  /* C11: Options -> "Swap Player 1 / Player 2" - a purely positional swap of the first two SDL pads'
+   * PS1 ports. pad_order[] (in_sdl2gc's own acceptance-order "player" numbering, 1-based, is untouched -
+   * we do not edit the libpicofe submodule here) is one of only two permutations of {0, 1}: the identity
+   * or a single transposition, and both are their own inverse, so pad_order[p] + 1 is exactly the player
+   * number that belongs at PS1 port p (0-based) whichever way round it is set. AB_PAD_ORDER unset, or
+   * this build's abfeatures never having offered "padorder", leaves pad_order == {0, 1} and this loop
+   * behaves exactly as before. */
+  int pad_order[2];
+  ab_pad_order(pad_order);
   for (p = 0; p < 2; p++) {
-    int dev = in_sdl2gc_dev_id(p + 1);
+    int dev = in_sdl2gc_dev_id(pad_order[p] + 1);
     in_adev[p * 2] = in_adev[p * 2 + 1] = dev;
     in_adev_axis[p * 2][0] = SDL2GC_AXIS_LX; in_adev_axis[p * 2][1] = SDL2GC_AXIS_LY;
     in_adev_axis[p * 2 + 1][0] = SDL2GC_AXIS_RX; in_adev_axis[p * 2 + 1][1] = SDL2GC_AXIS_RY;

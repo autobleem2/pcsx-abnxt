@@ -200,6 +200,23 @@ const char *ab_load_state(void)
 	return ab_env("AB_LOAD_STATE");
 }
 
+void ab_pad_order(int order[2])
+{
+	const char *v = ab_env("AB_PAD_ORDER");
+	int a = -1, b = -1;
+
+	order[0] = 0;
+	order[1] = 1;
+	if (v == NULL)
+		return;
+	if (sscanf(v, "%d,%d", &a, &b) != 2)
+		return;
+	if ((a != 0 && a != 1) || (b != 0 && b != 1) || a == b)
+		return;
+	order[0] = a;
+	order[1] = b;
+}
+
 int ab_bios_set_by_pcsx(void)
 {
 	return bios_auto && strcmp(Config.Bios[0], AB_BIOS_WORLD) == 0;
