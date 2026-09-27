@@ -3,7 +3,7 @@
 The two patches next to this file are the whole Sony + AutoBleem delta, whitespace-normalised (the console
 SDK export is CRLF with re-indented functions; `diff -w` hides that):
 
-- `pcsx-ab-delta-2017.patch` - pcsx-ab (`github.com/autobleem/pcsx-ab2`, `develop` at `fc8c992`,
+- `pcsx-ab-delta-2017.patch` - pcsx-ab (`github.com/autobleem2/pcsx-ab2`, `develop` at `fc8c992`,
   2026-09-20) against its upstream base, `notaz/pcsx_rearmed` **`bebe989b` (2017-10-17)** - r22 + 25 commits,
   the snapshot Sony's 2018 firmware took. 62 files, ~6300 diff lines. Made with
   `diff -ruw -N <upstream bebe989b: libpcsxcore frontend plugins include> <pcsx-ab, CRLF stripped>`;
