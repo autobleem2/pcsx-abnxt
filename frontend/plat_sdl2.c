@@ -254,10 +254,13 @@ void plat_init(void)
   /* AB_HEADLESS=1: the same automated-test-run policy as the launcher's Platform (autobleem-core's
    * ableem::Platform) - dummy audio (must be in the environment before SDL's audio subsystem inits,
    * which happens inside plat_sdl2_init() below) and a window hidden right after it is created, before
-   * the first frame is ever presented, so a tester's desktop never sees it flash up. */
+   * the first frame is ever presented, so a tester's desktop never sees it flash up. SDL_setenv, not
+   * POSIX setenv: MinGW (the Windows build) has no setenv, and SDL_setenv has been in SDL since 2.0.0 -
+   * well under the console's 2.0.14 ceiling - so this stays one line on every platform, read back by
+   * SDL's own audio init through SDL_getenv. */
   headless = ab_headless_requested();
   if (ab_headless_audio_driver(headless) != NULL)
-    setenv("SDL_AUDIODRIVER", ab_headless_audio_driver(headless), 1);
+    SDL_setenv("SDL_AUDIODRIVER", ab_headless_audio_driver(headless), 1);
 
 #if defined(__arm__) || defined(__aarch64__)
   fullscreen = 1;	/* the console and the Pi: the whole display, whatever its mode */
