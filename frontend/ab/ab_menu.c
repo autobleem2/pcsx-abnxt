@@ -115,11 +115,10 @@ static const char *ab_row_blocked(const menu_entry *e)
 	return NULL;
 }
 
-/* the last quick save's picture, kept in RAM for the menu (nothing written anywhere): the clean frame as
- * the console drew it, and when */
+/* the game's last frame before the menu opened, kept in RAM for the menu (nothing written anywhere): the
+ * clean frame as the console drew it, taken every time the menu opens, so it is never empty */
 static unsigned short *ab_snap;
 static int ab_snap_w, ab_snap_h;
-static time_t ab_snap_time;
 
 static void ab_snap_take(void)
 {
@@ -137,7 +136,6 @@ static void ab_snap_take(void)
 	ab_snap = n;
 	ab_snap_w = w;
 	ab_snap_h = h;
-	ab_snap_time = time(NULL);
 }
 
 /* the game's own config, pcsx.custom.cfg - what every save in these menus writes (ab_config.h) */
@@ -159,10 +157,8 @@ static int ab_menu_handler(int id, int keys)
 		ret = emu_save_state(AB_QUICK_SLOT);
 		snprintf(msg, sizeof(msg), ret == 0 ? "Quick save done" : "Quick save failed");
 		menu_update_msg(msg);
-		if (ret == 0) {
-			ab_snap_take();
+		if (ret == 0)
 			return 1;
-		}
 		break;
 	case MA_AB_QUICKLOAD:
 		if (!ready_to_go || !CdromId[0])
@@ -716,7 +712,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		}
 	}
 	{
-		/* the picture 4:3 in a frame, its caption under it */
+		/* the game's last frame, 4:3 in a frame */
 		int tw = left_w < (int)(400 * s) ? left_w : (int)(400 * s), th = tw * 3 / 4, fr = (int)(6 * s);
 		ab_ui_fill(&c, x - fr, y - fr, tw + 2 * fr, th + 2 * fr, (int)(10 * s), ab_col_panel, 210);
 		if (ab_snap != NULL) {
@@ -729,13 +725,8 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 				for (tx = 0; tx < tw; tx++)
 					drow[tx] = srow[tx * ab_snap_w / tw];
 			}
-			strftime(ltime_s, sizeof(ltime_s), "%H:%M", localtime(&ab_snap_time));
-			snprintf(buf, sizeof(buf), "%s  \xc2\xb7  %s", ab_ui_tr("Quick save"), ltime_s);
-		} else {
-			snprintf(buf, sizeof(buf), "%s", ab_ui_tr("No quick save yet"));
 		}
-		ab_text_shadow(&c, x, y + th + fr + (int)(8 * s), AB_UI_LEFT, buf, (int)(20 * s), ab_col_dim);
-		y += th + fr + (int)(44 * s);
+		y += th + fr + (int)(24 * s);
 	}
 	blocked = ent_sel != NULL ? ab_row_blocked(ent_sel) : NULL;
 	if (menu_error_msg[0] != 0) {
@@ -853,6 +844,7 @@ static void ab_menu_loop_d(void)
 
 	ab_ui_load(ab_opts.language);
 	ab_menu_prepare_bg();
+	ab_snap_take();		/* the frame the game was on when the menu opened */
 	do {
 		/* the Scaling row is g_scaler without "custom": a custom layer shows as 4:3 and is left alone
 		 * unless the row was moved */
