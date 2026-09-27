@@ -126,7 +126,7 @@ const char *ab_hud_msg_line(void)
 	if (g_opts & OPT_SHOWFPS) {
 		// the frames the game drew in the last second / the emulated refreshes per second (the emulation's
 		// speed: 60 NTSC, 50 PAL - less when it cannot keep up)
-		snprintf(buf, sizeof(buf), "FPS %d / %.1f Hz", pl_rearmed_cbs.flips_per_sec,
+		snprintf(buf, sizeof(buf), "FPS %d / VSYNC %.1f", pl_rearmed_cbs.flips_per_sec,
 			pl_rearmed_cbs.vsps_cur);
 		return buf;
 	}

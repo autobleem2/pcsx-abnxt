@@ -69,8 +69,9 @@ file - only nxt gets it, the classic pcsx-ab would take it for a file) and `lang
 emulator (`frontend/ab/lang/`, all 17 of the launcher's languages, its `English text=Translated text`
 format) has the seven strings; `ab_ui.c` rasterises them with **stb_truetype** (vendored,
 `frontend/ab/stb_truetype.h`, public domain - no new library on any platform) straight into the menu's
-RGB565 canvas from `skin/ui.ttf` (Selawik Light, 44 KB, OFL - the ab2 theme's font; every non-CJK
-string's glyphs checked) or the font a language file names with `|@font|` (Chinese: the launcher's
+RGB565 canvas from `skin/ui.ttf` (Selawik Regular, `selawk.ttf` from Microsoft's Selawik 1.01 release,
+44 KB, OFL - the ab2 theme's family; Light until 2026-09-28, too thin over a game for the HUD, which
+draws with it too) or the font a language file names with `|@font|` (Chinese: the launcher's
 `NotoSansSC-Regular.otf`, found in `fonts/`, which the launch scripts link to the launcher's fonts
 folder). No font = English through libpicofe's 8x8 font. `ci/build.sh`'s `dist()`, `make_packages.sh`
 and `make_win.sh` ship `skin/ui.ttf` + `lang/` with the emulator. **Do not call `CheckCdrom()` after
