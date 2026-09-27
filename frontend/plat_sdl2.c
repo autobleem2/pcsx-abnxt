@@ -174,12 +174,45 @@ static void resize_cb(int w, int h)
   }
 }
 
+/* C11, round 3 (Marcus's review): the one place pad_order is kept once pads_changed() computes it, so
+ * plat_trigger_vibrate() below can use the exact same mapping the analog sticks (in_adev[], right here in
+ * pads_changed()) and the buttons (ab_pads_swapped, plugin_lib.c) use - one source of truth for "which
+ * physical pad (SDL acceptance index) is on which PS1 port right now". Starts unswapped for the window
+ * before the first pads_changed() call (never observed in practice - it runs from in_sdl2gc_init()). */
+static int ab_pad_order_state[2] = { 0, 1 };
+
 /* every pad is its player's analog sticks too: in_adev[0]/[1] player 1's left/right, [2]/[3] player 2's */
 static void pads_changed(int pad_count)
 {
   int p;
+  /* C11: Options -> "Swap Player 1 / Player 2" - a purely positional swap of the first two SDL pads'
+   * PS1 ports. pad_order[] (in_sdl2gc's own acceptance-order "player" numbering, 1-based, is untouched -
+   * we do not edit the libpicofe submodule here) is one of only two permutations of {0, 1}: the identity
+   * or a single transposition, and both are their own inverse, so pad_order[p] + 1 is exactly the player
+   * number that belongs at PS1 port p (0-based) whichever way round it is set. AB_PAD_ORDER unset, or
+   * this build's abfeatures never having offered "padorder", leaves pad_order == {0, 1} and this loop
+   * behaves exactly as before.
+   *
+   * Review fix (Marcus): the swap only takes effect with two or more pads connected. pad_count is exactly
+   * in_sdl2gc's accepted-controller count (in_sdl2gc.c's in_sdl2gc_probe(), capped at SDL2GC_MAX_PADS), so
+   * with one pad or none the identity order is forced here regardless of AB_PAD_ORDER - a lone pad always
+   * lands on PS1 port 1 (player 1), swap on or off. This runs on every hot-plug re-probe too: unplugging
+   * one of two pads mid-game drops pad_count to 1 and un-swaps the remaining pad onto port 1.
+   *
+   * Round 3: this only ever moved the analog sticks (in_adev[] below) - the digital buttons follow
+   * libpicofe's own state->player (in_sdl2gc.c:296), untouched by pad_order, so a swapped pad's buttons
+   * used to stay on their unswapped port while its sticks moved. ab_pad_order_state (this file) and
+   * ab_pads_swapped (plugin_lib.c) are set here, right after pad_order is computed, so the buttons
+   * (plugin_lib.c's update_input()) and the rumble call (plat_trigger_vibrate() below) can be kept in step
+   * with the sticks without touching the libpicofe submodule. */
+  int pad_order[2] = { 0, 1 };
+  if (pad_count >= 2)
+    ab_pad_order(pad_order);
+  ab_pad_order_state[0] = pad_order[0];
+  ab_pad_order_state[1] = pad_order[1];
+  ab_pads_swapped = pad_count >= 2 && pad_order[0] != 0;
   for (p = 0; p < 2; p++) {
-    int dev = in_sdl2gc_dev_id(p + 1);
+    int dev = in_sdl2gc_dev_id(pad_order[p] + 1);
     in_adev[p * 2] = in_adev[p * 2 + 1] = dev;
     in_adev_axis[p * 2][0] = SDL2GC_AXIS_LX; in_adev_axis[p * 2][1] = SDL2GC_AXIS_LY;
     in_adev_axis[p * 2 + 1][0] = SDL2GC_AXIS_RX; in_adev_axis[p * 2 + 1][1] = SDL2GC_AXIS_RY;
@@ -361,7 +394,10 @@ void plat_trigger_vibrate(int pad, int low, int high)
 {
   if (!in_enable_vibration)
     return;
-  in_sdl2gc_rumble(pad + 1, low ? 0xffff : 0, high << 8, 5000);
+  /* C11, round 3 (Marcus's review): "pad" here is the PS1 port (0-based); the SDL player argument
+   * in_sdl2gc_rumble() wants is 1-based acceptance order, same as in_adev[]'s in pads_changed() above -
+   * ab_pad_order_state[pad] + 1, not pad + 1, or a swapped setup would rumble the wrong physical pad. */
+  in_sdl2gc_rumble(ab_pad_order_state[pad] + 1, low ? 0xffff : 0, high << 8, 5000);
 }
 
 void plat_minimize(void)

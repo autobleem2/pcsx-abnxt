@@ -38,6 +38,19 @@ extern int in_adev[4], in_adev_axis[4][2];
 extern int in_adev_is_nublike[4];
 extern int in_enable_vibration;
 
+/* C11, round 3 (Marcus's review): plat_sdl2.c's pads_changed() already swaps in_adev[] (the analog sticks)
+ * by pad_order, but the digital buttons follow libpicofe's own "player" acceptance-order numbering
+ * (in_sdl2gc.c's IN_BINDTYPE_PLAYER12 split - the lower 16 bits are player 1's buttons, the upper 16
+ * player 2's - set by in_sdl2gc_probe()'s state->player, which we do not touch in that submodule). Without
+ * this, pad A's buttons would drive port 1 while its sticks drove port 2 whenever the swap is active. Set
+ * by pads_changed() to the *same* gate it itself applies (pad_count >= 2, one source of truth for "is the
+ * swap actually in effect right now"); update_input() (plugin_lib.c) swaps in_keystate[0]/[1] when it's
+ * set, after they are filled from actions[IN_BINDTYPE_PLAYER12] - the one point both a pad's buttons and
+ * the keyboard's default binds (also IN_BINDTYPE_PLAYER12, lower half) go through, so a keyboard player on
+ * a dev host is swapped onto port 2 along with the pads while this is set. Acceptable there (no real
+ * console has two players sharing the pcsx-abnxt window's keyboard); documented, not fixed, per Marcus. */
+extern int ab_pads_swapped;
+
 extern void *pl_vout_buf;
 
 extern int g_layer_x, g_layer_y;
