@@ -57,7 +57,9 @@ dist() { # dist BUILD_DIR STRIP - the stripped emulator and plugins
 build_psc() {
     local toolchain="${PCSXAB_PSC_TOOLCHAIN:-${AB_PSC_TOOLCHAIN:-/opt/psc}}"
     echo "==> pcsx-ab psc: configure + build (build_psc, toolchain $toolchain)"
-    configure build_psc -DCMAKE_TOOLCHAIN_FILE=toolchains/psc/PSCtoolchainV8.cmake -DPCSXAB_PSC_TOOLCHAIN="$toolchain"
+    # the autobleem-build image's copy (APPS-6) - this runs in that image, which sets AB_PSC_TOOLCHAIN
+    # itself. make_psc.sh (the Sony-toolchain build over ssh, no image there) keeps the repo-local one.
+    configure build_psc -DCMAKE_TOOLCHAIN_FILE=/opt/ab/toolchains/psc/PSCtoolchainV8-pcsx.cmake -DPCSXAB_PSC_TOOLCHAIN="$toolchain"
     ninja -C build_psc -j "$JOBS"
     dist build_psc "$toolchain/bin/armv8-sony-linux-gnueabihf-strip"
     file build_psc/dist/pcsx-ab | grep -q 'ELF 32-bit LSB.*ARM, EABI5'
