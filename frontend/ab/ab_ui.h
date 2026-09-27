@@ -32,6 +32,9 @@ enum ab_ui_str {
 void ab_ui_load(const char *language);
 /* the string in the launcher's language (with a font to draw it), or the English default */
 const char *ab_ui_str(enum ab_ui_str s);
+/* any English text the language file translates (the menu's rows, values, help and messages); the text
+ * itself when it has no translation or there is no font */
+const char *ab_ui_tr(const char *en);
 /* whether a font was loaded (else the caller draws with libpicofe's font) */
 int ab_ui_has_font(void);
 

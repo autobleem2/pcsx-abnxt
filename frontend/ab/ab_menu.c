@@ -25,6 +25,8 @@
 #include "ab_console.h"
 #include "ab_debug.h"
 #include "ab_ui.h"
+#include "ab_pad_battery.h"
+#include "ab_shaders.h"
 
 /* our ids, past the menu.c enum's */
 enum {
@@ -34,6 +36,7 @@ enum {
 	MA_AB_FILTER,
 	MA_AB_PCSX_MENU,
 	MA_AB_SAVECFG,
+	MA_AB_SCALER,
 };
 
 #define AB_QUICK_SLOT 2		/* slot 0 is the resume point, 1 the launcher's copy of it */
@@ -44,48 +47,98 @@ static int ab_disc_screen(void);
 static const char *ab_filter_name(int id, int *offs);
 static void ab_menu_prepare_bg(void);
 
-static const char h_ab_filter[] = "Nearest = plain pixels, Linear = smoothed, Sharp = crisp pixels without"
-                                  " shimmer, CRT = a TV's look";
+/* (the texts are the language files' keys: no '=' in them) */
+static const char h_ab_filter[] = "Nearest: plain pixels. Linear: smoothed. Sharp: crisp pixels without"
+                                  " shimmer. CRT: a TV's look";
 static const char h_ab_pcsx[]   = "PCSX-ReARMed's own menu: options, controls, cheats...";
 static const char h_ab_savecfg[] = "Keeps these settings for this game; AutoBleem shows its own locked until"
                                    " you unlock them in the game's settings";
-static const char h_ab_scanlines[] = "Dark lines over the screen: 1 = every 2nd row, 2 = every 3rd,"
-                                     " 3 = two of every 3; brightness is how dark (off with a CRT filter)";
+static const char h_ab_scanlines[] = "Dark lines over the screen: 1 is every 2nd row, 2 every 3rd, 3 two of"
+                                     " every 3; brightness is how dark (off with a CRT filter)";
 /* upstream's soft_filter (the PCSX menu's "Software Filter"): scale2x/eagle2x on the GPU everywhere, our
  * hq2x/hq3x on the CPU (ab_scaler.c) - not offered on the console (ab_menu_loop_d picks the list) */
 static const char *men_ab_smooth[] = { "None", "Scale2x", "Eagle2x", "HQ2x", "HQ3x", NULL };
 static const char *men_ab_smooth_psc[] = { "None", "Scale2x", "Eagle2x", NULL };
-static const char h_ab_smooth[]  = "Smooths 2D games' pixels before scaling (on the console: off with a CRT"
-                                   " filter)";
-/* the picture's shape as the launcher's "Widescreen" option sets it (-ratio): 4:3 in the middle of the
- * screen, or the whole 16:9 screen; the PCSX menu's "Scaler" is the full set, this is the switch */
-static int ab_aspect_sel;
-static const char *men_ab_aspect[] = { "4:3", "16:9 (fullscreen)", NULL };
-static const char h_ab_aspect[]  = "4:3 as the PlayStation drew it, or stretched over the whole screen";
+static const char h_ab_smooth[]  = "Smooths 2D games' pixels before scaling";
+/* the scaler, as upstream's g_scaler (the PCSX menu's "Scaler" without "custom", which is left alone
+ * unless this row is moved) */
+static int ab_scaler_sel;
+static const char *men_ab_scaler[] = { "1x1", "Integer 2x", "4:3", "Integer 4:3", "Fullscreen", NULL };
+static const char h_ab_scaler[]  = "1x1: the PlayStation's pixels as they are. Integer: whole multiples"
+                                   " only (sharpest). 4:3: as the PlayStation drew it. Fullscreen: the whole"
+                                   " screen";
+static const char *men_ab_scanlines[] = { "Off", "1", "2", "3", NULL };
+static const char h_ab_scanline_l[] = "How much of the picture shows through the dark lines, 0-100%";
 static const char h_ab_pad[]     = "Standard (digital), analog (DualShock), a gun or nothing;"
                                    " takes effect when the game goes on";
 /* the Exit row's help, on every platform (ab_buttons.h) */
 static const char h_ab_exit[]    = "Back to AutoBleem - holding the menu button for 2 seconds in the game"
                                    " does the same";
+/* why a row is greyed */
+static const char ab_why_crt[]   = "Off while a CRT filter is on";
 
+/* the sections are label rows (not selectable), drawn as headings */
 static menu_entry e_menu_ab[] =
 {
+	mee_label     ("Game"),
 	mee_handler_id("Resume game",              MA_MAIN_RESUME_GAME, main_menu_handler),
 	mee_handler_id("Quick save",               MA_AB_QUICKSAVE,     ab_menu_handler),
 	mee_handler_id("Quick load",               MA_AB_QUICKLOAD,     ab_menu_handler),
 	mee_handler_id("Change disc",              MA_AB_DISC,          ab_menu_handler),
-	mee_cust_h    ("Filter",                   MA_AB_FILTER,        ab_menu_handler, ab_filter_name, h_ab_filter),
+	mee_label     ("Picture"),
+	mee_enum_h    ("Scaling",                  MA_AB_SCALER,        ab_scaler_sel, men_ab_scaler, h_ab_scaler),
 	mee_enum_h    ("Smoothing",                MA_OPT_SWFILTER,     soft_filter, men_ab_smooth, h_ab_smooth),
-	mee_enum_h    ("Screen",                   0,                   ab_aspect_sel, men_ab_aspect, h_ab_aspect),
-	mee_enum_h    ("Scanlines",                MA_OPT_SCANLINES,    scanlines, men_scanlines, h_ab_scanlines),
-	mee_range_h   ("Scanline brightness",      MA_OPT_SCANLINE_LEVEL, scanline_level, 0, 100, h_scanline_l),
+	mee_cust_h    ("Filter",                   MA_AB_FILTER,        ab_menu_handler, ab_filter_name, h_ab_filter),
+	mee_enum_h    ("Scanlines",                MA_OPT_SCANLINES,    scanlines, men_ab_scanlines, h_ab_scanlines),
+	mee_range_h   ("Scanline brightness",      MA_OPT_SCANLINE_LEVEL, scanline_level, 0, 100, h_ab_scanline_l),
+	mee_label     ("Controllers"),
 	mee_enum_h    ("Controller 1",             0,                   in_type_sel1, men_in_type_sel, h_ab_pad),
 	mee_enum_h    ("Controller 2",             0,                   in_type_sel2, men_in_type_sel, h_ab_pad),
-	mee_handler_id_h("PCSX menu",              MA_AB_PCSX_MENU,     ab_menu_pcsx_handler, h_ab_pcsx),
+	mee_label     ("Settings"),
 	mee_handler_id_h("Save settings for this game", MA_AB_SAVECFG,  ab_menu_handler, h_ab_savecfg),
+	mee_handler_id_h("PCSX menu",              MA_AB_PCSX_MENU,     ab_menu_pcsx_handler, h_ab_pcsx),
+	mee_label     ("Leave"),
 	mee_handler_id_h("Exit",                   MA_MAIN_EXIT,        main_menu_handler, NULL),
 	mee_end,
 };
+
+/* the reason a row is greyed now (it stays selectable, its help says why, its value does not move), or
+ * NULL: a CRT filter draws its own scanlines, and on the console it rules out the smoothing too */
+static const char *ab_row_blocked(const menu_entry *e)
+{
+	if (!ab_filter_is_crt(plat_target.hwfilter))
+		return NULL;
+	if (e->id == MA_OPT_SCANLINES || e->id == MA_OPT_SCANLINE_LEVEL)
+		return ab_why_crt;
+	if (e->id == MA_OPT_SWFILTER && ab_console_present())
+		return ab_why_crt;
+	return NULL;
+}
+
+/* the last quick save's picture, kept in RAM for the menu (nothing written anywhere): the clean frame as
+ * the console drew it, and when */
+static unsigned short *ab_snap;
+static int ab_snap_w, ab_snap_h;
+static time_t ab_snap_time;
+
+static void ab_snap_take(void)
+{
+	int w, h, bpp, y;
+	void *src = pl_prepare_screenshot(&w, &h, &bpp);
+	unsigned short *n;
+
+	if (src == NULL || bpp != 16 || w <= 0 || h <= 0)
+		return;
+	n = realloc(ab_snap, (size_t)w * h * 2);
+	if (n == NULL)
+		return;
+	for (y = 0; y < h; y++)
+		memcpy(n + (size_t)y * w, (unsigned short *)src + (size_t)y * w, (size_t)w * 2);
+	ab_snap = n;
+	ab_snap_w = w;
+	ab_snap_h = h;
+	ab_snap_time = time(NULL);
+}
 
 /* the game's own config, pcsx.custom.cfg - what every save in these menus writes (ab_config.h) */
 static int ab_save_config(void)
@@ -106,8 +159,10 @@ static int ab_menu_handler(int id, int keys)
 		ret = emu_save_state(AB_QUICK_SLOT);
 		snprintf(msg, sizeof(msg), ret == 0 ? "Quick save done" : "Quick save failed");
 		menu_update_msg(msg);
-		if (ret == 0)
+		if (ret == 0) {
+			ab_snap_take();
 			return 1;
+		}
 		break;
 	case MA_AB_QUICKLOAD:
 		if (!ready_to_go || !CdromId[0])
@@ -144,6 +199,10 @@ static int ab_menu_handler(int id, int keys)
 			if (plat_target.hwfilters[plat_target.hwfilter] == NULL)
 				plat_target.hwfilter = 0;
 		}
+		if (ab_filter_is_crt(plat_target.hwfilter))
+			menu_update_msg(ab_console_present() && soft_filter != SOFT_FILTER_NONE ?
+				"A CRT filter draws its own scanlines; smoothing is off with it" :
+				"A CRT filter draws its own scanlines");
 		break;
 	case MA_AB_SAVECFG:
 		menu_update_msg(ab_save_config() == 0 ? "Saved for this game" : "Failed to save the settings");
@@ -175,6 +234,7 @@ static const unsigned short ab_col_panel  = AB_RGB565(0x04, 0x12, 0x30);
 static const unsigned short ab_col_row    = AB_RGB565(0x1a, 0x7e, 0xc4);
 static const unsigned short ab_col_name   = AB_RGB565(0xd6, 0xdd, 0xe6);
 static const unsigned short ab_col_shadow = AB_RGB565(0x00, 0x08, 0x1c);
+static const unsigned short ab_col_grey   = AB_RGB565(0x5c, 0x66, 0x74);	/* a greyed row */
 
 static unsigned short *ab_bg;		/* the art at the canvas' size, bright (ab_menu_prepare_bg) */
 static int ab_bg_w, ab_bg_h;
@@ -228,6 +288,33 @@ static void ab_text_shadow(struct ab_canvas *c, int x, int y, int align, const c
 	int d = px >= 30 ? 2 : 1;
 	ab_text(c, x + d, y + d, align, s, px, ab_col_shadow);
 	ab_text(c, x, y, align, s, px, col);
+}
+
+/* the same, returning the text's width */
+static int ab_text_shadow_w(struct ab_canvas *c, int x, int y, const char *s, int px, unsigned short col)
+{
+	int d = px >= 30 ? 2 : 1;
+	ab_text(c, x + d, y + d, AB_UI_LEFT, s, px, ab_col_shadow);
+	return ab_text(c, x, y, AB_UI_LEFT, s, px, col);
+}
+
+/* a small battery (the HUD's icon's shape) filled to `percent`, top left at (x, y); returns its width */
+static int ab_battery_icon(struct ab_canvas *c, int x, int y, float s, int percent)
+{
+	int w = (int)(30 * s), h = (int)(15 * s), t = s >= 1.5f ? 2 : 1, nub = (int)(3 * s) + 1, fw;
+	unsigned short fill = percent <= AB_PAD_BATTERY_LOW_PERCENT ? AB_RGB565(0xff, 0x40, 0x30) :
+			      percent <= 50 ? AB_RGB565(0xff, 0xa0, 0x00) : AB_RGB565(0x40, 0xd8, 0x60);
+
+	ab_ui_fill(c, x - 1, y - 1, w + nub + 2, h + 2, 0, ab_col_shadow, 200);
+	ab_ui_fill(c, x, y, w, t, 0, ab_col_text, 255);
+	ab_ui_fill(c, x, y + h - t, w, t, 0, ab_col_text, 255);
+	ab_ui_fill(c, x, y, t, h, 0, ab_col_text, 255);
+	ab_ui_fill(c, x + w - t, y, t, h, 0, ab_col_text, 255);
+	ab_ui_fill(c, x + w, y + h / 3, nub, h - 2 * (h / 3), 0, ab_col_text, 255);
+	fw = (w - 4 * t) * percent / 100;
+	if (fw > 0)
+		ab_ui_fill(c, x + 2 * t, y + 2 * t, fw, h - 4 * t, 0, fill, 255);
+	return w + nub;
 }
 
 /* a pad glyph and its text, left to right from *x, which moves past them */
@@ -493,6 +580,8 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	time_t ltime;
 	float s;
 	int n, i, y, x, px, row_h, pad, panel_x, panel_y, panel_w, panel_h, x_name, x_val;
+	int heads, head_h, head_px, avail, left_w;
+	const char *blocked;
 
 	ab_debug_screen("menu");
 	c = ab_screen_begin();
@@ -513,37 +602,63 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		ab_text_shadow(&c, x, y, AB_UI_LEFT, "pcsx-abnxt", (int)(36 * s), ab_col_text);
 	}
 
-	/* the rows, on the panel */
-	for (n = 0, ent = menu, i = 0; ent->name; ent++, i++) {
+	/* the rows, on the panel: sections (the label rows) as headings; sized so that everything fits between
+	 * the top and the art's bar whatever the screen (a 1280x720 design, shrunk if it would not fit) */
+	for (n = 0, heads = 0, ent = menu, i = 0; ent->name; ent++, i++) {
 		if (!ent->enabled)
 			continue;
 		if (i == sel)
 			ent_sel = ent;
-		n++;
+		if (ent->selectable)
+			n++;
+		else
+			heads++;
 	}
 	if (ent_sel != NULL)
 		menu_sel_name = ent_sel->name;	/* as libpicofe's menus do, for the debug driver */
-	px = (int)(24 * s);
-	row_h = (int)(34 * s);
-	pad = (int)(18 * s);
-	panel_w = (int)(560 * s);
-	panel_x = c.w - (int)(40 * s) - panel_w;
-	panel_y = (int)(40 * s);
-	panel_h = n * row_h + 2 * pad;
+	row_h = (int)(30 * s);
+	head_h = (int)(28 * s);
+	pad = (int)(12 * s);
+	avail = (int)(596 * s);		/* 24..620 of the design: over the art's bar */
+	if (n * row_h + heads * head_h + 2 * pad > avail) {
+		float k = (float)(avail - 2 * pad) / (n * row_h + heads * head_h);
+		row_h = (int)(row_h * k);
+		head_h = (int)(head_h * k);
+	}
+	px = row_h * 7 / 10;
+	head_px = head_h * 6 / 10;
+	panel_w = (int)(540 * s);
+	panel_x = c.w - (int)(32 * s) - panel_w;
+	panel_y = (int)(24 * s);
+	panel_h = n * row_h + heads * head_h + 2 * pad;
 	ab_ui_fill(&c, panel_x, panel_y, panel_w, panel_h, (int)(14 * s), ab_col_panel, 210);
-	x_name = panel_x + (int)(30 * s);
-	x_val = panel_x + panel_w - (int)(30 * s);
+	x_name = panel_x + (int)(28 * s);
+	x_val = panel_x + panel_w - (int)(28 * s);
 	y = panel_y + pad;
 	for (ent = menu, i = 0; ent->name; ent++, i++) {
 		const char *name = ent->name, *val = NULL;
 		int offs = 0, is_sel = i == sel;
+		unsigned short col_name, col_val;
 
 		if (!ent->enabled)
 			continue;
+		if (!ent->selectable) {
+			/* a section's heading, with a thin rule after it */
+			int tw = ab_text(&c, x_name - (int)(12 * s), y + head_h - head_px - (int)(4 * s), AB_UI_LEFT,
+				ab_ui_tr(name), head_px, ab_col_accent);
+			ab_ui_fill(&c, x_name - (int)(12 * s) + tw + (int)(10 * s), y + head_h - head_px / 2 - (int)(4 * s),
+				x_val - (x_name - (int)(12 * s) + tw + (int)(10 * s)), 1 + (int)s, 0, ab_col_row, 120);
+			y += head_h;
+			continue;
+		}
+		blocked = ab_row_blocked(ent);
+		col_name = blocked ? ab_col_grey : is_sel ? ab_col_text : ab_col_name;
+		col_val = blocked ? col_name : ab_col_dim;
 		if (is_sel)
-			ab_ui_fill(&c, panel_x + (int)(12 * s), y, panel_w - (int)(24 * s), row_h, (int)(8 * s), ab_col_row, 170);
+			ab_ui_fill(&c, panel_x + (int)(10 * s), y, panel_w - (int)(20 * s), row_h, (int)(8 * s), ab_col_row, 170);
 		if (name[0] == 0 && ent->generate_name != NULL)
 			name = ent->generate_name(ent->id, &offs);
+		name = ab_ui_tr(name);
 		switch (ent->beh) {
 		case MB_OPT_ONOFF:
 			val = me_read_onoff(ent) ? "ON" : "OFF";
@@ -564,10 +679,13 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		default:
 			break;
 		}
-		ab_text(&c, x_name, y + (row_h - px) / 2, AB_UI_LEFT, name, px, is_sel ? ab_col_text : ab_col_name);
+		ab_text(&c, x_name, y + (row_h - px) / 2, AB_UI_LEFT, name, px, col_name);
 		if (val != NULL) {
 			int vx = x_val, vy = y + (row_h - px) / 2;
-			if (is_sel) {
+			val = ab_ui_tr(val);
+			if (blocked) {
+				ab_text(&c, vx, vy, AB_UI_RIGHT, val, px, col_val);
+			} else if (is_sel) {
 				/* the arrows of a value row, so Left/Right is obvious */
 				vx -= ab_text(&c, x_val, vy, AB_UI_RIGHT, ">", px, ab_col_accent) + (int)(8 * s);
 				vx -= ab_text(&c, vx, vy, AB_UI_RIGHT, val, px, ab_col_text) + (int)(8 * s);
@@ -579,19 +697,59 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		y += row_h;
 	}
 
-	/* the message of the moment, else the selected row's help, under the game's name */
+	/* left of the panel, under the game's name: the pads' batteries, the last quick save's picture, then
+	 * the message of the moment or the selected row's help */
 	x = (int)(40 * s);
-	y = (int)(150 * s);
+	y = (int)(40 * s) + (CdromId[0] != 0 ? (int)(84 * s) : (int)(50 * s));
+	left_w = panel_x - x - (int)(32 * s);
+	{
+		int pct[AB_PAD_BATTERY_MAX], np = ab_pad_battery_all(pct, AB_PAD_BATTERY_MAX), k, bx;
+		if (np > 0) {
+			bx = x + ab_text_shadow_w(&c, x, y, ab_ui_tr("Pad battery"), (int)(20 * s), ab_col_dim) + (int)(12 * s);
+			for (k = 0; k < np; k++) {
+				snprintf(buf, sizeof(buf), "%d%%", pct[k]);
+				bx += ab_battery_icon(&c, bx, y + (int)(3 * s), s, pct[k]) + (int)(6 * s);
+				bx += ab_text_shadow_w(&c, bx, y, buf, (int)(20 * s),
+					pct[k] <= AB_PAD_BATTERY_LOW_PERCENT ? AB_RGB565(0xff, 0x60, 0x50) : ab_col_text) + (int)(18 * s);
+			}
+			y += (int)(34 * s);
+		}
+	}
+	{
+		/* the picture 4:3 in a frame, its caption under it */
+		int tw = left_w < (int)(400 * s) ? left_w : (int)(400 * s), th = tw * 3 / 4, fr = (int)(6 * s);
+		ab_ui_fill(&c, x - fr, y - fr, tw + 2 * fr, th + 2 * fr, (int)(10 * s), ab_col_panel, 210);
+		if (ab_snap != NULL) {
+			int tx, ty;
+			for (ty = 0; ty < th; ty++) {
+				const unsigned short *srow = ab_snap + (size_t)(ty * ab_snap_h / th) * ab_snap_w;
+				unsigned short *drow = c.fb + (size_t)(y + ty) * c.pitch + x;
+				if (y + ty < 0 || y + ty >= c.h)
+					continue;
+				for (tx = 0; tx < tw; tx++)
+					drow[tx] = srow[tx * ab_snap_w / tw];
+			}
+			strftime(ltime_s, sizeof(ltime_s), "%H:%M", localtime(&ab_snap_time));
+			snprintf(buf, sizeof(buf), "%s  \xc2\xb7  %s", ab_ui_tr("Quick save"), ltime_s);
+		} else {
+			snprintf(buf, sizeof(buf), "%s", ab_ui_tr("No quick save yet"));
+		}
+		ab_text_shadow(&c, x, y + th + fr + (int)(8 * s), AB_UI_LEFT, buf, (int)(20 * s), ab_col_dim);
+		y += th + fr + (int)(44 * s);
+	}
+	blocked = ent_sel != NULL ? ab_row_blocked(ent_sel) : NULL;
 	if (menu_error_msg[0] != 0) {
-		ab_text_wrap(&c, x, y, menu_error_msg, (int)(24 * s), panel_x - x - (int)(40 * s), 2, ab_col_accent);
+		ab_text_wrap(&c, x, y, ab_ui_tr(menu_error_msg), (int)(22 * s), left_w, 3, ab_col_accent);
 		if (plat_get_ticks_ms() - menu_error_time > 2048)
 			menu_error_msg[0] = 0;
+	} else if (blocked != NULL) {
+		ab_text_wrap(&c, x, y, ab_ui_tr(blocked), (int)(20 * s), left_w, 3, ab_col_accent);
 	} else if (ent_sel != NULL && ent_sel->help != NULL) {
-		ab_text_wrap(&c, x, y, ent_sel->help, (int)(20 * s), panel_x - x - (int)(40 * s), 3, ab_col_dim);
+		ab_text_wrap(&c, x, y, ab_ui_tr(ent_sel->help), (int)(20 * s), left_w, 4, ab_col_dim);
 	}
 
 	/* the bar: the hints on its left, the build on its right */
-	ab_footer(&c, "Select", ready_to_go ? "Resume" : "Back");
+	ab_footer(&c, ab_ui_tr("Select"), ab_ui_tr(ready_to_go ? "Resume" : "Back"));
 	px = (int)(17 * s);
 	x = c.w - (int)(40 * s);
 	/* the package's version (AB_VERSION, exported by the launcher) - what every program on the stick shows;
@@ -642,6 +800,8 @@ static int ab_menu_run(menu_entry *menu, int *menu_sel)
 					sel = 0;
 			} while (!menu[sel].enabled || !menu[sel].selectable);
 		}
+		if (ab_row_blocked(&menu[sel]) != NULL)
+			continue;	/* greyed: its value does not move (the help says why) */
 		if (inp & (PBTN_LEFT|PBTN_RIGHT|PBTN_L|PBTN_R)) {
 			if (me_process(&menu[sel], (inp & (PBTN_RIGHT|PBTN_R)) ? 1 : 0, inp & (PBTN_L|PBTN_R)))
 				continue;
@@ -694,11 +854,12 @@ static void ab_menu_loop_d(void)
 	ab_ui_load(ab_opts.language);
 	ab_menu_prepare_bg();
 	do {
-		ab_aspect_sel = g_scaler == SCALE_FULLSCREEN;
+		/* the Scaling row is g_scaler without "custom": a custom layer shows as 4:3 and is left alone
+		 * unless the row was moved */
+		int shown = g_scaler <= SCALE_FULLSCREEN ? g_scaler : SCALE_4_3;
+		ab_scaler_sel = shown;
 		ab_menu_run(e_menu_ab, &sel);
-		/* the row is a two-way switch over g_scaler; a scaler the row cannot name (custom, 1x1) is left
-		 * alone unless the row was moved */
-		if (ab_aspect_sel != (g_scaler == SCALE_FULLSCREEN))
-			g_scaler = ab_aspect_sel ? SCALE_FULLSCREEN : SCALE_4_3;
+		if (ab_scaler_sel != shown)
+			g_scaler = ab_scaler_sel;
 	} while (!ready_to_go && !g_emu_want_quit);
 }

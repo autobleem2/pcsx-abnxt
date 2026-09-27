@@ -50,7 +50,9 @@ static void data_path(char *path, size_t size, const char *end)
 	emu_make_data_path(path, end, size);
 }
 
-static char *translated[AB_STR_COUNT];
+/* every "English=Translated" pair of the language file (the menu, its help, its messages, the HUD's) */
+static struct { char *en, *tr; } *pairs;
+static int npairs, pairs_cap;
 static char font_name[128];		/* |@font| from the language file, a file in skin/ or fonts/ */
 static unsigned char *font_data;
 static stbtt_fontinfo font;
@@ -60,7 +62,6 @@ static void take_line(char *line)
 {
 	char *eq = strchr(line, '=');
 	char *e;
-	int i;
 
 	if (line[0] == '#' || eq == NULL)
 		return;
@@ -73,13 +74,31 @@ static void take_line(char *line)
 		snprintf(font_name, sizeof(font_name), "%s", eq);
 		return;
 	}
-	for (i = 0; i < AB_STR_COUNT; i++) {
-		if (strcmp(line, english[i]) == 0) {
-			free(translated[i]);
-			translated[i] = strdup(eq);
+	if (npairs == pairs_cap) {
+		int cap = pairs_cap ? pairs_cap * 2 : 64;
+		void *n = realloc(pairs, cap * sizeof(*pairs));
+		if (n == NULL)
 			return;
-		}
+		pairs = n;
+		pairs_cap = cap;
 	}
+	pairs[npairs].en = strdup(line);
+	pairs[npairs].tr = strdup(eq);
+	if (pairs[npairs].en != NULL && pairs[npairs].tr != NULL)
+		npairs++;
+}
+
+const char *ab_ui_tr(const char *en)
+{
+	int i;
+
+	/* a translation can only be drawn with a real font: the 8x8 one is ASCII */
+	if (en == NULL || !font_ok)
+		return en;
+	for (i = 0; i < npairs; i++)
+		if (strcmp(pairs[i].en, en) == 0)
+			return pairs[i].tr;
+	return en;
 }
 
 static void read_strings(const char *language)
@@ -166,10 +185,7 @@ const char *ab_ui_str(enum ab_ui_str s)
 {
 	if (s < 0 || s >= AB_STR_COUNT)
 		return "";
-	/* a translation can only be drawn with a real font: the 8x8 one is ASCII */
-	if (font_ok && translated[s] != NULL)
-		return translated[s];
-	return english[s];
+	return ab_ui_tr(english[s]);
 }
 
 int ab_ui_has_font(void)

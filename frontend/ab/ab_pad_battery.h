@@ -35,6 +35,11 @@ int ab_pad_battery_low(void);
  * leaves the game) */
 int ab_pad_battery_visible(void);
 
+/* every wireless pad's percent at the last poll (the in-game menu's header), in a stable order; returns
+ * how many, 0 when no pad's battery is known (wired pads have none) */
+#define AB_PAD_BATTERY_MAX 4
+int ab_pad_battery_all(int *percent, int max);
+
 /* the percent the icon should fill to: whichever reading made ab_pad_battery_low() true, or the lowest
  * known percent; -1 when nothing is known */
 int ab_pad_battery_percent(void);

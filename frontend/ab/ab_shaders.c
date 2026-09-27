@@ -56,11 +56,6 @@ const struct plat_ab_shader *ab_filter_shader(int filter)
 	return &filters[filter];
 }
 
-int ab_filter_is_crt(int filter)
-{
-	return filter == AB_FILTER_CRT_FAST || filter == AB_FILTER_CRT_PI;
-}
-
 const struct plat_ab_shader *ab_smooth_shader(int soft_filter)
 {
 	switch (soft_filter) {

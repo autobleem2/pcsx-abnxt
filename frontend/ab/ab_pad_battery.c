@@ -16,6 +16,10 @@
 
 static int low_latched;	/* 1 once a pad was seen at/under LOW_PERCENT, cleared only at/over RESET_PERCENT */
 static int last_percent = -1;	/* the reading low_latched is based on, or the lowest seen this poll */
+/* every wireless pad's percent at the last poll, in the order of their sysfs names (the menu's header) */
+static int all_percent[AB_PAD_BATTERY_MAX];
+static char all_name[AB_PAD_BATTERY_MAX][64];
+static int all_count;
 
 /* the whole of a small sysfs file's first line, trimmed of the trailing newline/whitespace; "" (and 0
  * returned) when the file is not there - a driver that has not written a value yet, or a kernel without
@@ -99,6 +103,7 @@ static int poll_lowest_percent(void)
 	struct dirent *ent;
 	int lowest = -1;
 
+	all_count = 0;
 	if (root[0] == 0)
 		return -1;
 	d = opendir(root);
@@ -131,6 +136,17 @@ static int poll_lowest_percent(void)
 		}
 		if (percent >= 0 && (lowest < 0 || percent < lowest))
 			lowest = percent;
+		if (percent >= 0 && all_count < AB_PAD_BATTERY_MAX) {
+			/* sorted by name, so the order stays put between polls */
+			int i = all_count++;
+			while (i > 0 && strcmp(all_name[i - 1], ent->d_name) > 0) {
+				all_percent[i] = all_percent[i - 1];
+				memcpy(all_name[i], all_name[i - 1], sizeof(all_name[i]));
+				i--;
+			}
+			all_percent[i] = percent;
+			snprintf(all_name[i], sizeof(all_name[i]), "%s", ent->d_name);
+		}
 	}
 	closedir(d);
 	return lowest;
@@ -170,4 +186,13 @@ int ab_pad_battery_visible(void)
 int ab_pad_battery_percent(void)
 {
 	return last_percent;
+}
+
+int ab_pad_battery_all(int *percent, int max)
+{
+	int i, n = all_count < max ? all_count : max;
+
+	for (i = 0; i < n; i++)
+		percent[i] = all_percent[i];
+	return n;
 }

@@ -399,7 +399,7 @@ static int ab_hud_line_update(AbHudLine *line, const char *text, int sh)
   ab_ui_load(ab_opts.language);   /* the font and the strings, once (the menu loads them too) */
   if (size < 12)
     size = 12;
-  if (!ab_hud_line_render(px, text, size, scale, &w, &h))
+  if (!ab_hud_line_render(px, ab_ui_tr(text), size, scale, &w, &h))
     return 0;
   if (plat_ab_hud_image(line->slot, px, ab_ui_has_font() ? w : w / scale, ab_ui_has_font() ? h : h / scale) != 0)
     return 0;
