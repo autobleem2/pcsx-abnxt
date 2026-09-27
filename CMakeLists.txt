@@ -238,7 +238,7 @@ set(PCSXAB_SOURCES
     # AutoBleem's own (the port's rule: new files, hooks only in upstream's)
     frontend/ab/ab_config.c frontend/ab/ab_session.c frontend/ab/ab_buttons.c frontend/ab/ab_memcard.c
     frontend/ab/ab_console.c frontend/ab/ab_disc.c frontend/ab/ab_ui.c frontend/ab/ab_hacks.c
-    frontend/ab/ab_debug.c frontend/ab/ab_pad_battery.c frontend/ab/ab_headless.c
+    frontend/ab/ab_debug.c frontend/ab/ab_pad_battery.c frontend/ab/ab_headless.c frontend/ab/ab_hud_text.c
     # the smoothing scalers: ours (scale2x/eagle2x in C) and hqx (LGPL, adapted to RGB565)
     frontend/ab/ab_scaler.c frontend/ab/hqx/hqx_init.c frontend/ab/hqx/hq2x.c frontend/ab/hqx/hq3x.c
 )

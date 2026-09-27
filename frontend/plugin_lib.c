@@ -71,6 +71,11 @@ int g_layer_x, g_layer_y, g_layer_w, g_layer_h;
 static int pl_vout_w, pl_vout_h, pl_vout_bpp; /* output display/layer */
 static int pl_vout_scale_w, pl_vout_scale_h;
 int pl_scanlines_by_plat;
+// EMU-15 part 2: like pl_scanlines_by_plat - 1 when a platform draws hud_msg/FPS/CPU load/the SPU channel
+// bar itself, after its own scanline overlay (plat_sdl2.c sets this where it registers its HUD callback);
+// print_hud() below then draws none of them into pl_vout_buf. Default 0: unset on any platform that never
+// touches it (plat_sdl.c, plat_dummy), which keeps drawing them the old way.
+int pl_hud_by_plat;
 static int psx_w, psx_h, psx_bpp;
 static int vsync_cnt;
 static int is_pal, frame_interval, frame_interval1024;
@@ -105,6 +110,71 @@ static __attribute__((noinline)) int get_cpu_ticks(void)
 	return ret;
 }
 
+// EMU-15 part 2: the frontend's own source of truth for what the HUD overlay's notice layer should show -
+// the same priority and formatting print_hud below always used for hud_msg/FPS, CPU load and the SPU
+// channel bar. plat_sdl2.c's ab_hud_notices_draw() calls these every present() and turns the answer into
+// pixels, drawn after the scanlines - never into pl_vout_buf, which is what buried them under the scanline
+// overlay before (the same bug the low-battery icon had, EMU-15 part 1).
+
+const char *ab_hud_msg_line(void)
+{
+	static char buf[16];
+
+	if (hud_msg[0] != 0)
+		return hud_msg;
+	if (g_opts & OPT_SHOWFPS) {
+		snprintf(buf, sizeof(buf), "%2d %4.1f", pl_rearmed_cbs.flips_per_sec,
+			pl_rearmed_cbs.vsps_cur);
+		return buf;
+	}
+	return NULL;
+}
+
+const char *ab_hud_cpu_line(void)
+{
+	static char buf[8];
+
+	if (!(g_opts & OPT_SHOWCPU))
+		return NULL;
+	snprintf(buf, sizeof(buf), "%3d", pl_rearmed_cbs.cpu_usage);
+	return buf;
+}
+
+// the 24 sound channels' colours (RGB565, widened to ARGB8888 by whoever draws them) - the exact values
+// this used to paint straight into the frame with, just handed out instead of drawn here
+int ab_hud_active_chans(unsigned short *out, int max)
+{
+	extern void spu_get_debug_info(int *chans_out, int *run_chans,
+		int *fmod_chans_out, int *noise_chans_out); // hack
+	static const unsigned short colors[2] = { 0x1fe3, 0x0700 };
+	int live_chans, run_chans, fmod_chans, noise_chans;
+	int c, n;
+
+	if (!(g_opts & OPT_SHOWSPU))
+		return 0;
+
+	spu_get_debug_info(&live_chans, &run_chans, &fmod_chans, &noise_chans);
+
+	n = max < AB_HUD_CHANS_N ? max : AB_HUD_CHANS_N;
+	for (c = 0; c < n; c++) {
+		out[c] = !(live_chans & (1<<c)) ? (run_chans & (1<<c) ? 0x01c0 : 0) :
+		          (fmod_chans & (1<<c)) ? 0xf000 :
+		          (noise_chans & (1<<c)) ? 0x001f :
+		          colors[c & 1];
+	}
+	return n;
+}
+
+// EMU-15 part 2: the old direct-into-pl_vout_buf drawing, kept for any platform that does not set
+// pl_hud_by_plat (plat_sdl.c's SDL 1.2 "sdl" platform, plat_dummy, any future one). Built from the same
+// ab_hud_msg_line()/ab_hud_cpu_line()/ab_hud_active_chans() accessors plat_sdl2.c's overlay uses, so the
+// text and its priority are defined once - only where it ends up (a HUD overlay vs. baked into the frame)
+// differs.
+
+// note: no hud_printf() any more - print_fps()/print_cpu_usage() used to build their own text with it
+// (vsnprintf straight into a stack buffer), but that formatting now lives once in
+// ab_hud_msg_line()/ab_hud_cpu_line() (plat_sdl2.c's overlay needs the same ready-made strings), so
+// hud_print() below only ever gets a string that is already finished.
 static void hud_print(void *fb, int w, int x, int y, const char *text)
 {
 	if (pl_plat_hud_print)
@@ -113,63 +183,45 @@ static void hud_print(void *fb, int w, int x, int y, const char *text)
 		basic_text_out16_nf(fb, w, x, y, text);
 }
 
-static void hud_printf(void *fb, int w, int x, int y, const char *texto, ...)
+// hud_msg if set, else the FPS line if OPT_SHOWFPS - ab_hud_msg_line()'s own priority, unchanged
+static void print_msg_line(int h, int border)
 {
-	va_list args;
-	char    buffer[256];
+	const char *line = ab_hud_msg_line();
 
-	va_start(args, texto);
-	vsnprintf(buffer, sizeof(buffer), texto, args);
-	va_end(args);
-
-	hud_print(fb, w, x, y, buffer);
-}
-
-static void print_msg(int h, int border)
-{
-	hud_print(pl_vout_buf, pl_vout_w, border + 2, h - HUD_HEIGHT, hud_msg);
-}
-
-static void print_fps(int h, int border)
-{
-	hud_printf(pl_vout_buf, pl_vout_w, border + 2, h - HUD_HEIGHT,
-		"%2d %4.1f", pl_rearmed_cbs.flips_per_sec,
-		pl_rearmed_cbs.vsps_cur);
+	if (line != NULL)
+		hud_print(pl_vout_buf, pl_vout_w, border + 2, h - HUD_HEIGHT, line);
 }
 
 static void print_cpu_usage(int x, int h)
 {
-	hud_printf(pl_vout_buf, pl_vout_w, x - 28,
-		h - HUD_HEIGHT, "%3d", pl_rearmed_cbs.cpu_usage);
+	const char *line = ab_hud_cpu_line();
+
+	if (line != NULL)
+		hud_print(pl_vout_buf, pl_vout_w, x - 28, h - HUD_HEIGHT, line);
 }
 
-// draw 192x8 status of 24 sound channels
+// draw 192x8 status of up to 24 sound channels - ab_hud_active_chans() already applies the OPT_SHOWSPU
+// gate and picks each channel's colour, so this only has to paint what it hands back
 static __attribute__((noinline)) void draw_active_chans(int vout_w, int vout_h)
 {
-	extern void spu_get_debug_info(int *chans_out, int *run_chans,
-		int *fmod_chans_out, int *noise_chans_out); // hack
-	int live_chans, run_chans, fmod_chans, noise_chans;
-
-	static const unsigned short colors[2] = { 0x1fe3, 0x0700 };
-	unsigned short *dest = (unsigned short *)pl_vout_buf +
-		pl_vout_w * (vout_h - HUD_HEIGHT) + pl_vout_w / 2 - 192/2;
-	unsigned short *d, p;
-	int c, x, y;
+	unsigned short colors[AB_HUD_CHANS_N];
+	unsigned short *dest, *d;
+	int n, c, x, y;
 
 	if (pl_vout_buf == NULL || pl_vout_bpp != 16)
 		return;
 
-	spu_get_debug_info(&live_chans, &run_chans, &fmod_chans, &noise_chans);
+	n = ab_hud_active_chans(colors, AB_HUD_CHANS_N);
+	if (n == 0)
+		return;
 
-	for (c = 0; c < 24; c++) {
+	dest = (unsigned short *)pl_vout_buf +
+		pl_vout_w * (vout_h - HUD_HEIGHT) + pl_vout_w / 2 - 192/2;
+	for (c = 0; c < n; c++) {
 		d = dest + c * 8;
-		p = !(live_chans & (1<<c)) ? (run_chans & (1<<c) ? 0x01c0 : 0) :
-		     (fmod_chans & (1<<c)) ? 0xf000 :
-		     (noise_chans & (1<<c)) ? 0x001f :
-		     colors[c & 1];
 		for (y = 0; y < 8; y++, d += pl_vout_w)
 			for (x = 0; x < 8; x++)
-				d[x] = p;
+				d[x] = colors[c];
 	}
 }
 
@@ -178,25 +230,21 @@ static void print_hud(int x, int w, int h)
 	if (h < 192)
 		return;
 
+	// EMU-15: a platform that draws its own HUD overlay after its own scanlines (plat_sdl2.c, both the
+	// low-battery icon from part 1 and hud_msg/FPS/CPU load/the SPU channel bar from part 2) sets
+	// pl_hud_by_plat and this frontend-level path draws none of them - see plugin_lib.h's comment on the
+	// flag and on ab_hud_msg_line()/ab_hud_cpu_line()/ab_hud_active_chans(), its source of truth either
+	// way. Every other platform (plat_sdl.c's SDL 1.2 "sdl" platform, plat_dummy) never sets it, and gets
+	// exactly what this used to do, unchanged.
+	if (pl_hud_by_plat)
+		return;
+
 	if (h > pl_vout_h)
 		h = pl_vout_h;
 
-	// EMU-15: the low-battery icon used to be drawn here, straight into this PSX-resolution frame -
-	// which meant the scanline overlay (drawn later, over the presented/scaled frame in
-	// libpicofe/plat_sdl2.c) dimmed or fully hid it, and a DualSense low on charge never showed the icon
-	// on its own. It is drawn now as a HUD overlay at output resolution instead, after the scanlines:
-	// frontend/plat_sdl2.c's ab_hud_battery_draw(), registered with libpicofe's plat_sdl2_set_hud_cb().
-
-	if (g_opts & OPT_SHOWSPU)
-		draw_active_chans(w, h);
-
-	if (hud_msg[0] != 0)
-		print_msg(h, x);
-	else if (g_opts & OPT_SHOWFPS)
-		print_fps(h, x);
-
-	if (g_opts & OPT_SHOWCPU)
-		print_cpu_usage(x + w, h);
+	draw_active_chans(w, h);
+	print_msg_line(h, x);
+	print_cpu_usage(x + w, h);
 }
 
 /* update scaler target size according to user settings */

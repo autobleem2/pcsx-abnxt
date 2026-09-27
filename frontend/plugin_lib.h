@@ -150,6 +150,26 @@ extern void (*pl_plat_blit)(int doffs, const void *src,
 			    int w, int h, int sstride, int bgr24);
 extern void (*pl_plat_hud_print)(int x, int y, const char *str, int bpp);
 
+/* EMU-15 part 2: hud_msg / FPS / CPU load / SPU channel notices used to be drawn by plugin_lib.c's
+ * print_hud() straight into the PSX-resolution frame, where the scanline overlay (drawn later, over the
+ * presented/scaled frame in libpicofe/plat_sdl2.c) covered them - the same bug the low-battery icon had.
+ * A platform that draws its own scanlines over the scaled picture (currently only plat_sdl2.c) draws these
+ * too, as part of its HUD overlay, after the scanlines - these three are that overlay's source of truth for
+ * what to show, in the same priority and format print_hud always used. Every other platform (plat_sdl.c's
+ * SDL 1.2 "sdl" platform, plat_dummy, any future one that never sets pl_hud_by_plat) gets exactly the old
+ * behaviour: print_hud() below draws them itself, straight into pl_vout_buf, built from these same
+ * accessors so the text and its priority are defined once either way. */
+const char *ab_hud_msg_line(void);
+const char *ab_hud_cpu_line(void);
+#define AB_HUD_CHANS_N 24
+int ab_hud_active_chans(unsigned short *out, int max);
+
+// like pl_scanlines_by_plat above: a platform that draws hud_msg/FPS/CPU load/the SPU channel bar itself,
+// after its own scanline overlay, sets this - plugin_lib.c's print_hud() then draws none of them into
+// pl_vout_buf. Default 0 (drawn the old way) so a platform that never sets it (plat_sdl.c, plat_dummy) is
+// unaffected.
+extern int pl_hud_by_plat;
+
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 #endif
