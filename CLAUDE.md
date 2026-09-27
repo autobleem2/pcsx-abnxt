@@ -2,7 +2,7 @@
 
 AutoBleem's next PS1 emulator: **upstream PCSX-ReARMed (notaz) with what Sony and AutoBleem added to pcsx-ab
 re-implemented on top**, for the PlayStation Classic, the two Raspberry Pi builds and the Windows dev host.
-Author: screemer (the repo owner). It replaces `pcsx-ab` (`github.com/autobleem2/pcsx-ab2`,
+Author: screemer (the repo owner). It replaces `pcsx-ab` (`github.com/autobleem2/pcsx-ab`,
 `E:\Programming\pcsx-rearmed-develop` - a 2017 core with patches), which AutoBleem
 (`E:\Programming\autobleem-develop`) still ships until phase 8 of the plan. This file is the project knowledge
 of record; keep it current in the same commit as any change it describes. Git history has the reasoning per
