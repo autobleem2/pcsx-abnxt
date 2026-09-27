@@ -7,6 +7,10 @@
 # has the SDL2, libpng, Wayland and GLES dev files the console build needs, so no devkit is required here.
 # ./make_psc.sh runs this on the server over ssh; it is not installed on the Windows host.
 #
+# Kept here only for that ssh build (APPS-6): ci/build.sh, which runs in the autobleem-build image, reads
+# the image's own copy at /opt/ab/toolchains/psc/PSCtoolchainV8-pcsx.cmake instead - there is no image on
+# the bare Sony-toolchain server make_psc.sh talks to, so this repo-local copy is the one exception.
+#
 #   cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=toolchains/psc/PSCtoolchainV8.cmake -B build_psc
 
 set(CMAKE_SYSTEM_NAME Linux)
