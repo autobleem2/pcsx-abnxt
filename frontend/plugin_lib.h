@@ -150,6 +150,18 @@ extern void (*pl_plat_blit)(int doffs, const void *src,
 			    int w, int h, int sstride, int bgr24);
 extern void (*pl_plat_hud_print)(int x, int y, const char *str, int bpp);
 
+/* EMU-15 part 2: hud_msg / FPS / CPU load / SPU channel notices used to be drawn by plugin_lib.c's
+ * print_hud() straight into the PSX-resolution frame, where the scanline overlay (drawn later, over the
+ * presented/scaled frame in libpicofe/plat_sdl2.c) covered them - the same bug the low-battery icon had.
+ * They are drawn now as part of plat_sdl2.c's HUD overlay instead; these three are that overlay's source
+ * of truth for what to show, in the same priority and format print_hud always used - plat_sdl2.c only
+ * turns the answer into pixels and presents it after the scanlines, on every platform (unlike the
+ * battery icon, which stays PSCLASSIC-only). */
+const char *ab_hud_msg_line(void);
+const char *ab_hud_cpu_line(void);
+#define AB_HUD_CHANS_N 24
+int ab_hud_active_chans(unsigned short *out, int max);
+
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 #endif

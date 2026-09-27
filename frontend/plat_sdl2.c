@@ -39,6 +39,7 @@
 #include "ab/ab_debug.h"
 #include "ab/ab_headless.h"
 #include "ab/ab_pad_battery.h"
+#include "ab/ab_hud_text.h"
 
 /* the keyboard: the same keys upstream's SDL 1.2 platform binds, by scancode */
 static const struct in_default_bind in_sdl2_defbinds[] = {
@@ -362,6 +363,153 @@ static void ab_hud_battery_draw(SDL_Renderer *renderer, const SDL_Rect *dst)
 }
 #endif
 
+/* EMU-15 part 2: hud_msg/FPS/CPU load/the SPU channel bar, as the same kind of HUD overlay as the battery
+ * icon above - drawn here, after plat_sdl2_present() has already drawn the frame and the scanlines, at
+ * output resolution, in the same corner/edge relative to dst that plugin_lib.c's old print_hud() drew them
+ * in relative to the PSX frame (bottom-left for the message/FPS line and the channel bar, bottom-right for
+ * CPU load). Unlike the battery icon, this runs on every platform - the notices exist on every platform,
+ * not just the console. ab_hud_text.c does the actual glyph/RGB565 pixel work; this only turns its output
+ * into textures (rebuilt only when the text or the channel colours change) and presents them. */
+
+/* one cached text texture + the string it was built from - the same shape ab_hud_battery_draw's
+ * icon_tex/icon_percent cache uses above, just keyed by string instead of by percent */
+typedef struct {
+  SDL_Texture *tex;
+  char text[AB_HUD_TEXT_MAXLEN + 1];
+  int w;
+} AbHudTextTex;
+
+static SDL_Texture *ab_hud_text_tex_update(SDL_Renderer *renderer, AbHudTextTex *cache, const char *text)
+{
+  Uint32 *px;
+  int w;
+
+  if (text == NULL || text[0] == 0)
+    return NULL;
+  if (cache->tex != NULL && strcmp(cache->text, text) == 0)
+    return cache->tex;
+
+  w = ab_hud_text_width(text);
+  px = calloc((size_t)w * AB_HUD_GLYPH_H, 4);  /* transparent black */
+  if (px == NULL)
+    return cache->tex;  /* OOM: keep showing the previous text sooner than nothing at all */
+  ab_hud_text_render_argb(px, w, AB_HUD_GLYPH_H, text);
+
+  if (cache->tex != NULL) {
+    SDL_DestroyTexture(cache->tex);
+    cache->tex = NULL;
+  }
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");  /* crisp text at any scale, like the battery icon */
+  cache->tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, w, AB_HUD_GLYPH_H);
+  if (cache->tex == NULL || SDL_UpdateTexture(cache->tex, NULL, px, w * 4) != 0 ||
+      SDL_SetTextureBlendMode(cache->tex, SDL_BLENDMODE_BLEND) != 0) {
+    fprintf(stderr, "plat_sdl2: no %dx%d HUD text texture: %s\n", w, AB_HUD_GLYPH_H, SDL_GetError());
+    if (cache->tex != NULL)
+      SDL_DestroyTexture(cache->tex);
+    cache->tex = NULL;
+    free(px);
+    return NULL;
+  }
+  free(px);
+  strncpy(cache->text, text, AB_HUD_TEXT_MAXLEN);
+  cache->text[AB_HUD_TEXT_MAXLEN] = 0;
+  cache->w = w;
+  return cache->tex;
+}
+
+static void ab_hud_notices_draw(SDL_Renderer *renderer, const SDL_Rect *dst)
+{
+  static AbHudTextTex msg_cache, cpu_cache;
+  static SDL_Texture *chans_tex;
+  static unsigned short chans_cache[AB_HUD_CHANS_N];
+  static int chans_cached_n = -1;
+  unsigned short colors[AB_HUD_CHANS_N];
+  const char *msg, *cpu;
+  SDL_Texture *tex;
+  int scale, margin, n;
+  SDL_Rect r;
+
+  /* the same whole-pixel scale the battery icon uses, so every HUD element agrees on size at any output
+   * resolution */
+  scale = dst->h / 240;
+  if (scale < 2)
+    scale = 2;
+  if (scale > 6)
+    scale = 6;
+  margin = 6 * scale / 2;
+
+  msg = ab_hud_msg_line();
+  tex = ab_hud_text_tex_update(renderer, &msg_cache, msg);
+  if (tex != NULL) {
+    r.w = msg_cache.w * scale;
+    r.h = AB_HUD_GLYPH_H * scale;
+    r.x = dst->x + margin;
+    r.y = dst->y + dst->h - r.h - margin;
+    SDL_RenderCopy(renderer, tex, NULL, &r);
+  }
+
+  cpu = ab_hud_cpu_line();
+  tex = ab_hud_text_tex_update(renderer, &cpu_cache, cpu);
+  if (tex != NULL) {
+    r.w = cpu_cache.w * scale;
+    r.h = AB_HUD_GLYPH_H * scale;
+    r.x = dst->x + dst->w - r.w - margin;
+    r.y = dst->y + dst->h - r.h - margin;
+    SDL_RenderCopy(renderer, tex, NULL, &r);
+  }
+
+  n = ab_hud_active_chans(colors, AB_HUD_CHANS_N);
+  if (n <= 0) {
+    chans_cached_n = -1;  /* Show SPU channels turned off: force a rebuild if it's turned back on */
+    return;
+  }
+  if (n != chans_cached_n || memcmp(colors, chans_cache, n * sizeof(colors[0])) != 0) {
+    Uint32 *px = calloc((size_t)n * AB_HUD_GLYPH_W * AB_HUD_GLYPH_H, 4);
+    if (px != NULL) {
+      int c, x, y;
+      for (c = 0; c < n; c++) {
+        Uint32 argb = ab_hud_rgb565_to_argb(colors[c]);
+        for (y = 0; y < AB_HUD_GLYPH_H; y++)
+          for (x = 0; x < AB_HUD_GLYPH_W; x++)
+            px[y * (n * AB_HUD_GLYPH_W) + c * AB_HUD_GLYPH_W + x] = argb;
+      }
+      if (chans_tex != NULL) {
+        SDL_DestroyTexture(chans_tex);
+        chans_tex = NULL;
+      }
+      SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
+      chans_tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC,
+        n * AB_HUD_GLYPH_W, AB_HUD_GLYPH_H);
+      if (chans_tex == NULL || SDL_UpdateTexture(chans_tex, NULL, px, n * AB_HUD_GLYPH_W * 4) != 0 ||
+          SDL_SetTextureBlendMode(chans_tex, SDL_BLENDMODE_BLEND) != 0) {
+        if (chans_tex != NULL)
+          SDL_DestroyTexture(chans_tex);
+        chans_tex = NULL;
+      }
+      free(px);
+      memcpy(chans_cache, colors, n * sizeof(colors[0]));
+      chans_cached_n = n;
+    }
+  }
+  if (chans_tex != NULL) {
+    r.w = n * AB_HUD_GLYPH_W * scale;
+    r.h = AB_HUD_GLYPH_H * scale;
+    r.x = dst->x + dst->w / 2 - r.w / 2;
+    r.y = dst->y + dst->h - r.h - margin;
+    SDL_RenderCopy(renderer, chans_tex, NULL, &r);
+  }
+}
+
+/* the one HUD callback plat_sdl2_set_hud_cb() takes: the battery icon (PSCLASSIC only, as it always was)
+ * plus the notices (every platform) */
+static void ab_hud_draw(SDL_Renderer *renderer, const SDL_Rect *dst)
+{
+#ifdef PSCLASSIC
+  ab_hud_battery_draw(renderer, dst);
+#endif
+  ab_hud_notices_draw(renderer, dst);
+}
+
 void plat_init(void)
 {
   int fullscreen, ret, headless;
@@ -391,9 +539,9 @@ void plat_init(void)
     exit(1);
   if (ab_headless_starts_hidden(headless) && plat_sdl2_window != NULL)
     SDL_HideWindow(plat_sdl2_window);
-#ifdef PSCLASSIC
-  plat_sdl2_set_hud_cb(ab_hud_battery_draw);  /* EMU-15: see ab_hud_battery_draw() above */
-#endif
+  /* EMU-15: the battery icon (PSCLASSIC only) and the hud_msg/FPS/CPU/SPU-channel notices (every
+   * platform) - see ab_hud_draw() above. Registered unconditionally: only one HUD callback exists. */
+  plat_sdl2_set_hud_cb(ab_hud_draw);
   fprintf(stdout, "Audio driver: %s\n", SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "(none)");
   plat_target.vout_fullscreen = fullscreen_old = plat_sdl2_is_fullscreen();
 
