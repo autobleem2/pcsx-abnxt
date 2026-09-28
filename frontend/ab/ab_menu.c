@@ -88,8 +88,9 @@ static const char h_ab_autoload[] = "The game as it was up to 30 seconds ago: it
                                     " while you play";
 static const char h_ab_reset[] = "Starts the game over from the beginning, as the console's Reset did";
 /* the output mode (ab_config.h): the modes the display lists, filled when the menu opens */
-static int ab_display_sel, ab_display_modes[3];
-static const char *men_ab_display[4];
+static int ab_display_sel, ab_display_modes[AB_OUTPUT_MAX_MODES];
+static const char *men_ab_display[AB_OUTPUT_MAX_MODES + 1];
+static char ab_display_names[AB_OUTPUT_MAX_MODES][16];
 static const char h_ab_display[] = "The resolution the screen is driven at; only what the TV or monitor offers"
                                    " is listed";
 /* gpu_neon's enhancement (the built-in GPU only) and the seams fix in it (psx_gpu_parse.c) */
@@ -1314,17 +1315,14 @@ static void ab_menu_loop_d(void)
 	me_enable(e_menu_ab, MA_AB_NOSEAMS, 0);
 #endif
 	{
-		/* the Display row: Auto, then 720p/1080p when the display lists them */
-		static const char *names[] = { "Auto", "720p", "1080p" };
-		int m, n = 0;
+		/* the Display row: Auto, then every mode the display lists at 50 Hz or more (TV modes, then VESA) */
+		int i, n = ab_output_modes(ab_display_modes, AB_OUTPUT_MAX_MODES);
 		ab_display_sel = 0;
-		for (m = AB_OUTPUT_AUTO; m <= AB_OUTPUT_1080; m++) {
-			if (!ab_output_mode_available(m))
-				continue;
-			if (m == ab_output_mode)
-				ab_display_sel = n;
-			ab_display_modes[n] = m;
-			men_ab_display[n++] = names[m];
+		for (i = 0; i < n; i++) {
+			if (ab_display_modes[i] == ab_output_mode)
+				ab_display_sel = i;
+			ab_output_mode_name(ab_display_modes[i], ab_display_names[i], sizeof(ab_display_names[i]));
+			men_ab_display[i] = ab_display_names[i];
 		}
 		men_ab_display[n] = NULL;
 		me_enable(e_menu_ab, MA_AB_DISPLAY, n > 1);

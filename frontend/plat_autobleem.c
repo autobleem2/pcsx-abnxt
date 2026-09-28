@@ -503,40 +503,112 @@ int ab_output_mode;
 
 int ab_output_mode_parse(const char *s)
 {
-  if (s != NULL && strcmp(s, "720") == 0)
+  int w, h;
+  char end;
+
+  if (s == NULL)
+    return AB_OUTPUT_AUTO;
+  if (strcmp(s, "720") == 0)
     return AB_OUTPUT_720;
-  if (s != NULL && strcmp(s, "1080") == 0)
+  if (strcmp(s, "1080") == 0)
     return AB_OUTPUT_1080;
+  if (sscanf(s, "%dx%d%c", &w, &h, &end) == 2 && w > 0 && h > 0 && w < 32768 && h < 65536)
+    return AB_OUTPUT_MODE(w, h);
   return AB_OUTPUT_AUTO;
 }
 
 int ab_output_mode_available(int mode)
 {
-  return mode == AB_OUTPUT_AUTO || (mode == AB_OUTPUT_720 && plat_ab_has_mode(1280, 720))
-    || (mode == AB_OUTPUT_1080 && plat_ab_has_mode(1920, 1080));
+  return mode == AB_OUTPUT_AUTO || plat_ab_has_mode(AB_OUTPUT_W(mode), AB_OUTPUT_H(mode));
+}
+
+/* the launcher's token for a mode (OutputMode::token): auto, 720, 1080, <w>x<h> */
+static void ab_output_mode_token(int mode, char *buf, int size)
+{
+  if (mode == AB_OUTPUT_AUTO)
+    snprintf(buf, size, "auto");
+  else if (mode == AB_OUTPUT_720)
+    snprintf(buf, size, "720");
+  else if (mode == AB_OUTPUT_1080)
+    snprintf(buf, size, "1080");
+  else
+    snprintf(buf, size, "%dx%d", AB_OUTPUT_W(mode), AB_OUTPUT_H(mode));
+}
+
+void ab_output_mode_name(int mode, char *buf, int size)
+{
+  int w = AB_OUTPUT_W(mode), h = AB_OUTPUT_H(mode);
+
+  if (mode == AB_OUTPUT_AUTO)
+    snprintf(buf, size, "Auto");
+  else if (w * 9 == h * 16)
+    snprintf(buf, size, "%dp", h);
+  else
+    snprintf(buf, size, "%dx%d", w, h);
+}
+
+/* whether mode a is listed before mode b */
+static int ab_output_mode_before(int a, int b)
+{
+  int wa = AB_OUTPUT_W(a), ha = AB_OUTPUT_H(a), wb = AB_OUTPUT_W(b), hb = AB_OUTPUT_H(b);
+  int tva = wa * 9 == ha * 16, tvb = wb * 9 == hb * 16;
+
+  if (tva != tvb)
+    return tva;
+  return wa * ha != wb * hb ? wa * ha < wb * hb : wa < wb;
+}
+
+int ab_output_modes(int *modes, int max)
+{
+  SDL_DisplayMode m;
+  int di, n = 0, i, j, k, count;
+
+  if (max < 1)
+    return 0;
+  modes[n++] = AB_OUTPUT_AUTO;
+  if (plat_ab_window == NULL || (di = SDL_GetWindowDisplayIndex(plat_ab_window)) < 0)
+    return n;
+  count = SDL_GetNumDisplayModes(di);
+  for (i = 0; i < count && n < max; i++) {
+    int mode;
+    if (SDL_GetDisplayMode(di, i, &m) != 0 || (m.refresh_rate != 0 && m.refresh_rate < 50))
+      continue;	/* a 4K TV's 24/30 Hz modes: a game would stutter in them */
+    mode = AB_OUTPUT_MODE(m.w, m.h);
+    for (j = 1; j < n && modes[j] != mode; j++)
+      ;
+    if (j < n)
+      continue;
+    /* the TV modes (16:9) first, then the rest (VESA), each group from the smallest - as the launcher lists them */
+    for (j = 1; j < n && ab_output_mode_before(modes[j], mode); j++)
+      ;
+    for (k = n; k > j; k--)
+      modes[k] = modes[k - 1];
+    modes[j] = mode;
+    n++;
+  }
+  return n;
 }
 
 int ab_output_mode_apply(int mode, int tell_launcher)
 {
-  static const char *names[] = { "auto", "720", "1080" };
   const char *dir = getenv("AB_RUNTIME_DIR");
   int ret;
 
   if (!ab_output_mode_available(mode))
     mode = AB_OUTPUT_AUTO;
-  ret = plat_ab_set_output_mode(mode == AB_OUTPUT_720 ? 1280 : mode == AB_OUTPUT_1080 ? 1920 : 0,
-                                mode == AB_OUTPUT_720 ? 720 : mode == AB_OUTPUT_1080 ? 1080 : 0);
+  ret = plat_ab_set_output_mode(AB_OUTPUT_W(mode), AB_OUTPUT_H(mode));
   if (ret != 0)
     return ret;
   ab_output_mode = mode;
   /* the launcher takes the player's choice from its runtime directory (RAM) when the game ends */
   if (tell_launcher && dir != NULL && *dir) {
-    char path[512];
+    char path[512], token[32];
     FILE *f;
     snprintf(path, sizeof(path), "%s/outputmode", dir);
+    ab_output_mode_token(mode, token, sizeof(token));
     f = fopen(path, "w");
     if (f != NULL) {
-      fprintf(f, "%s\n", names[mode]);
+      fprintf(f, "%s\n", token);
       fclose(f);
     }
   }
