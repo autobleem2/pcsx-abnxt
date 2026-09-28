@@ -905,13 +905,18 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		ab_text_wrap(&c, x, y, ab_ui_tr(blocked), (int)(20 * s), left_w, 3, ab_col_accent);
 	} else if (ent_sel != NULL && ent_sel->help != NULL) {
 		/* upstream's help texts break their lines with '\n' for its 8x8 font: one paragraph here, wrapped */
-		char help[256], *p;
+		/* (spaces collapsed too: the language files' keys are these texts in one line) */
+		char help[640], *p, *q;
 		snprintf(help, sizeof(help), "%s", ent_sel->help);
-		for (p = help; *p; p++)
-			if (*p == '\n')
-				*p = ' ';
-		while (p > help && p[-1] == ' ')
-			*--p = 0;
+		for (p = q = help; *p; p++) {
+			char ch = *p == '\n' ? ' ' : *p;
+			if (ch == ' ' && (q == help || q[-1] == ' '))
+				continue;
+			*q++ = ch;
+		}
+		while (q > help && q[-1] == ' ')
+			q--;
+		*q = 0;
 		ab_text_wrap(&c, x, y, ab_ui_tr(help), (int)(20 * s), left_w, 5, ab_col_dim);
 	}
 
