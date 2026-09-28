@@ -938,11 +938,13 @@ static void draw_savestate_bg(int slot);
 #ifdef PSCLASSIC
 /* AutoBleem: every list menu below (Options, Display, BIOS/Plugins, Advanced, Controls, the plugins'
  * pages...) is drawn by ab/ab_menu.c's screen - the TTF font, the dimmed panel, the sections - instead of
- * libpicofe's; the screens that draw themselves (key binding, save slots, memory cards, cheats, the file
- * browser) are libpicofe's still */
+ * libpicofe's; so are the cheats (their list and the .cht file picker); the other screens that draw
+ * themselves (key binding, save slots, memory cards, the file browser) are libpicofe's still */
 static int ab_menu_run(menu_entry *menu, int *menu_sel);
 #define me_loop(menu, sel) ab_menu_run(menu, sel)
 static void ab_about_screen(const char *upstream_credits);
+static void ab_cheat_list(void);
+static void ab_cheat_load(void);
 #endif
 
 // a bit of black magic here
@@ -2245,6 +2247,11 @@ static void menu_loop_cheats(void)
 	static int menu_sel = 0;
 	int inp;
 
+#ifdef PSCLASSIC
+	(void)draw_cheatlist;
+	ab_cheat_list();
+	return;
+#endif
 	for (;;)
 	{
 		draw_cheatlist(menu_sel);
@@ -2575,6 +2582,14 @@ static void load_pcsx_cht(void)
 	const char *fname;
 	char msg[64];
 
+#ifdef PSCLASSIC
+	/* our picker, from the game's folder, our message; the list opens once the file is read */
+	(void)exts;
+	(void)msg;
+	(void)fname;
+	ab_cheat_load();
+	return;
+#endif
 	fname = menu_loop_romsel(last_selected_fname,
 			sizeof(last_selected_fname), exts, NULL);
 	if (fname == NULL)

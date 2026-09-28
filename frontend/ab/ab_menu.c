@@ -20,6 +20,8 @@
  * See the COPYING file in the top-level directory.
  */
 
+#include <strings.h>
+
 #include "ab_disc.h"
 #include "ab_buttons.h"
 #include "ab_console.h"
@@ -135,6 +137,22 @@ static menu_entry e_menu_ab[] =
 static const char *ab_crumbs[AB_MENU_MAX_DEPTH];
 static int ab_crumb_n;
 static const char *ab_gen_names[AB_MENU_MAX_ROWS];
+/* the scroll of the page on screen (a list longer than the panel), in pixels of the list */
+static const menu_entry *ab_scroll_menu;
+static int ab_scroll;
+
+/* a row that takes space on the panel: enabled, not upstream's empty spacer label, and an info row only
+ * with a text this frame (ab_menu_draw's first pass fills ab_gen_names) */
+static int ab_row_shown(const menu_entry *ent, int i)
+{
+	if (!ent->enabled)
+		return 0;
+	if (ent->selectable)
+		return 1;
+	if (ent->generate_name != NULL)
+		return i < AB_MENU_MAX_ROWS && ab_gen_names[i] != NULL;
+	return ent->name[0] != 0;
+}
 
 /* the reason a row is greyed now (it stays selectable, its help says why, its value does not move), or
  * NULL: a CRT filter draws its own scanlines, and on the console it rules out the smoothing too */
@@ -289,6 +307,16 @@ static struct ab_canvas ab_canvas(void)
 {
 	struct ab_canvas c = { g_menuscreen_ptr, g_menuscreen_w, g_menuscreen_h, g_menuscreen_pp };
 	return c;
+}
+
+/* a small filled triangle, pointing up or down: more rows above or below the panel's view */
+static void ab_chevron(struct ab_canvas *c, int cx, int y, int size, int up)
+{
+	int k;
+	for (k = 0; k < size; k++) {
+		int w = up ? k : size - 1 - k;
+		ab_ui_fill(c, cx - w, y + k, 2 * w + 1, 1, 0, ab_col_accent, 230);
+	}
 }
 
 static int ab_text_width(const char *s, int px)
@@ -626,7 +654,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	time_t ltime;
 	float s;
 	int n, i, y, x, px, row_h, pad, panel_x, panel_y, panel_w, panel_h, x_name, x_val;
-	int heads, head_h, head_px, avail, left_w;
+	int heads, head_h, head_px, avail, left_w, total, view_h;
 	const char *blocked;
 
 	ab_debug_screen("menu");
@@ -653,8 +681,8 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		ab_text_shadow(&c, x, y, AB_UI_LEFT, "pcsx-abnxt", (int)(36 * s), ab_col_text);
 	}
 
-	/* the rows, on the panel: sections (the label rows) as headings; sized so that everything fits between
-	 * the top and the art's bar whatever the screen (a 1280x720 design, shrunk if it would not fit) */
+	/* the rows, on the panel: sections (the label rows) as headings, between the top and the art's bar (a
+	 * 1280x720 design); a list taller than that scrolls with the selection */
 	for (n = 0, heads = 0, ent = menu, i = 0; ent->name; ent++, i++) {
 		if (i < AB_MENU_MAX_ROWS)
 			ab_gen_names[i] = NULL;
@@ -678,9 +706,11 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	}
 	if (ent_sel != NULL)
 		menu_sel_name = ent_sel->name;	/* as libpicofe's menus do, for the debug driver */
-	row_h = (int)(30 * s);
-	head_h = (int)(28 * s);
-	pad = (int)(12 * s);
+	/* sizes read from a sofa (the owner, 2026-09-28): a list longer than the panel scrolls instead of
+	 * shrinking */
+	row_h = (int)(38 * s);
+	head_h = (int)(34 * s);
+	pad = (int)(16 * s);
 	avail = (int)(596 * s);		/* 24..620 of the design: over the art's bar */
 	panel_y = (int)(24 * s);
 	if (ab_crumb_n > 0) {
@@ -701,35 +731,72 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		panel_y += (int)(36 * s);
 		avail -= (int)(36 * s);
 	}
-	if (n * row_h + heads * head_h + 2 * pad > avail) {
-		float k = (float)(avail - 2 * pad) / (n * row_h + heads * head_h);
-		row_h = (int)(row_h * k);
-		head_h = (int)(head_h * k);
-	}
 	px = row_h * 7 / 10;
 	head_px = head_h * 6 / 10;
-	panel_h = n * row_h + heads * head_h + 2 * pad;
+	total = n * row_h + heads * head_h;
+	view_h = avail - 2 * pad;
+	{
+		/* where the selected row is in the list (with its section's heading when it is the section's
+		 * first row), and the scroll that keeps it in view with a row of margin */
+		int vy = 0, head_top = -1, sel_top = 0, sel_bot = 0, prev_head = 0, h;
+		for (ent = menu, i = 0; ent->name; ent++, i++) {
+			if (!ab_row_shown(ent, i))
+				continue;
+			h = ent->selectable || ent->generate_name != NULL ? row_h : head_h;
+			if (i == sel) {
+				sel_top = prev_head ? head_top : vy;
+				sel_bot = vy + h;
+			}
+			prev_head = !ent->selectable && ent->generate_name == NULL;
+			if (prev_head)
+				head_top = vy;
+			vy += h;
+		}
+		if (menu != ab_scroll_menu) {
+			ab_scroll_menu = menu;
+			ab_scroll = 0;
+		}
+		if (total <= view_h) {
+			ab_scroll = 0;
+		} else {
+			if (sel_top - (sel_top > 0 ? row_h / 2 : 0) < ab_scroll)
+				ab_scroll = sel_top - (sel_top > 0 ? row_h / 2 : 0);
+			if (sel_bot + (sel_bot < total ? row_h : 0) > ab_scroll + view_h)
+				ab_scroll = sel_bot + (sel_bot < total ? row_h : 0) - view_h;
+			if (ab_scroll > total - view_h)
+				ab_scroll = total - view_h;
+			if (ab_scroll < 0)
+				ab_scroll = 0;
+		}
+	}
+	panel_h = (total < view_h ? total : view_h) + 2 * pad;
 	ab_ui_fill(&c, panel_x, panel_y, panel_w, panel_h, (int)(14 * s), ab_col_panel, 210);
+	if (ab_scroll > 0)
+		ab_chevron(&c, panel_x + panel_w / 2, panel_y + pad / 2 - (int)(3 * s), (int)(7 * s), 1);
+	if (ab_scroll + view_h < total)
+		ab_chevron(&c, panel_x + panel_w / 2, panel_y + panel_h - pad / 2 - (int)(4 * s), (int)(7 * s), 0);
 	x_name = panel_x + (int)(28 * s);
 	x_val = panel_x + panel_w - (int)(28 * s);
-	y = panel_y + pad;
+	y = panel_y + pad - ab_scroll;
 	for (ent = menu, i = 0; ent->name; ent++, i++) {
 		const char *name = ent->name, *val = NULL;
 		char namebuf[96];
-		int offs = 0, is_sel = i == sel, page;
+		int offs = 0, is_sel = i == sel, page, h;
 		unsigned short col_name, col_val;
 
-		if (!ent->enabled)
+		if (!ab_row_shown(ent, i))
 			continue;
-		if (!ent->selectable && ent->generate_name != NULL) {
-			if (i < AB_MENU_MAX_ROWS && ab_gen_names[i] != NULL) {
-				ab_text(&c, x_name, y + (row_h - px) / 2, AB_UI_LEFT, ab_gen_names[i], px, ab_col_dim);
-				y += row_h;
-			}
+		/* only what is wholly inside the panel's view */
+		h = ent->selectable || ent->generate_name != NULL ? row_h : head_h;
+		if (y < panel_y + pad - 1 || y + h > panel_y + pad + view_h + 1) {
+			y += h;
 			continue;
 		}
-		if (!ent->selectable && name[0] == 0)
+		if (!ent->selectable && ent->generate_name != NULL) {
+			ab_text(&c, x_name, y + (row_h - px) / 2, AB_UI_LEFT, ab_gen_names[i], px, ab_col_dim);
+			y += row_h;
 			continue;
+		}
 		if (!ent->selectable) {
 			/* a section's heading, with a thin rule after it */
 			int tw = ab_text(&c, x_name - (int)(12 * s), y + head_h - head_px - (int)(4 * s), AB_UI_LEFT,
@@ -988,6 +1055,220 @@ static int ab_menu_run(menu_entry *menu, int *menu_sel)
 	}
 	*menu_sel = sel;
 	return ret;
+}
+
+/* ---- the cheats: the list of the loaded file's cheats and the .cht file picker, on our menu screen ---- */
+
+#define AB_CHEAT_ID   10000		/* a cheat row's id: this + its index (clear of every MA_ id) */
+#define AB_PICK_ID    20000		/* a picker row's id: this + its index */
+#define AB_PICK_MAX   256
+
+static const char h_ab_cheat[] = "Left/Right or Cross switches the cheat; it works while the game runs";
+static const char h_ab_cht_file[] = "Reads this file's cheats (PCSX's .cht format: [name] lines, each with its codes under it)";
+static const char h_ab_cht_dir[] = "Opens this folder";
+static const char h_ab_cht_up[] = "The folder above";
+
+static int ab_cheat_handler(int id, int keys)
+{
+	int i = id - AB_CHEAT_ID;
+	if ((keys & PBTN_MOK) && i >= 0 && i < NumCheats)
+		Cheats[i].Enabled = !Cheats[i].Enabled;
+	return 0;
+}
+
+/* menu_loop_cheats() under PSCLASSIC: each cheat an ON/OFF row */
+static void ab_cheat_list(void)
+{
+	static int sel = 0;
+	menu_entry *m;
+	int i;
+
+	if (NumCheats <= 0)
+		return;
+	m = calloc(NumCheats + 1, sizeof(*m));
+	if (m == NULL)
+		return;
+	for (i = 0; i < NumCheats; i++) {
+		m[i].name = Cheats[i].Descr != NULL ? Cheats[i].Descr : "?";
+		m[i].beh = MB_OPT_ONOFF;
+		m[i].id = AB_CHEAT_ID + i;
+		m[i].var = &Cheats[i].Enabled;
+		m[i].mask = 1;
+		m[i].enabled = 1;
+		m[i].selectable = 1;
+		m[i].handler = ab_cheat_handler;
+		m[i].help = h_ab_cheat;
+	}
+	if (sel >= NumCheats)
+		sel = 0;
+	ab_debug_screen("cheats");
+	ab_menu_run(m, &sel);
+	free(m);
+}
+
+static char ab_pick_dir[MAXPATHLEN];
+static char *ab_pick_names[AB_PICK_MAX];	/* "[folder]" or the file's name */
+static int ab_pick_n, ab_pick_chosen;
+
+static const char *ab_pick_empty_name(int id, int *offs)
+{
+	(void)id;
+	(void)offs;
+	return ab_ui_tr("No cheat files (.cht) in this folder");
+}
+
+static int ab_pick_handler(int id, int keys)
+{
+	if (keys & PBTN_MOK) {
+		ab_pick_chosen = id - AB_PICK_ID;
+		return 1;
+	}
+	return 0;
+}
+
+static int ab_pick_cmp(const void *a, const void *b)
+{
+	const char *x = *(char *const *)a, *y = *(char *const *)b;
+	/* folders first */
+	if ((x[0] == '[') != (y[0] == '['))
+		return x[0] == '[' ? -1 : 1;
+	return strcasecmp(x, y);
+}
+
+/* the folder's sub-folders and .cht files, sorted */
+static void ab_pick_scan(void)
+{
+	DIR *d;
+	struct dirent *e;
+	struct stat st;
+	char path[MAXPATHLEN + 256];
+
+	while (ab_pick_n > 0)
+		free(ab_pick_names[--ab_pick_n]);
+	d = opendir(ab_pick_dir);
+	if (d == NULL)
+		return;
+	while ((e = readdir(d)) != NULL && ab_pick_n < AB_PICK_MAX) {
+		size_t len = strlen(e->d_name);
+		char *s;
+		if (e->d_name[0] == '.')
+			continue;
+		snprintf(path, sizeof(path), "%s/%s", ab_pick_dir, e->d_name);
+		if (stat(path, &st) != 0)
+			continue;
+		if (S_ISDIR(st.st_mode)) {
+			s = malloc(len + 3);
+			if (s != NULL)
+				sprintf(s, "[%s]", e->d_name);
+		} else if (len > 4 && strcasecmp(e->d_name + len - 4, ".cht") == 0) {
+			s = strdup(e->d_name);
+		} else {
+			continue;
+		}
+		if (s != NULL)
+			ab_pick_names[ab_pick_n++] = s;
+	}
+	closedir(d);
+	qsort(ab_pick_names, ab_pick_n, sizeof(ab_pick_names[0]), ab_pick_cmp);
+}
+
+/* the .cht file to read (a static path), or NULL: from the game's folder, into folders and up */
+static const char *ab_cheat_file_pick(void)
+{
+	static char chosen[MAXPATHLEN + 256];
+	static menu_entry m[AB_PICK_MAX + 3];
+	const char *ret = NULL;
+	int sel = 0;
+
+	if (ab_pick_dir[0] == 0) {
+		const char *iso = GetIsoFile();
+		const char *p;
+		snprintf(ab_pick_dir, sizeof(ab_pick_dir), "%s", iso != NULL && iso[0] ? iso : last_selected_fname);
+		p = strrchr(ab_pick_dir, '/');
+		if (p != NULL)
+			ab_pick_dir[p - ab_pick_dir] = 0;
+		else
+			snprintf(ab_pick_dir, sizeof(ab_pick_dir), ".");
+	}
+	for (;;) {
+		int i, k = 0, top = strchr(ab_pick_dir, '/') == NULL || strcmp(ab_pick_dir, "/") == 0;
+		ab_pick_scan();
+		memset(m, 0, sizeof(m));
+		if (!top) {
+			m[k].name = "[Parent folder]";
+			m[k].id = AB_PICK_ID - 1;
+			m[k].enabled = m[k].selectable = 1;
+			m[k].handler = ab_pick_handler;
+			m[k].help = h_ab_cht_up;
+			k++;
+		}
+		for (i = 0; i < ab_pick_n; i++, k++) {
+			m[k].name = ab_pick_names[i];
+			m[k].id = AB_PICK_ID + i;
+			m[k].enabled = m[k].selectable = 1;
+			m[k].handler = ab_pick_handler;
+			m[k].help = ab_pick_names[i][0] == '[' ? h_ab_cht_dir : h_ab_cht_file;
+		}
+		if (ab_pick_n == 0 || ab_pick_names[ab_pick_n - 1][0] == '[') {
+			m[k].name = "";
+			m[k].enabled = 1;
+			m[k].generate_name = ab_pick_empty_name;
+			k++;
+		}
+		if (top && ab_pick_n == 0) {
+			/* nothing to pick and nowhere to go (ab_menu_run needs a selectable row) */
+			menu_update_msg("No cheat files (.cht) in this folder");
+			break;
+		}
+		if (sel >= k)
+			sel = 0;
+		ab_pick_chosen = -2;
+		ab_debug_screen("cheatfile");
+		if (!ab_menu_run(m, &sel) || ab_pick_chosen == -2)
+			break;
+		sel = 0;
+		if (ab_pick_chosen == -1) {
+			char *p = strrchr(ab_pick_dir, '/');
+			if (p == ab_pick_dir)
+				p[1] = 0;
+			else if (p != NULL)
+				*p = 0;
+			continue;
+		}
+		if (ab_pick_names[ab_pick_chosen][0] == '[') {
+			const char *nm = ab_pick_names[ab_pick_chosen];
+			size_t len = strlen(ab_pick_dir);
+			snprintf(ab_pick_dir + len, sizeof(ab_pick_dir) - len, "%s%.*s",
+				len > 0 && ab_pick_dir[len - 1] == '/' ? "" : "/", (int)strlen(nm) - 2, nm + 1);
+			continue;
+		}
+		snprintf(chosen, sizeof(chosen), "%s/%s", ab_pick_dir, ab_pick_names[ab_pick_chosen]);
+		ret = chosen;
+		break;
+	}
+	while (ab_pick_n > 0)
+		free(ab_pick_names[--ab_pick_n]);
+	return ret;
+}
+
+/* load_pcsx_cht() under PSCLASSIC: pick, read, say how many, show the list */
+static void ab_cheat_load(void)
+{
+	static char msg[128];
+	const char *fname = ab_cheat_file_pick();
+
+	if (fname == NULL)
+		return;
+	printf("selected cheat file: %s\n", fname);
+	LoadCheats(fname);
+	if (NumCheats == 0 && NumCodes == 0) {
+		menu_update_msg("No cheats in this file");
+		return;
+	}
+	snprintf(msg, sizeof(msg), "%s %d", ab_ui_tr("Cheats loaded:"), NumCheats);
+	menu_update_msg(msg);
+	me_enable(e_menu_main, MA_MAIN_CHEATS, ready_to_go && NumCheats);
+	ab_cheat_list();
 }
 
 static int ab_menu_pcsx_handler(int id, int keys)

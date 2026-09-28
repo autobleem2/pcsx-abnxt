@@ -182,3 +182,13 @@ Enhanced res. speed hack=Przyspieszenie podwyższonej rozdzielczości
 Enh. res. texture adjust=Korekta tekstur (podw. rozdz.)
 Enh. res. remove seams=Usuwanie szczelin (podw. rozdz.)
 Enable interlace mode=Tryb z przeplotem
+
+# the cheats: the list and the .cht file picker
+Left/Right or Cross switches the cheat; it works while the game runs=Lewo/prawo lub krzyżyk włącza kod; działa w trakcie gry
+Reads this file's cheats (PCSX's .cht format: [name] lines, each with its codes under it)=Wczytuje kody z tego pliku (format .cht PCSX: linie [nazwa], pod każdą jej kody)
+Opens this folder=Otwiera ten folder
+The folder above=Folder wyżej
+Parent folder=Folder wyżej
+No cheat files (.cht) in this folder=Brak plików z kodami (.cht) w tym folderze
+No cheats in this file=Brak kodów w tym pliku
+Cheats loaded:=Wczytane kody:
