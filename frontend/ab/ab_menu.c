@@ -82,6 +82,7 @@ static const char h_ab_exit[]    = "Back to AutoBleem - holding the menu button 
 /* ab_buttons.c autosaves the game into RAM every 30 s of play (state_sony.c's SaveStateAuto) */
 static const char h_ab_autoload[] = "The game as it was up to 30 seconds ago: it is saved in memory by itself"
                                     " while you play";
+static const char h_ab_reset[] = "Starts the game over from the beginning, as the console's Reset did";
 /* the output mode (ab_config.h): the modes the display lists, filled when the menu opens */
 static int ab_display_sel, ab_display_modes[3];
 static const char *men_ab_display[4];
@@ -106,6 +107,7 @@ static menu_entry e_menu_ab[] =
 	mee_handler_id("Quick load",               MA_AB_QUICKLOAD,     ab_menu_handler),
 	mee_handler_id_h("Load autosave",          MA_AB_AUTOLOAD,      ab_menu_handler, h_ab_autoload),
 	mee_handler_id("Change disc",              MA_AB_DISC,          ab_menu_handler),
+	mee_handler_id_h("Reset game",             MA_MAIN_RESET_GAME,  main_menu_handler, h_ab_reset),
 	mee_label     ("Picture"),
 	mee_enum_h    ("Display",                  MA_AB_DISPLAY,       ab_display_sel, men_ab_display, h_ab_display),
 	mee_enum_h    ("Resolution",               MA_AB_ENHANCE,       pl_rearmed_cbs.gpu_neon.enhancement_enable, men_ab_enhance, h_ab_enhance),
@@ -992,11 +994,12 @@ static int ab_menu_pcsx_handler(int id, int keys)
 {
 	static int sel = 0;
 
+	/* (only ids the PSCLASSIC table has: a missing one would hit the first row) */
 	me_enable(e_menu_main, MA_MAIN_RESUME_GAME, ready_to_go);
-	me_enable(e_menu_main, MA_MAIN_SAVE_STATE,  ready_to_go && CdromId[0]);
-	me_enable(e_menu_main, MA_MAIN_LOAD_STATE,  ready_to_go && CdromId[0]);
-	me_enable(e_menu_main, MA_MAIN_RESET_GAME,  ready_to_go);
 	me_enable(e_menu_main, MA_MAIN_CHEATS,      ready_to_go && NumCheats);
+	me_enable(e_menu_main, MA_MAIN_LOAD_CHEATS, ready_to_go);
+	(void)main_menu2_handler;	/* Extra stuff is not in the table here */
+	(void)h_extra;
 
 	ab_debug_screen("pcsx");	/* upstream's menu and its pages, until we draw ours again */
 	return ab_menu_run(e_menu_main, &sel);
@@ -1011,6 +1014,7 @@ static void ab_menu_loop_d(void)
 	me_enable(e_menu_ab, MA_AB_QUICKSAVE, ready_to_go && CdromId[0]);
 	me_enable(e_menu_ab, MA_AB_QUICKLOAD, ready_to_go && CdromId[0]);
 	me_enable(e_menu_ab, MA_AB_AUTOLOAD,  ready_to_go && CdromId[0]);
+	me_enable(e_menu_ab, MA_MAIN_RESET_GAME, ready_to_go);
 	me_enable(e_menu_ab, MA_AB_DISC,      ready_to_go && CdromId[0]);
 	me_enable(e_menu_ab, MA_AB_FILTER,    plat_target.hwfilters != NULL);
 	e_menu_ab[me_id2offset(e_menu_ab, MA_MAIN_EXIT)].help = h_ab_exit;

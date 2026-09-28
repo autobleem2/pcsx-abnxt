@@ -2691,6 +2691,17 @@ static menu_entry e_menu_main[] =
 {
 	mee_label     ("Game"),
 	mee_handler_id("Resume game",        MA_MAIN_RESUME_GAME, main_menu_handler),
+#ifdef PSCLASSIC
+	/* under AutoBleem (the owner, 2026-09-28): the states are the launcher's resume slots and our menu's
+	 * quick save, Reset is in our menu, the disc comes from the launcher (Change disc in our menu), and
+	 * Extra stuff went - its disc swap is ours, Run BIOS/EXE are for developers, the memory cards are the
+	 * launcher's; only its cheat file loading stayed, here next to the cheats */
+	mee_handler_id("Cheats",             MA_MAIN_CHEATS,      main_menu_handler),
+	mee_handler_id("Load PCSX cheats..", MA_MAIN_LOAD_CHEATS, main_menu_handler),
+	mee_label     ("Settings"),
+	mee_handler   ("[Options]",          menu_loop_options),
+	mee_handler   ("[Controls]",         menu_loop_keyconfig),
+#else
 	mee_handler_id("Save State",         MA_MAIN_SAVE_STATE,  main_menu_handler),
 	mee_handler_id("Load State",         MA_MAIN_LOAD_STATE,  main_menu_handler),
 	mee_handler_id("Reset game",         MA_MAIN_RESET_GAME,  main_menu_handler),
@@ -2700,6 +2711,7 @@ static menu_entry e_menu_main[] =
 	mee_handler   ("[Controls]",         menu_loop_keyconfig),
 	mee_handler_id("Cheats",             MA_MAIN_CHEATS,      main_menu_handler),
 	mee_handler_h ("[Extra stuff]",      main_menu2_handler,  h_extra),
+#endif
 	mee_label     ("Leave"),
 	mee_handler_id("About",              MA_MAIN_CREDITS,     main_menu_handler),
 	mee_handler_id("Exit",               MA_MAIN_EXIT,        main_menu_handler),
@@ -2733,11 +2745,13 @@ void menu_loop(void)
 	}
 #endif
 
+#ifndef PSCLASSIC	/* ab_menu_pcsx_handler() does it for its table (a missing id would hit the first row) */
 	me_enable(e_menu_main, MA_MAIN_RESUME_GAME, ready_to_go);
 	me_enable(e_menu_main, MA_MAIN_SAVE_STATE,  ready_to_go && CdromId[0]);
 	me_enable(e_menu_main, MA_MAIN_LOAD_STATE,  ready_to_go && CdromId[0]);
 	me_enable(e_menu_main, MA_MAIN_RESET_GAME,  ready_to_go);
 	me_enable(e_menu_main, MA_MAIN_CHEATS,      ready_to_go && NumCheats);
+#endif
 
 	in_set_config_int(0, IN_CFG_BLOCKING, 1);
 
