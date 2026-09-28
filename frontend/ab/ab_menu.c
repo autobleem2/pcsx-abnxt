@@ -5,7 +5,7 @@
  *
  * The entries are libpicofe menu_entry rows (the handlers, enums and ranges work as in every other menu)
  * but the screen is ours: AutoBleem 2's launcher art as the background (skin/ab_background.jpg), the game
- * and the build named in the launcher's font (ab_ui), the rows on a panel on the right. Nothing of the
+ * and the build named in the launcher's font (ab_ui), the rows on a panel on the left. Nothing of the
  * paused game is shown - the frame libpicofe pasted behind its menu was garbage on the console whenever
  * the GPU rendered at another size than it reported. Upstream's own menus, one level down, keep their
  * look over a darkened copy of the same art.
@@ -484,9 +484,9 @@ void ab_menu_change_disc(void)
 /* ---- the menu screen ----
  *
  * A 1280x720 design scaled by the canvas' height, the way the picker is: AutoBleem 2's launcher art
- * behind everything (its logo bottom left, its bar along the bottom), the game's name and id top left
- * with the selected row's help (or the last message) under them, the rows on a translucent panel on the
- * right, the pad hints and the build on the bar. Without the art (no skin/) the same over plain navy. */
+ * behind everything (its logo bottom left, its bar along the bottom), the rows on a translucent panel on
+ * the left, the game's name and id top right with its picture and the selected row's help (or the last
+ * message) under them, the pad hints and the build on the bar. Without the art (no skin/) the same over plain navy. */
 
 /* the art at the canvas' size: ours as it is, libpicofe's background (what its own menus, the picker
  * and the message screens draw over) darkened; made again when the window changed size. Every menu
@@ -601,8 +601,13 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	c = ab_screen_begin();
 	s = c.h / 720.0f;
 
-	/* top left: the game */
-	x = (int)(40 * s);
+	/* the rows' panel on the left, the game's name, batteries, picture and help right of it */
+	panel_w = (int)(540 * s);
+	panel_x = (int)(32 * s);
+	left_w = c.w - (int)(40 * s) - (panel_x + panel_w + (int)(40 * s));
+
+	/* top right: the game */
+	x = panel_x + panel_w + (int)(40 * s);
 	y = (int)(40 * s);
 	if (CdromId[0] != 0) {
 		ab_text_shadow(&c, x, y, AB_UI_LEFT, get_cd_label(), (int)(36 * s), ab_col_text);
@@ -641,8 +646,6 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	}
 	px = row_h * 7 / 10;
 	head_px = head_h * 6 / 10;
-	panel_w = (int)(540 * s);
-	panel_x = c.w - (int)(32 * s) - panel_w;
 	panel_y = (int)(24 * s);
 	panel_h = n * row_h + heads * head_h + 2 * pad;
 	ab_ui_fill(&c, panel_x, panel_y, panel_w, panel_h, (int)(14 * s), ab_col_panel, 210);
@@ -711,11 +714,10 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		y += row_h;
 	}
 
-	/* left of the panel, under the game's name: the pads' batteries, the last quick save's picture, then
-	 * the message of the moment or the selected row's help */
-	x = (int)(40 * s);
+	/* right of the panel, under the game's name: the pads' batteries, the game's last frame, then the
+	 * message of the moment or the selected row's help (left_w is that column's width) */
+	x = panel_x + panel_w + (int)(40 * s);
 	y = (int)(40 * s) + (CdromId[0] != 0 ? (int)(84 * s) : (int)(50 * s));
-	left_w = panel_x - x - (int)(32 * s);
 	{
 		int pct[AB_PAD_BATTERY_MAX], np = ab_pad_battery_all(pct, AB_PAD_BATTERY_MAX), k, bx;
 		if (np > 0) {
