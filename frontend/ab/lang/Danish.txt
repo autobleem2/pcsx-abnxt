@@ -194,3 +194,4 @@ Parent folder=Overordnet mappe
 No cheat files (.cht) in this folder=Ingen snydekode-filer (.cht) i denne mappe
 No cheats in this file=Ingen snydekoder i denne fil
 Cheats loaded:=Indlæste snydekoder:
+CRT-Pi is too heavy for the console at 1080p: choose 720p in AutoBleem's settings to play with it=CRT-Pi er for tung for konsollen i 1080p: vælg 720p i AutoBleems indstillinger for at spille med den

@@ -194,3 +194,4 @@ Parent folder=Överordnad mapp
 No cheat files (.cht) in this folder=Inga fuskfiler (.cht) i den här mappen
 No cheats in this file=Inga fusk i den här filen
 Cheats loaded:=Inlästa fusk:
+CRT-Pi is too heavy for the console at 1080p: choose 720p in AutoBleem's settings to play with it=CRT-Pi är för tung för konsolen i 1080p: välj 720p i AutoBleems inställningar för att spela med den

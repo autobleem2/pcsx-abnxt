@@ -192,3 +192,4 @@ Parent folder=上级文件夹
 No cheat files (.cht) in this folder=此文件夹中没有金手指文件（.cht）
 No cheats in this file=此文件中没有金手指
 Cheats loaded:=已加载金手指：
+CRT-Pi is too heavy for the console at 1080p: choose 720p in AutoBleem's settings to play with it=CRT-Pi 在 1080p 下对主机负担过重：如需使用，请在 AutoBleem 设置中选择 720p

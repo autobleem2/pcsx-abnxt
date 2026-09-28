@@ -57,6 +57,8 @@ static void ab_menu_prepare_bg(void);
 /* (the texts are the language files' keys: no '=' in them) */
 static const char h_ab_filter[] = "Nearest: plain pixels. Linear: smoothed. Sharp: crisp pixels without"
                                   " shimmer. CRT: a TV's look";
+static const char h_ab_crtpi_1080[] = "CRT-Pi is too heavy for the console at 1080p: choose 720p in AutoBleem's"
+                                      " settings to play with it";
 static const char h_ab_pcsx[]   = "PCSX-ReARMed's own menu: options, controls, cheats...";
 static const char h_ab_savecfg[] = "Keeps these settings for this game; AutoBleem shows its own locked until"
                                    " you unlock them in the game's settings";
@@ -1344,6 +1346,18 @@ static void ab_menu_loop_d(void)
 	}
 
 	ab_ui_load(ab_opts.language);
+	{
+		/* the console at 1080p: CRT-Pi stays, with a word that it is too heavy there (the owner, 2026-09-28);
+		 * the help is drawn through ab_ui_tr, which gives an already translated text back as it is */
+		static char help[512];
+		menu_entry *f = &e_menu_ab[me_id2offset(e_menu_ab, MA_AB_FILTER)];
+		if (ab_console_present() && g_menuscreen_h >= 1080) {
+			snprintf(help, sizeof(help), "%s. %s", ab_ui_tr(h_ab_filter), ab_ui_tr(h_ab_crtpi_1080));
+			f->help = help;
+		} else {
+			f->help = h_ab_filter;
+		}
+	}
 	ab_menu_prepare_bg();
 	ab_snap_take();		/* the frame the game was on when the menu opened */
 	do {

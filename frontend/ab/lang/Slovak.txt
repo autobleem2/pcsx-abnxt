@@ -194,3 +194,4 @@ Parent folder=Nadradený priečinok
 No cheat files (.cht) in this folder=V tomto priečinku nie sú žiadne súbory s cheatmi (.cht)
 No cheats in this file=V tomto súbore nie sú žiadne cheaty
 Cheats loaded:=Načítané cheaty:
+CRT-Pi is too heavy for the console at 1080p: choose 720p in AutoBleem's settings to play with it=CRT-Pi je pre konzolu v 1080p príliš náročný: ak s ním chcete hrať, zvoľte 720p v nastaveniach AutoBleem

@@ -194,3 +194,4 @@ Parent folder=Yläkansio
 No cheat files (.cht) in this folder=Ei huijaustiedostoja (.cht) tässä kansiossa
 No cheats in this file=Ei huijauksia tässä tiedostossa
 Cheats loaded:=Ladatut huijaukset:
+CRT-Pi is too heavy for the console at 1080p: choose 720p in AutoBleem's settings to play with it=CRT-Pi on konsolille liian raskas 1080p-tilassa: valitse 720p AutoBleemin asetuksista pelataksesi sen kanssa

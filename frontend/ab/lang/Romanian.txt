@@ -193,3 +193,4 @@ Parent folder=Dosarul părinte
 No cheat files (.cht) in this folder=Niciun fișier de coduri (.cht) în acest dosar
 No cheats in this file=Niciun cod în acest fișier
 Cheats loaded:=Coduri încărcate:
+CRT-Pi is too heavy for the console at 1080p: choose 720p in AutoBleem's settings to play with it=CRT-Pi este prea solicitant pentru consolă la 1080p: alege 720p în setările AutoBleem pentru a juca cu el

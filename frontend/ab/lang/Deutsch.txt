@@ -194,3 +194,4 @@ Parent folder=Übergeordneter Ordner
 No cheat files (.cht) in this folder=Keine Cheat-Dateien (.cht) in diesem Ordner
 No cheats in this file=Keine Cheats in dieser Datei
 Cheats loaded:=Geladene Cheats:
+CRT-Pi is too heavy for the console at 1080p: choose 720p in AutoBleem's settings to play with it=CRT-Pi ist für die Konsole bei 1080p zu aufwendig: Um damit zu spielen, wähle 720p in den AutoBleem-Einstellungen
