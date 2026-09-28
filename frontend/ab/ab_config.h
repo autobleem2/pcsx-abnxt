@@ -97,6 +97,16 @@ int ab_bios_set_by_pcsx(void);
  *                   pads there are; a lone pad is always player 1, swap on or off. */
 const char *ab_exit_dir(void);
 const char *ab_memcard_dir(void);
+
+/* The output mode (plat_autobleem.c): AB_OUTPUT_MODE from the launcher - "auto" (the display's own mode),
+ * "720" or "1080" (abfeatures: outputmode) - and the menu's Display row. A mode the display does not list
+ * falls back to auto. A change in the menu is written to $AB_RUNTIME_DIR/outputmode (RAM), one line with
+ * the same token, for the launcher to take into its own setting when the game ends. */
+enum { AB_OUTPUT_AUTO, AB_OUTPUT_720, AB_OUTPUT_1080 };
+extern int ab_output_mode;
+int ab_output_mode_parse(const char *s);
+int ab_output_mode_available(int mode);
+int ab_output_mode_apply(int mode, int tell_launcher);
 const char *ab_load_state(void);
 /* order[0]/order[1] = the PS1 port (0-based) SDL pad index 0/1 lands on; {0, 1} (AB_PAD_ORDER unset,
  * malformed, or not a permutation of {0, 1}) is the original, unswapped order. Says nothing about how many

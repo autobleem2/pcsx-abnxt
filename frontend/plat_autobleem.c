@@ -498,6 +498,51 @@ static void update_pipeline(void)
   plat_ab_set_scanlines(pattern[level][0], pattern[level][1], (100 - scanline_level) * 255 / 100);
 }
 
+/* the output mode (ab_config.h) */
+int ab_output_mode;
+
+int ab_output_mode_parse(const char *s)
+{
+  if (s != NULL && strcmp(s, "720") == 0)
+    return AB_OUTPUT_720;
+  if (s != NULL && strcmp(s, "1080") == 0)
+    return AB_OUTPUT_1080;
+  return AB_OUTPUT_AUTO;
+}
+
+int ab_output_mode_available(int mode)
+{
+  return mode == AB_OUTPUT_AUTO || (mode == AB_OUTPUT_720 && plat_ab_has_mode(1280, 720))
+    || (mode == AB_OUTPUT_1080 && plat_ab_has_mode(1920, 1080));
+}
+
+int ab_output_mode_apply(int mode, int tell_launcher)
+{
+  static const char *names[] = { "auto", "720", "1080" };
+  const char *dir = getenv("AB_RUNTIME_DIR");
+  int ret;
+
+  if (!ab_output_mode_available(mode))
+    mode = AB_OUTPUT_AUTO;
+  ret = plat_ab_set_output_mode(mode == AB_OUTPUT_720 ? 1280 : mode == AB_OUTPUT_1080 ? 1920 : 0,
+                                mode == AB_OUTPUT_720 ? 720 : mode == AB_OUTPUT_1080 ? 1080 : 0);
+  if (ret != 0)
+    return ret;
+  ab_output_mode = mode;
+  /* the launcher takes the player's choice from its runtime directory (RAM) when the game ends */
+  if (tell_launcher && dir != NULL && *dir) {
+    char path[512];
+    FILE *f;
+    snprintf(path, sizeof(path), "%s/outputmode", dir);
+    f = fopen(path, "w");
+    if (f != NULL) {
+      fprintf(f, "%s\n", names[mode]);
+      fclose(f);
+    }
+  }
+  return 0;
+}
+
 void plat_init(void)
 {
   int fullscreen, ret, headless;
@@ -549,6 +594,10 @@ void plat_init(void)
   }
   resize_cb(plat_ab_win_w, plat_ab_win_h);
   in_menu = 1;
+  /* the launcher's output mode (AB_OUTPUT_MODE, abfeatures' "outputmode") */
+  ab_output_mode = ab_output_mode_parse(getenv("AB_OUTPUT_MODE"));
+  if (ab_output_mode != AB_OUTPUT_AUTO)
+    ab_output_mode_apply(ab_output_mode, 0);
 
   in_sdl2_init(&in_sdl2_platform_data, sdl_event_handler);
   in_sdl2gc_init(&in_sdl2gc_platform_data, controller_db_files, pads_changed);

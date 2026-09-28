@@ -39,6 +39,9 @@ enum {
 	MA_AB_SAVECFG,
 	MA_AB_SCALER,
 	MA_AB_AUTOLOAD,
+	MA_AB_DISPLAY,
+	MA_AB_ENHANCE,
+	MA_AB_NOSEAMS,
 };
 
 #define AB_QUICK_SLOT 2		/* slot 0 is the resume point, 1 the launcher's copy of it */
@@ -79,8 +82,19 @@ static const char h_ab_exit[]    = "Back to AutoBleem - holding the menu button 
 /* ab_buttons.c autosaves the game into RAM every 30 s of play (state_sony.c's SaveStateAuto) */
 static const char h_ab_autoload[] = "The game as it was up to 30 seconds ago: it is saved in memory by itself"
                                     " while you play";
+/* the output mode (ab_config.h): the modes the display lists, filled when the menu opens */
+static int ab_display_sel, ab_display_modes[3];
+static const char *men_ab_display[4];
+static const char h_ab_display[] = "The resolution the screen is driven at; only what the TV or monitor offers"
+                                   " is listed";
+/* gpu_neon's enhancement (the built-in GPU only) and the seams fix in it (psx_gpu_parse.c) */
+static const char *men_ab_enhance[] = { "1x", "2x", NULL };
+static const char h_ab_enhance[] = "2x draws the PlayStation's 3D at double resolution (not in high resolution"
+                                   " games); costs speed";
+static const char h_ab_noseams[] = "No 1-pixel gaps between pictures made of several parts at 2x";
 /* why a row is greyed */
 static const char ab_why_crt[]   = "Off while a CRT filter is on";
+static const char ab_why_1x[]    = "Only with the 2x resolution";
 
 /* the sections are label rows (not selectable), drawn as headings */
 static menu_entry e_menu_ab[] =
@@ -92,7 +106,10 @@ static menu_entry e_menu_ab[] =
 	mee_handler_id_h("Load autosave",          MA_AB_AUTOLOAD,      ab_menu_handler, h_ab_autoload),
 	mee_handler_id("Change disc",              MA_AB_DISC,          ab_menu_handler),
 	mee_label     ("Picture"),
-	mee_enum_h    ("Scaling",                  MA_AB_SCALER,        ab_scaler_sel, men_ab_scaler, h_ab_scaler),
+	mee_enum_h    ("Display",                  MA_AB_DISPLAY,       ab_display_sel, men_ab_display, h_ab_display),
+	mee_enum_h    ("Resolution",               MA_AB_ENHANCE,       pl_rearmed_cbs.gpu_neon.enhancement_enable, men_ab_enhance, h_ab_enhance),
+	mee_onoff_h   ("Remove seams",             MA_AB_NOSEAMS,       pl_rearmed_cbs.gpu_neon.enhancement_no_seams, 1, h_ab_noseams),
+	mee_enum_h    ("Scaling",                 MA_AB_SCALER,        ab_scaler_sel, men_ab_scaler, h_ab_scaler),
 	mee_enum_h    ("Smoothing",                MA_OPT_SWFILTER,     soft_filter, men_ab_smooth, h_ab_smooth),
 	mee_cust_h    ("Filter",                   MA_AB_FILTER,        ab_menu_handler, ab_filter_name, h_ab_filter),
 	mee_enum_h    ("Scanlines",                MA_OPT_SCANLINES,    scanlines, men_ab_scanlines, h_ab_scanlines),
@@ -112,6 +129,8 @@ static menu_entry e_menu_ab[] =
  * NULL: a CRT filter draws its own scanlines, and on the console it rules out the smoothing too */
 static const char *ab_row_blocked(const menu_entry *e)
 {
+	if (e->id == MA_AB_NOSEAMS && !pl_rearmed_cbs.gpu_neon.enhancement_enable)
+		return ab_why_1x;
 	if (!ab_filter_is_crt(plat_target.hwfilter))
 		return NULL;
 	if (e->id == MA_OPT_SCANLINES || e->id == MA_OPT_SCANLINE_LEVEL)
@@ -857,6 +876,29 @@ static void ab_menu_loop_d(void)
 	me_enable(e_menu_ab, MA_AB_DISC,      ready_to_go && CdromId[0]);
 	me_enable(e_menu_ab, MA_AB_FILTER,    plat_target.hwfilters != NULL);
 	e_menu_ab[me_id2offset(e_menu_ab, MA_MAIN_EXIT)].help = h_ab_exit;
+#ifdef BUILTIN_GPU_NEON
+	me_enable(e_menu_ab, MA_AB_ENHANCE, gpu_plugsel == 0);	/* 0 is "builtin_gpu" */
+	me_enable(e_menu_ab, MA_AB_NOSEAMS, gpu_plugsel == 0);
+#else
+	me_enable(e_menu_ab, MA_AB_ENHANCE, 0);
+	me_enable(e_menu_ab, MA_AB_NOSEAMS, 0);
+#endif
+	{
+		/* the Display row: Auto, then 720p/1080p when the display lists them */
+		static const char *names[] = { "Auto", "720p", "1080p" };
+		int m, n = 0;
+		ab_display_sel = 0;
+		for (m = AB_OUTPUT_AUTO; m <= AB_OUTPUT_1080; m++) {
+			if (!ab_output_mode_available(m))
+				continue;
+			if (m == ab_output_mode)
+				ab_display_sel = n;
+			ab_display_modes[n] = m;
+			men_ab_display[n++] = names[m];
+		}
+		men_ab_display[n] = NULL;
+		me_enable(e_menu_ab, MA_AB_DISPLAY, n > 1);
+	}
 	if (ab_console_present()) {
 		e_menu_ab[me_id2offset(e_menu_ab, MA_OPT_SWFILTER)].data = men_ab_smooth_psc;
 		if (soft_filter > SOFT_FILTER_EAGLE2X)
@@ -875,4 +917,7 @@ static void ab_menu_loop_d(void)
 		if (ab_scaler_sel != shown)
 			g_scaler = ab_scaler_sel;
 	} while (!ready_to_go && !g_emu_want_quit);
+	/* the output mode last: switching it resizes the canvas the menu drew on */
+	if (ab_display_modes[ab_display_sel] != ab_output_mode && !g_emu_want_quit)
+		ab_output_mode_apply(ab_display_modes[ab_display_sel], 1);
 }
