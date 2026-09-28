@@ -95,6 +95,7 @@ static const char h_ab_noseams[] = "No 1-pixel gaps between pictures made of sev
 /* why a row is greyed */
 static const char ab_why_crt[]   = "Off while a CRT filter is on";
 static const char ab_why_1x[]    = "Only with the 2x resolution";
+static const char ab_why_display[] = "The console's resolution is chosen in AutoBleem's settings";
 
 /* the sections are label rows (not selectable), drawn as headings */
 static menu_entry e_menu_ab[] =
@@ -131,6 +132,8 @@ static const char *ab_row_blocked(const menu_entry *e)
 {
 	if (e->id == MA_AB_NOSEAMS && !pl_rearmed_cbs.gpu_neon.enhancement_enable)
 		return ab_why_1x;
+	if (e->id == MA_AB_DISPLAY && ab_console_present())
+		return ab_why_display;
 	if (!ab_filter_is_crt(plat_target.hwfilter))
 		return NULL;
 	if (e->id == MA_OPT_SCANLINES || e->id == MA_OPT_SCANLINE_LEVEL)
@@ -898,6 +901,21 @@ static void ab_menu_loop_d(void)
 		}
 		men_ab_display[n] = NULL;
 		me_enable(e_menu_ab, MA_AB_DISPLAY, n > 1);
+		if (ab_console_present()) {
+			/* the console: Weston's mode is set at boot (the launcher's setting, boot.sh), so the row
+			 * only shows the output's resolution */
+			static char cur[16];
+			/* the menu's canvas is the output's size (plat_autobleem.c's resize_cb) */
+			if (g_menuscreen_h == 1080 || g_menuscreen_h == 720)
+				snprintf(cur, sizeof(cur), "%dp", g_menuscreen_h);
+			else
+				snprintf(cur, sizeof(cur), "%dx%d", g_menuscreen_w, g_menuscreen_h);
+			men_ab_display[0] = cur;
+			men_ab_display[1] = NULL;
+			ab_display_modes[0] = ab_output_mode;
+			ab_display_sel = 0;
+			me_enable(e_menu_ab, MA_AB_DISPLAY, 1);
+		}
 	}
 	if (ab_console_present()) {
 		e_menu_ab[me_id2offset(e_menu_ab, MA_OPT_SWFILTER)].data = men_ab_smooth_psc;

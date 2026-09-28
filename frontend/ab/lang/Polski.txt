@@ -61,6 +61,7 @@ The resolution the screen is driven at; only what the TV or monitor offers is li
 2x draws the PlayStation's 3D at double resolution (not in high resolution games); costs speed=2x rysuje grafikę PlayStation w podwójnej rozdzielczości (nie w grach wysokiej rozdzielczości); kosztuje wydajność
 No 1-pixel gaps between pictures made of several parts at 2x=Bez jednopikselowych szczelin między częściami obrazów złożonych z kilku kawałków przy 2x
 Only with the 2x resolution=Tylko przy rozdzielczości 2x
+The console's resolution is chosen in AutoBleem's settings=Rozdzielczość konsoli wybiera się w ustawieniach AutoBleem
 Saved for this game=Zapisano dla tej gry
 Failed to save the settings=Nie udało się zapisać ustawień
 Off while a CRT filter is on=Wyłączone przy filtrze CRT

@@ -61,6 +61,7 @@ The resolution the screen is driven at; only what the TV or monitor offers is li
 2x draws the PlayStation's 3D at double resolution (not in high resolution games); costs speed=2x draws the PlayStation's 3D at double resolution (not in high resolution games); costs speed
 No 1-pixel gaps between pictures made of several parts at 2x=No 1-pixel gaps between pictures made of several parts at 2x
 Only with the 2x resolution=Only with the 2x resolution
+The console's resolution is chosen in AutoBleem's settings=The console's resolution is chosen in AutoBleem's settings
 Saved for this game=Saved for this game
 Failed to save the settings=Failed to save the settings
 Off while a CRT filter is on=Off while a CRT filter is on
