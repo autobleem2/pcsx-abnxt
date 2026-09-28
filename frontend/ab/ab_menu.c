@@ -126,6 +126,14 @@ static menu_entry e_menu_ab[] =
 	mee_end,
 };
 
+/* the pages open above the one on screen (the rows that opened them), for the path over the panel; and
+ * the info rows' texts of this frame (ab_menu_draw) */
+#define AB_MENU_MAX_DEPTH 6
+#define AB_MENU_MAX_ROWS  64
+static const char *ab_crumbs[AB_MENU_MAX_DEPTH];
+static int ab_crumb_n;
+static const char *ab_gen_names[AB_MENU_MAX_ROWS];
+
 /* the reason a row is greyed now (it stays selectable, its help says why, its value does not move), or
  * NULL: a CRT filter draws its own scanlines, and on the console it rules out the smoothing too */
 static const char *ab_row_blocked(const menu_entry *e)
@@ -646,14 +654,25 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	/* the rows, on the panel: sections (the label rows) as headings; sized so that everything fits between
 	 * the top and the art's bar whatever the screen (a 1280x720 design, shrunk if it would not fit) */
 	for (n = 0, heads = 0, ent = menu, i = 0; ent->name; ent++, i++) {
+		if (i < AB_MENU_MAX_ROWS)
+			ab_gen_names[i] = NULL;
 		if (!ent->enabled)
 			continue;
 		if (i == sel)
 			ent_sel = ent;
 		if (ent->selectable)
 			n++;
-		else
-			heads++;
+		else if (ent->generate_name != NULL) {
+			/* an info row (upstream's device list): its text once a frame, in order - the generators
+			 * iterate (MA_CTRL_DEV_FIRST starts over); an empty one is not shown */
+			int offs = 0;
+			const char *t = ent->generate_name(ent->id, &offs);
+			if (i < AB_MENU_MAX_ROWS && t != NULL && t[0] != 0) {
+				ab_gen_names[i] = t;
+				n++;
+			}
+		} else if (ent->name[0] != 0)
+			heads++;	/* an empty label is upstream's spacer: not shown */
 	}
 	if (ent_sel != NULL)
 		menu_sel_name = ent_sel->name;	/* as libpicofe's menus do, for the debug driver */
@@ -661,6 +680,25 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	head_h = (int)(28 * s);
 	pad = (int)(12 * s);
 	avail = (int)(596 * s);		/* 24..620 of the design: over the art's bar */
+	panel_y = (int)(24 * s);
+	if (ab_crumb_n > 0) {
+		/* a page one level down or more: where it is, over the panel ("PCSX menu > Options > Display") */
+		int k, cx = panel_x + (int)(8 * s);
+		for (k = 0; k < ab_crumb_n; k++) {
+			char cb[96];
+			const char *t = ab_crumbs[k];
+			if (t[0] == '[' && strlen(t) > 2) {
+				snprintf(cb, sizeof(cb), "%.*s", (int)strlen(t) - 2, t + 1);
+				t = cb;
+			}
+			if (k > 0)
+				cx += ab_text_shadow_w(&c, cx, panel_y, ">", (int)(22 * s), ab_col_dim) + (int)(10 * s);
+			cx += ab_text_shadow_w(&c, cx, panel_y, ab_ui_tr(t), (int)(22 * s),
+				k == ab_crumb_n - 1 ? ab_col_accent : ab_col_dim) + (int)(10 * s);
+		}
+		panel_y += (int)(36 * s);
+		avail -= (int)(36 * s);
+	}
 	if (n * row_h + heads * head_h + 2 * pad > avail) {
 		float k = (float)(avail - 2 * pad) / (n * row_h + heads * head_h);
 		row_h = (int)(row_h * k);
@@ -668,7 +706,6 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	}
 	px = row_h * 7 / 10;
 	head_px = head_h * 6 / 10;
-	panel_y = (int)(24 * s);
 	panel_h = n * row_h + heads * head_h + 2 * pad;
 	ab_ui_fill(&c, panel_x, panel_y, panel_w, panel_h, (int)(14 * s), ab_col_panel, 210);
 	x_name = panel_x + (int)(28 * s);
@@ -676,10 +713,20 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	y = panel_y + pad;
 	for (ent = menu, i = 0; ent->name; ent++, i++) {
 		const char *name = ent->name, *val = NULL;
-		int offs = 0, is_sel = i == sel;
+		char namebuf[96];
+		int offs = 0, is_sel = i == sel, page;
 		unsigned short col_name, col_val;
 
 		if (!ent->enabled)
+			continue;
+		if (!ent->selectable && ent->generate_name != NULL) {
+			if (i < AB_MENU_MAX_ROWS && ab_gen_names[i] != NULL) {
+				ab_text(&c, x_name, y + (row_h - px) / 2, AB_UI_LEFT, ab_gen_names[i], px, ab_col_dim);
+				y += row_h;
+			}
+			continue;
+		}
+		if (!ent->selectable && name[0] == 0)
 			continue;
 		if (!ent->selectable) {
 			/* a section's heading, with a thin rule after it */
@@ -697,7 +744,15 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 			ab_ui_fill(&c, panel_x + (int)(10 * s), y, panel_w - (int)(20 * s), row_h, (int)(8 * s), ab_col_row, 170);
 		if (name[0] == 0 && ent->generate_name != NULL)
 			name = ent->generate_name(ent->id, &offs);
+		/* "[name]" opens a page: the name without its brackets and a ">" where a value would be */
+		page = name[0] == '[' && strlen(name) > 2 && name[strlen(name) - 1] == ']';
+		if (page) {
+			snprintf(namebuf, sizeof(namebuf), "%.*s", (int)strlen(name) - 2, name + 1);
+			name = namebuf;
+		}
 		name = ab_ui_tr(name);
+		if (page)
+			ab_text(&c, x_val, y + (row_h - px) / 2, AB_UI_RIGHT, ">", px, is_sel ? ab_col_accent : ab_col_dim);
 		switch (ent->beh) {
 		case MB_OPT_ONOFF:
 			val = me_read_onoff(ent) ? "ON" : "OFF";
@@ -778,11 +833,19 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	} else if (blocked != NULL) {
 		ab_text_wrap(&c, x, y, ab_ui_tr(blocked), (int)(20 * s), left_w, 3, ab_col_accent);
 	} else if (ent_sel != NULL && ent_sel->help != NULL) {
-		ab_text_wrap(&c, x, y, ab_ui_tr(ent_sel->help), (int)(20 * s), left_w, 4, ab_col_dim);
+		/* upstream's help texts break their lines with '\n' for its 8x8 font: one paragraph here, wrapped */
+		char help[256], *p;
+		snprintf(help, sizeof(help), "%s", ent_sel->help);
+		for (p = help; *p; p++)
+			if (*p == '\n')
+				*p = ' ';
+		while (p > help && p[-1] == ' ')
+			*--p = 0;
+		ab_text_wrap(&c, x, y, ab_ui_tr(help), (int)(20 * s), left_w, 5, ab_col_dim);
 	}
 
 	/* the bar: the hints on its left, the build on its right */
-	ab_footer(&c, ab_ui_tr("Select"), ab_ui_tr(ready_to_go ? "Resume" : "Back"));
+	ab_footer(&c, ab_ui_tr("Select"), ab_ui_tr(ab_crumb_n > 0 || !ready_to_go ? "Back" : "Resume"));
 	px = (int)(17 * s);
 	x = c.w - (int)(40 * s);
 	/* the package's version (AB_VERSION, exported by the launcher) - what every program on the stick shows;
@@ -842,7 +905,11 @@ static int ab_menu_run(menu_entry *menu, int *menu_sel)
 		if (inp & (PBTN_MOK|PBTN_LEFT|PBTN_RIGHT|PBTN_L|PBTN_R)) {
 			/* a plain row takes Cross alone; a value row with a handler takes the arrows too */
 			if (menu[sel].handler != NULL && (menu[sel].beh != MB_NONE || (inp & PBTN_MOK))) {
+				int depth = ab_crumb_n;
+				if (depth < AB_MENU_MAX_DEPTH)
+					ab_crumbs[ab_crumb_n++] = menu[sel].name;
 				ret = menu[sel].handler(menu[sel].id, inp);
+				ab_crumb_n = depth;
 				if (ret)
 					break;
 				sel_max = me_count(menu) - 1;
@@ -864,7 +931,7 @@ static int ab_menu_pcsx_handler(int id, int keys)
 	me_enable(e_menu_main, MA_MAIN_CHEATS,      ready_to_go && NumCheats);
 
 	ab_debug_screen("pcsx");	/* upstream's menu and its pages, until we draw ours again */
-	return me_loop_d(e_menu_main, &sel, NULL, draw_frame_main);
+	return ab_menu_run(e_menu_main, &sel);
 }
 
 /* menu_loop()'s loop: our menu at the top, until the game is to go on or the run is to end */

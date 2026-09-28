@@ -935,6 +935,15 @@ static void draw_savestate_bg(int slot);
 #define MENU_ALIGN_LEFT
 #include "libpicofe/menu.c"
 
+#ifdef PSCLASSIC
+/* AutoBleem: every list menu below (Options, Display, BIOS/Plugins, Advanced, Controls, the plugins'
+ * pages...) is drawn by ab/ab_menu.c's screen - the TTF font, the dimmed panel, the sections - instead of
+ * libpicofe's; the screens that draw themselves (key binding, save slots, memory cards, cheats, the file
+ * browser) are libpicofe's still */
+static int ab_menu_run(menu_entry *menu, int *menu_sel);
+#define me_loop(menu, sel) ab_menu_run(menu, sel)
+#endif
+
 // a bit of black magic here
 static void draw_savestate_bg(int slot)
 {
@@ -1411,11 +1420,12 @@ static const char h_vibration[]= "Must select analog above and enable this ingam
 
 static menu_entry e_menu_keyconfig[] =
 {
+	mee_label     ("Buttons"),
 	mee_handler_id("Player 1",              MA_CTRL_PLAYER1,    key_config_loop_wrap),
 	mee_handler_id("Player 2",              MA_CTRL_PLAYER2,    key_config_loop_wrap),
-	mee_handler_id("Analog controls",       MA_CTRL_ANALOG,     key_config_analog),
+	mee_handler_id("[Analog controls]",     MA_CTRL_ANALOG,     key_config_analog),
 	mee_handler_id("Emulator/Gun controls", MA_CTRL_EMU,        key_config_loop_wrap),
-	mee_label     (""),
+	mee_label     ("Ports"),
 	mee_enum      ("Port 1 device",     0, in_type_sel1,    men_in_type_sel),
 	mee_enum      ("Port 2 device",     0, in_type_sel2,    men_in_type_sel),
 	mee_onoff_h   ("Nubs as buttons",   MA_CTRL_NUBS_BTNS,  in_evdev_allow_abs_only, 1, h_nub_btns),
@@ -1428,8 +1438,8 @@ static menu_entry e_menu_keyconfig[] =
 	mee_cust_nosave("Save global config",       MA_OPT_SAVECFG,      mh_savecfg, mgn_saveloadcfg),
 	mee_cust_nosave("Save cfg for loaded game", MA_OPT_SAVECFG_GAME, mh_savecfg, mgn_saveloadcfg),
 #endif
-	mee_handler   ("Rescan devices:",  mh_input_rescan),
-	mee_label     (""),
+	mee_label     ("Devices"),
+	mee_handler   ("Rescan devices",   mh_input_rescan),
 	mee_label_mk  (MA_CTRL_DEV_FIRST, mgn_dev_name),
 	mee_label_mk  (MA_CTRL_DEV_NEXT,  mgn_dev_name),
 	mee_label_mk  (MA_CTRL_DEV_NEXT,  mgn_dev_name),
@@ -1559,20 +1569,23 @@ static int menu_loop_cscaler(int id, int keys)
 
 static menu_entry e_menu_gfx_options[] =
 {
+	mee_label     ("Picture"),
 	mee_enum      ("PSX Screen centering",     MA_OPT_CENTERING, pl_rearmed_cbs.screen_centering_type, men_centering),
 	mee_enum      ("Show overscan",            MA_OPT_OVERSCAN, pl_rearmed_cbs.show_overscan, men_overscan),
 	mee_enum_h    ("Scaler",                   MA_OPT_VARSCALER, g_scaler, men_scaler, h_scaler),
-	mee_enum      ("Video output mode",        MA_OPT_VOUT_MODE, plat_target.vout_method, men_dummy),
-	mee_onoff     ("Fullscreen mode",          MA_OPT_VOUT_FULL, plat_target.vout_fullscreen, 1),
+	mee_cust_h    ("Setup custom scaler",      MA_OPT_VARSCALER_C, menu_loop_cscaler, NULL, h_cscaler),
+	mee_onoff_h   ("Force low resolution",     0, menu_iopts[0], 1, h_lowres),
+	mee_label     ("Filters"),
 	mee_onoff     ("Software Scaling",         MA_OPT_SCALER2, soft_scaling, 1),
 	mee_enum_h    ("Software Filter",          MA_OPT_SWFILTER, soft_filter, men_soft_filter, h_soft_filter),
 	mee_enum      ("Hardware Filter",          MA_OPT_HWFILTER, plat_target.hwfilter, men_dummy),
 	mee_enum      ("Scanlines",                MA_OPT_SCANLINES, scanlines, men_scanlines),
 	mee_range_h   ("Scanline brightness",      MA_OPT_SCANLINE_LEVEL, scanline_level, 0, 100, h_scanline_l),
 	mee_range_h   ("Gamma adjustment",         MA_OPT_GAMMA, g_gamma, 1, 200, h_gamma),
+	mee_label     ("Output"),
+	mee_enum      ("Video output mode",        MA_OPT_VOUT_MODE, plat_target.vout_method, men_dummy),
+	mee_onoff     ("Fullscreen mode",          MA_OPT_VOUT_FULL, plat_target.vout_fullscreen, 1),
 	mee_onoff     ("OpenGL Vsync",             MA_OPT_VSYNC, g_opts, OPT_VSYNC),
-	mee_cust_h    ("Setup custom scaler",      MA_OPT_VARSCALER_C, menu_loop_cscaler, NULL, h_cscaler),
-	mee_onoff_h   ("Force low resolution",     0, menu_iopts[0], 1, h_lowres),
 	mee_end,
 };
 
@@ -1767,19 +1780,22 @@ static int menu_loop_pluginsel_options(int id, int keys)
 
 static menu_entry e_menu_plugin_options[] =
 {
+	mee_label     ("BIOS"),
 	mee_enum_h    ("BIOS",                          0, bios_sel, bioses, h_bios),
 	mee_enum      ("BIOS logo (slow boot)",         0, menu_iopts[0], men_bios_boot),
+	mee_label     ("Video"),
 	mee_enum_h    ("GPU plugin",                    0, gpu_plugsel, gpu_plugins, h_plugin_gpu),
 #ifdef USE_ASYNC_GPU
 	mee_enum      ("GPU multithreading",            0, menu_iopts[1], men_autooo),
 #endif
 	mee_enum      ("GPU dithering",                 0, menu_iopts[2], men_gpu_dithering),
+	mee_handler   ("[Configure selected GPU plugin]", menu_loop_pluginsel_options),
+	mee_label     ("Sound"),
 	mee_enum_h    ("SPU plugin",                    0, spu_plugsel, spu_plugins, h_plugin_spu),
 #ifndef C64X_DSP
 	mee_onoff_h   ("SPU multithreading",            MA_OPT_SPU_THREAD, spu_config.iUseThread, 1, h_sputhr),
 #endif
-	mee_handler   ("Configure selected GPU plugin", menu_loop_pluginsel_options),
-	mee_handler_h ("Configure built-in SPU plugin", menu_loop_plugin_spu, h_spu),
+	mee_handler_h ("[Configure built-in SPU plugin]", menu_loop_plugin_spu, h_spu),
 	mee_end,
 };
 
@@ -1876,8 +1892,10 @@ enum {
 
 static menu_entry e_menu_adv_options[] =
 {
+	mee_label     ("On screen"),
 	mee_onoff_h   ("Show CPU load",          0, g_opts, OPT_SHOWCPU, h_cfg_cpul),
 	mee_onoff_h   ("Show SPU channels",      0, g_opts, OPT_SHOWSPU, h_cfg_spu),
+	mee_label     ("Emulation"),
 	mee_onoff_h   ("Disable Frame Limiter",  0, g_opts, OPT_NO_FRAMELIM, h_cfg_fl),
 	mee_onoff_h   ("Disable XA Decoding",    0, menu_iopts[AMO_XA],   1, h_cfg_xa),
 	mee_onoff_h   ("Disable CD Audio",       0, menu_iopts[AMO_CDDA], 1, h_cfg_cdda),
@@ -1890,6 +1908,7 @@ static menu_entry e_menu_adv_options[] =
 #ifdef USE_ASYNC_CDROM
 	mee_range     ("CD-ROM read-ahead",      0, cd_buf_count, 0, 1024),
 #endif
+	mee_label     ("CPU"),
 #if !defined(DRC_DISABLE) || defined(LIGHTREC)
 	mee_onoff_h   ("Disable dynarec (slow!)",0, menu_iopts[AMO_CPU],  1, h_cfg_nodrc),
 #endif
@@ -1955,6 +1974,7 @@ static menu_entry e_menu_options[] =
 {
 //	mee_range     ("Save slot",                0, state_slot, 0, 9),
 //	mee_enum_h    ("Confirm savestate",        0, dummy, men_confirm_save, h_confirm_save),
+	mee_label     ("General"),
 	mee_enum_h    ("Frameskip",                0, frameskip, men_frameskip, h_frameskip),
 	mee_onoff     ("Show FPS",                 0, g_opts, OPT_SHOWFPS),
 	mee_enum      ("Region",                   0, region, men_region),
@@ -1962,9 +1982,11 @@ static menu_entry e_menu_options[] =
 #ifdef C64X_DSP
 	mee_onoff_h   ("Use C64x DSP for sound",   MA_OPT_SPU_THREAD, spu_config.iUseThread, 1, h_sputhr),
 #endif
+	mee_label     ("More"),
 	mee_handler_id("[Display]",                MA_OPT_DISP_OPTS, menu_loop_gfx_options),
 	mee_handler   ("[BIOS/Plugins]",           menu_loop_plugin_options),
 	mee_handler   ("[Advanced]",               menu_loop_adv_options),
+	mee_label     ("Settings"),
 #ifdef PSCLASSIC
 	mee_cust_nosave("Save settings for this game", MA_OPT_SAVECFG_GAME, mh_savecfg, mgn_saveloadcfg),
 #else
@@ -2632,24 +2654,30 @@ static int main_menu2_handler(int id, int keys)
 	me_enable(e_menu_main2, MA_MAIN_RUN_BIOS, bios_sel != 0);
 	me_enable(e_menu_main2, MA_MAIN_LOAD_CHEATS, ready_to_go);
 
+#ifdef PSCLASSIC
+	return ab_menu_run(e_menu_main2, &sel);
+#else
 	return me_loop_d(e_menu_main2, &sel, NULL, draw_frame_main);
+#endif
 }
 
 static const char h_extra[] = "Change CD, manage memcards..\n";
 
+/* (the labels are ab_menu.c's section headings; a "[name]" row opens a page) */
 static menu_entry e_menu_main[] =
 {
-	mee_label     (""),
-	mee_label     (""),
+	mee_label     ("Game"),
 	mee_handler_id("Resume game",        MA_MAIN_RESUME_GAME, main_menu_handler),
 	mee_handler_id("Save State",         MA_MAIN_SAVE_STATE,  main_menu_handler),
 	mee_handler_id("Load State",         MA_MAIN_LOAD_STATE,  main_menu_handler),
 	mee_handler_id("Reset game",         MA_MAIN_RESET_GAME,  main_menu_handler),
 	mee_handler_id("Load CD image",      MA_MAIN_LOAD_ROM,    main_menu_handler),
-	mee_handler   ("Options",            menu_loop_options),
-	mee_handler   ("Controls",           menu_loop_keyconfig),
+	mee_label     ("Settings"),
+	mee_handler   ("[Options]",          menu_loop_options),
+	mee_handler   ("[Controls]",         menu_loop_keyconfig),
 	mee_handler_id("Cheats",             MA_MAIN_CHEATS,      main_menu_handler),
-	mee_handler_h ("Extra stuff",        main_menu2_handler,  h_extra),
+	mee_handler_h ("[Extra stuff]",      main_menu2_handler,  h_extra),
+	mee_label     ("Leave"),
 	mee_handler_id("Credits",            MA_MAIN_CREDITS,     main_menu_handler),
 	mee_handler_id("Exit",               MA_MAIN_EXIT,        main_menu_handler),
 	mee_end,
