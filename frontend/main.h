@@ -98,6 +98,7 @@ enum sched_action {
 	SACTION_AB_CD_CHANGE = 21,
 	SACTION_AB_RESET,
 	SACTION_AB_POWER_OFF,
+	SACTION_AB_AUTOSAVE,
 #endif
 };
 

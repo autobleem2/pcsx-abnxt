@@ -11,6 +11,8 @@
 
 #include "../../libpcsxcore/psxcommon.h"
 #include "../../libpcsxcore/r3000a.h"
+#include "../../libpcsxcore/misc.h"
+#include "../../libpcsxcore/state_sony.h"
 #include "../libpicofe/plat.h"
 #include "../main.h"
 #include "ab_buttons.h"
@@ -26,9 +28,11 @@ static int exit_held;		/* a way out waiting (the memory card, a clean frame): it
 static int exit_frames;		/* frames still to present before it goes */
 static int exit_clean;		/* those frames were presented without the HUD */
 static int power_off_seen, overheat_seen;
+static unsigned int autosave_last;	/* the tick of the last autosave (or of the game's start) */
 
 #define AB_MENU_HOLD_MS   2000	/* the menu button held this long is Reset */
 #define AB_MENU_HINT_MS   500	/* ...and says so on the HUD from here */
+#define AB_AUTOSAVE_MS    30000	/* how often the game is autosaved (RAM only) */
 static const char hold_hint[] = "HOLD TO EXIT";
 
 void ab_request_action(int action)
@@ -116,6 +120,12 @@ int ab_emu_action(int action)
 	case SACTION_AB_CD_CHANGE:
 		ab_disc_change();
 		return 1;
+	case SACTION_AB_AUTOSAVE:
+		/* between two CPU slices, as every state save; not while the game writes its card */
+		autosave_last = plat_get_ticks_ms();
+		if (!ab_memcard_busy())
+			SaveStateAuto(autosave_last);
+		return 1;
 	default:
 		return 0;
 	}
@@ -130,6 +140,7 @@ void ab_frame_tick(void)
 	if (!started) {
 		started = 1;
 		ab_console_start();
+		autosave_last = plat_get_ticks_ms();
 	}
 
 	if (ab_console_power_off_requested && !power_off_seen) {
@@ -152,6 +163,12 @@ void ab_frame_tick(void)
 		ab_request_action(action);
 		return;
 	}
+
+	/* the autosave, every AB_AUTOSAVE_MS of play, in RAM (the menu's "Load autosave"); only when nothing
+	 * else is waiting to run */
+	if (ready_to_go && CdromId[0] && emu_action == SACTION_NONE &&
+	    plat_get_ticks_ms() - autosave_last >= AB_AUTOSAVE_MS)
+		ab_request_action(SACTION_AB_AUTOSAVE);
 
 	ab_disc_tick();
 }

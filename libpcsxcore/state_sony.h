@@ -37,6 +37,13 @@ enum state_section {
 };
 void state_mark(enum state_section s);
 
+/* the autosave: upstream's layout into a buffer in RAM (never a file, the stick stays quiet); one only,
+ * each save replaces it. 0 on success; StateAutoAge() is the milliseconds' tick it was made at, -1 for
+ * none yet */
+int SaveStateAuto(unsigned int now_ms);
+int LoadStateAuto(void);
+long long StateAutoAge(void);
+
 /* cdrom.c: the CD-ROM section (cdr, then the FIFO offset) and what pcsx-ab's fields hold */
 int cdrFreezeSize(void);
 int cdrStateToSony(void *section);	/* 1 when CD audio is playing */

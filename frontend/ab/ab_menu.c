@@ -27,6 +27,7 @@
 #include "ab_ui.h"
 #include "ab_pad_battery.h"
 #include "ab_shaders.h"
+#include "../../libpcsxcore/state_sony.h"
 
 /* our ids, past the menu.c enum's */
 enum {
@@ -37,6 +38,7 @@ enum {
 	MA_AB_PCSX_MENU,
 	MA_AB_SAVECFG,
 	MA_AB_SCALER,
+	MA_AB_AUTOLOAD,
 };
 
 #define AB_QUICK_SLOT 2		/* slot 0 is the resume point, 1 the launcher's copy of it */
@@ -74,6 +76,9 @@ static const char h_ab_pad[]     = "Standard (digital), analog (DualShock), a gu
 /* the Exit row's help, on every platform (ab_buttons.h) */
 static const char h_ab_exit[]    = "Back to AutoBleem - holding the menu button for 2 seconds in the game"
                                    " does the same";
+/* ab_buttons.c autosaves the game into RAM every 30 s of play (state_sony.c's SaveStateAuto) */
+static const char h_ab_autoload[] = "The game as it was up to 30 seconds ago: it is saved in memory by itself"
+                                    " while you play";
 /* why a row is greyed */
 static const char ab_why_crt[]   = "Off while a CRT filter is on";
 
@@ -84,6 +89,7 @@ static menu_entry e_menu_ab[] =
 	mee_handler_id("Resume game",              MA_MAIN_RESUME_GAME, main_menu_handler),
 	mee_handler_id("Quick save",               MA_AB_QUICKSAVE,     ab_menu_handler),
 	mee_handler_id("Quick load",               MA_AB_QUICKLOAD,     ab_menu_handler),
+	mee_handler_id_h("Load autosave",          MA_AB_AUTOLOAD,      ab_menu_handler, h_ab_autoload),
 	mee_handler_id("Change disc",              MA_AB_DISC,          ab_menu_handler),
 	mee_label     ("Picture"),
 	mee_enum_h    ("Scaling",                  MA_AB_SCALER,        ab_scaler_sel, men_ab_scaler, h_ab_scaler),
@@ -170,6 +176,18 @@ static int ab_menu_handler(int id, int keys)
 		ret = emu_load_state(AB_QUICK_SLOT);
 		snprintf(msg, sizeof(msg), ret == 0 ? "Quick save loaded" : "Quick load failed");
 		menu_update_msg(msg);
+		if (ret == 0)
+			return 1;
+		break;
+	case MA_AB_AUTOLOAD:
+		if (!ready_to_go || !CdromId[0])
+			break;
+		if (StateAutoAge() < 0) {
+			menu_update_msg("No autosave yet");
+			break;
+		}
+		ret = LoadStateAuto();
+		menu_update_msg(ret == 0 ? "Autosave loaded" : "Autosave load failed");
 		if (ret == 0)
 			return 1;
 		break;
@@ -833,6 +851,7 @@ static void ab_menu_loop_d(void)
 	me_enable(e_menu_ab, MA_MAIN_RESUME_GAME, ready_to_go);
 	me_enable(e_menu_ab, MA_AB_QUICKSAVE, ready_to_go && CdromId[0]);
 	me_enable(e_menu_ab, MA_AB_QUICKLOAD, ready_to_go && CdromId[0]);
+	me_enable(e_menu_ab, MA_AB_AUTOLOAD,  ready_to_go && CdromId[0]);
 	me_enable(e_menu_ab, MA_AB_DISC,      ready_to_go && CdromId[0]);
 	me_enable(e_menu_ab, MA_AB_FILTER,    plat_target.hwfilters != NULL);
 	e_menu_ab[me_id2offset(e_menu_ab, MA_MAIN_EXIT)].help = h_ab_exit;

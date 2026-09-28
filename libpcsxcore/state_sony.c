@@ -678,3 +678,47 @@ int LoadState(const char *file)
 	free(native.buf);
 	return ret;
 }
+
+/* --- the autosave (state_sony.h) --------------------------------------------------------------------- */
+
+static struct mem_stream autosave = { "(autosave)" };
+static int autosave_valid;
+static unsigned int autosave_ms;
+
+int SaveStateAuto(unsigned int now_ms)
+{
+	struct PcsxSaveFuncs outer = SaveFuncs;
+	int ret;
+
+	autosave.pos = autosave.len = 0;
+	autosave.oom = 0;
+	SaveFuncs = mem_funcs;
+	ret = SaveStateNative((const char *)&autosave);
+	SaveFuncs = outer;
+	if (ret != 0 || autosave.oom) {
+		SysPrintf("autosave: could not build the state (%d%s)\n", ret, autosave.oom ? ", out of memory" : "");
+		autosave_valid = 0;
+		return -1;
+	}
+	autosave_valid = 1;
+	autosave_ms = now_ms;
+	return 0;
+}
+
+int LoadStateAuto(void)
+{
+	struct PcsxSaveFuncs outer = SaveFuncs;
+	int ret;
+
+	if (!autosave_valid)
+		return -1;
+	SaveFuncs = mem_funcs;
+	ret = LoadStateNative((const char *)&autosave);
+	SaveFuncs = outer;
+	return ret;
+}
+
+long long StateAutoAge(void)
+{
+	return autosave_valid ? (long long)autosave_ms : -1;
+}
