@@ -1421,21 +1421,23 @@ static const char h_vibration[]= "Must select analog above and enable this ingam
 
 static menu_entry e_menu_keyconfig[] =
 {
-	mee_label     ("Buttons"),
+#ifndef PSCLASSIC
+	/* not under AutoBleem (the owner, 2026-09-28): the buttons are mapped in PSC-Bios (the pads' own, through
+	 * SDL's mapping), and there is no touch screen for a TS gun */
 	mee_handler_id("Player 1",              MA_CTRL_PLAYER1,    key_config_loop_wrap),
 	mee_handler_id("Player 2",              MA_CTRL_PLAYER2,    key_config_loop_wrap),
-#ifndef PSCLASSIC
-	/* not under AutoBleem (the owner, 2026-09-28): the sticks are the pads' own, through SDL's mapping */
 	mee_handler_id("Analog controls",       MA_CTRL_ANALOG,     key_config_analog),
-#endif
 	mee_handler_id("Emulator/Gun controls", MA_CTRL_EMU,        key_config_loop_wrap),
+#endif
 	mee_label     ("Ports"),
 	mee_enum      ("Port 1 device",     0, in_type_sel1,    men_in_type_sel),
 	mee_enum      ("Port 2 device",     0, in_type_sel2,    men_in_type_sel),
 	mee_onoff_h   ("Nubs as buttons",   MA_CTRL_NUBS_BTNS,  in_evdev_allow_abs_only, 1, h_nub_btns),
 	mee_onoff_h   ("Vibration",         MA_CTRL_VIBRATION,  in_enable_vibration, 1, h_vibration),
 	mee_range     ("Analog deadzone",   MA_CTRL_DEADZONE,   analog_deadzone, 1, 99),
+#ifndef PSCLASSIC
 	mee_onoff_h   ("No TS Gun trigger", 0, g_opts, OPT_TSGUN_NOTRIGGER, h_notsgun),
+#endif
 #ifdef PSCLASSIC
 	/* the device list rows (keys, pad 1...) are not shown under AutoBleem (the owner, 2026-09-28) */
 	mee_label     ("Settings"),
@@ -1462,8 +1464,10 @@ static int menu_loop_keyconfig(int id, int keys)
 	static int sel = 0;
 
 #ifdef PSCLASSIC
-	(void)key_config_analog;	/* its row and the device list are not in the table here */
+	(void)key_config_analog;	/* the button pages and the device list are not in the table here */
+	(void)key_config_loop_wrap;
 	(void)mgn_dev_name;
+	(void)h_notsgun;
 #endif
 //	me_enable(e_menu_keyconfig, MA_OPT_SAVECFG_GAME, ready_to_go && CdromId[0]);
 	me_loop(e_menu_keyconfig, &sel);
