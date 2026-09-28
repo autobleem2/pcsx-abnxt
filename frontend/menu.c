@@ -477,6 +477,7 @@ static const struct {
 	CE_INTVAL_P(gpu_neon.enhancement_enable),
 	CE_INTVAL_P(gpu_neon.enhancement_no_main),
 	CE_INTVAL_PV(gpu_neon.enhancement_tex_adj, 2),
+	CE_INTVAL_P(gpu_neon.enhancement_no_seams),
 	CE_INTVAL_P(gpu_peopsgl.bDrawDither),
 	CE_INTVAL_P(gpu_peopsgl.iFilterType),
 	CE_INTVAL_P(gpu_peopsgl.iFrameTexType),
@@ -1597,6 +1598,9 @@ static const char h_gpu_neon_enhanced_hack[] =
 	"Speed hack for above option (glitches some games)";
 static const char h_gpu_neon_enhanced_texadj[] =
 	"Solves some Enh. res. texture issues, some perf hit";
+static const char h_gpu_neon_enhanced_noseams[] =
+	"No 1-pixel gaps between pictures made of\n"
+	"several parts (Enh. res.), no perf hit";
 static const char *men_gpu_interlace[] = { "Off", "On", "Auto", NULL };
 
 static menu_entry e_menu_plugin_gpu_neon[] =
@@ -1604,6 +1608,7 @@ static menu_entry e_menu_plugin_gpu_neon[] =
 	mee_onoff_h   ("Enhanced resolution",        0, pl_rearmed_cbs.gpu_neon.enhancement_enable, 1, h_gpu_neon_enhanced),
 	mee_onoff_h   ("Enhanced res. speed hack",   0, pl_rearmed_cbs.gpu_neon.enhancement_no_main, 1, h_gpu_neon_enhanced_hack),
 	mee_onoff_h   ("Enh. res. texture adjust",   0, pl_rearmed_cbs.gpu_neon.enhancement_tex_adj, 1, h_gpu_neon_enhanced_texadj),
+	mee_onoff_h   ("Enh. res. remove seams",     0, pl_rearmed_cbs.gpu_neon.enhancement_no_seams, 1, h_gpu_neon_enhanced_noseams),
 	mee_enum      ("Enable interlace mode",      0, pl_rearmed_cbs.gpu_neon.allow_interlace, men_gpu_interlace),
 	mee_end,
 };

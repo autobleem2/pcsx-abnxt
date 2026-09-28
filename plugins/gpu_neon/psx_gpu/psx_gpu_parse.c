@@ -932,6 +932,8 @@ static void select_enhancement_buf(psx_gpu_struct *psx_gpu)
   psx_gpu->uvrgb_phase = 0x8000; \
 }
 
+static int enhancement_no_seams = 1;	/* set by renderer_set_config (psx_gpu_if.c) */
+
 static int enhancement_enable(psx_gpu_struct *psx_gpu)
 {
   if (!psx_gpu->enhancement_current_buf_ptr)
@@ -943,7 +945,14 @@ static int enhancement_enable(psx_gpu_struct *psx_gpu)
   psx_gpu->viewport_end_y = psx_gpu->saved_viewport_end_y * 2 + 1;
   if (psx_gpu->viewport_end_x - psx_gpu->viewport_start_x + 1 > 1024)
     psx_gpu->viewport_end_x = psx_gpu->viewport_start_x + 1023;
-  //psx_gpu->uvrgb_phase = 0x7fff;
+  // AutoBleem: the rounding bias is in destination pixels, and they are half as big here. With 1x's 0.5
+  // the last sub-pixel row/column of a 1:1 textured quad lands on u/v one past its edge - a texel the 1x
+  // draw never reads (PS1 leaves out the right and bottom edge), usually the next tile's or garbage: the
+  // 1-pixel seams between the parts of a picture made of several quads (Crash's Naughty Dog logo). 0.25
+  // keeps every sub-pixel on its 1x pixel's texel with a quarter texel of margin for the gradients'
+  // fixed-point error either way. The menu's "Enh. res. remove seams" (on by default); off is upstream's.
+  if (enhancement_no_seams)
+    psx_gpu->uvrgb_phase = 0x4000;
   return 1;
 }
 

@@ -106,6 +106,7 @@ struct rearmed_cbs {
 		int   enhancement_enable;
 		int   enhancement_no_main;
 		int   enhancement_tex_adj;
+		int   enhancement_no_seams;	// AutoBleem: 1 = the enhanced pass's texel rounding at 0.25 (psx_gpu_parse.c)
 	} gpu_neon;
 	struct {
 		int   dwActFixes;
