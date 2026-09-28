@@ -1432,7 +1432,10 @@ static menu_entry e_menu_keyconfig[] =
 	mee_label     ("Ports"),
 	mee_enum      ("Port 1 device",     0, in_type_sel1,    men_in_type_sel),
 	mee_enum      ("Port 2 device",     0, in_type_sel2,    men_in_type_sel),
+#ifndef PSCLASSIC
+	/* not under AutoBleem: evdev's (the Pandora's nubs); our pads come through SDL */
 	mee_onoff_h   ("Nubs as buttons",   MA_CTRL_NUBS_BTNS,  in_evdev_allow_abs_only, 1, h_nub_btns),
+#endif
 	mee_onoff_h   ("Vibration",         MA_CTRL_VIBRATION,  in_enable_vibration, 1, h_vibration),
 	mee_range     ("Analog deadzone",   MA_CTRL_DEADZONE,   analog_deadzone, 1, 99),
 #ifndef PSCLASSIC
@@ -1468,6 +1471,7 @@ static int menu_loop_keyconfig(int id, int keys)
 	(void)key_config_loop_wrap;
 	(void)mgn_dev_name;
 	(void)h_notsgun;
+	(void)h_nub_btns;
 #endif
 //	me_enable(e_menu_keyconfig, MA_OPT_SAVECFG_GAME, ready_to_go && CdromId[0]);
 	me_loop(e_menu_keyconfig, &sel);
@@ -2973,7 +2977,9 @@ void menu_init(void)
 		MENU_SHOW_VOUTMODE && plat_target.vout_methods != NULL);
 	me_enable(e_menu_gfx_options, MA_OPT_VARSCALER_C, MENU_SHOW_VARSCALER_C);
 	me_enable(e_menu_gfx_options, MA_OPT_SCALER2, MENU_SHOW_SCALER2);
+#ifndef PSCLASSIC	/* the row is not in the table (a missing id would hit the first row) */
 	me_enable(e_menu_keyconfig, MA_CTRL_NUBS_BTNS, MENU_SHOW_NUBS_BTNS);
+#endif
 	me_enable(e_menu_keyconfig, MA_CTRL_VIBRATION, MENU_SHOW_VIBRATION);
 	me_enable(e_menu_keyconfig, MA_CTRL_DEADZONE, MENU_SHOW_DEADZONE);
 }

@@ -106,7 +106,9 @@ void main()
    vec2 texel = vTexCoord * SourceSize.xy;
    vec2 texel_floored = floor(texel);
    vec2 s = fract(texel);
-   float scale = (AUTO_PRESCALE > 0.5) ? floor(outsize.y / InputSize.y + 0.01) : SHARP_BILINEAR_PRE_SCALE;
+   // AutoBleem: at least 1 - a picture larger than the output (a smoothing pass, 2x resolution, a 720p
+   // screen) gave 0 here, 0.5 / 0 below, and a black screen
+   float scale = (AUTO_PRESCALE > 0.5) ? max(floor(outsize.y / InputSize.y + 0.01), 1.0) : SHARP_BILINEAR_PRE_SCALE;
    float region_range = 0.5 - 0.5 / scale;
 
    // Figure out where in the texel to sample to get correct pre-scaled bilinear.
