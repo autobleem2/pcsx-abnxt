@@ -1424,7 +1424,10 @@ static menu_entry e_menu_keyconfig[] =
 	mee_label     ("Buttons"),
 	mee_handler_id("Player 1",              MA_CTRL_PLAYER1,    key_config_loop_wrap),
 	mee_handler_id("Player 2",              MA_CTRL_PLAYER2,    key_config_loop_wrap),
-	mee_handler_id("[Analog controls]",     MA_CTRL_ANALOG,     key_config_analog),
+#ifndef PSCLASSIC
+	/* not under AutoBleem (the owner, 2026-09-28): the sticks are the pads' own, through SDL's mapping */
+	mee_handler_id("Analog controls",       MA_CTRL_ANALOG,     key_config_analog),
+#endif
 	mee_handler_id("Emulator/Gun controls", MA_CTRL_EMU,        key_config_loop_wrap),
 	mee_label     ("Ports"),
 	mee_enum      ("Port 1 device",     0, in_type_sel1,    men_in_type_sel),
@@ -1434,13 +1437,15 @@ static menu_entry e_menu_keyconfig[] =
 	mee_range     ("Analog deadzone",   MA_CTRL_DEADZONE,   analog_deadzone, 1, 99),
 	mee_onoff_h   ("No TS Gun trigger", 0, g_opts, OPT_TSGUN_NOTRIGGER, h_notsgun),
 #ifdef PSCLASSIC
+	/* the device list rows (keys, pad 1...) are not shown under AutoBleem (the owner, 2026-09-28) */
+	mee_label     ("Settings"),
 	mee_cust_nosave("Save settings for this game", MA_OPT_SAVECFG_GAME, mh_savecfg, mgn_saveloadcfg),
+	mee_handler   ("Rescan devices",   mh_input_rescan),
 #else
 	mee_cust_nosave("Save global config",       MA_OPT_SAVECFG,      mh_savecfg, mgn_saveloadcfg),
 	mee_cust_nosave("Save cfg for loaded game", MA_OPT_SAVECFG_GAME, mh_savecfg, mgn_saveloadcfg),
-#endif
-	mee_label     ("Devices"),
-	mee_handler   ("Rescan devices",   mh_input_rescan),
+	mee_handler   ("Rescan devices:",  mh_input_rescan),
+	mee_label     (""),
 	mee_label_mk  (MA_CTRL_DEV_FIRST, mgn_dev_name),
 	mee_label_mk  (MA_CTRL_DEV_NEXT,  mgn_dev_name),
 	mee_label_mk  (MA_CTRL_DEV_NEXT,  mgn_dev_name),
@@ -1448,6 +1453,7 @@ static menu_entry e_menu_keyconfig[] =
 	mee_label_mk  (MA_CTRL_DEV_NEXT,  mgn_dev_name),
 	mee_label_mk  (MA_CTRL_DEV_NEXT,  mgn_dev_name),
 	mee_label_mk  (MA_CTRL_DEV_NEXT,  mgn_dev_name),
+#endif
 	mee_end,
 };
 
@@ -1455,6 +1461,10 @@ static int menu_loop_keyconfig(int id, int keys)
 {
 	static int sel = 0;
 
+#ifdef PSCLASSIC
+	(void)key_config_analog;	/* its row and the device list are not in the table here */
+	(void)mgn_dev_name;
+#endif
 //	me_enable(e_menu_keyconfig, MA_OPT_SAVECFG_GAME, ready_to_go && CdromId[0]);
 	me_loop(e_menu_keyconfig, &sel);
 	return 0;
