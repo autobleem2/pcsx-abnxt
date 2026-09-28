@@ -942,6 +942,7 @@ static void draw_savestate_bg(int slot);
  * browser) are libpicofe's still */
 static int ab_menu_run(menu_entry *menu, int *menu_sel);
 #define me_loop(menu, sel) ab_menu_run(menu, sel)
+static void ab_about_screen(const char *upstream_credits);
 #endif
 
 // a bit of black magic here
@@ -2620,8 +2621,12 @@ static int main_menu_handler(int id, int keys)
 		load_pcsx_cht();
 		break;
 	case MA_MAIN_CREDITS:
+#ifdef PSCLASSIC
+		ab_about_screen(credits_text);
+#else
 		draw_menu_message(credits_text, draw_frame_credits);
 		in_menu_wait(PBTN_MOK|PBTN_MBACK, NULL, 70);
+#endif
 		break;
 	case MA_MAIN_EXIT:
 		emu_core_ask_exit();
@@ -2678,7 +2683,7 @@ static menu_entry e_menu_main[] =
 	mee_handler_id("Cheats",             MA_MAIN_CHEATS,      main_menu_handler),
 	mee_handler_h ("[Extra stuff]",      main_menu2_handler,  h_extra),
 	mee_label     ("Leave"),
-	mee_handler_id("Credits",            MA_MAIN_CREDITS,     main_menu_handler),
+	mee_handler_id("About",              MA_MAIN_CREDITS,     main_menu_handler),
 	mee_handler_id("Exit",               MA_MAIN_EXIT,        main_menu_handler),
 	mee_end,
 };

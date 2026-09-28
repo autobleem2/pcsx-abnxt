@@ -864,6 +864,74 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	menu_draw_end();
 }
 
+/* The PCSX menu's About (upstream's Credits): our name, the version, the year, then upstream's credits,
+ * on a panel in the middle of the menu's art */
+static void ab_about_screen(const char *upstream_credits)
+{
+	struct ab_canvas c;
+	const char *version = getenv("AB_VERSION"), *p;
+	char buf[128];
+	float s;
+	int pw, ph, px0, py0, cx, y, inp;
+
+	ab_wait_released();
+	for (;;) {
+		ab_debug_screen("about");
+		c = ab_screen_begin();
+		s = c.h / 720.0f;
+		pw = (int)(760 * s);
+		ph = (int)(560 * s);
+		px0 = (c.w - pw) / 2;
+		py0 = (int)(40 * s);
+		cx = c.w / 2;
+		ab_ui_fill(&c, px0, py0, pw, ph, (int)(14 * s), ab_col_panel, 215);
+
+		y = py0 + (int)(34 * s);
+		ab_text(&c, cx, y, AB_UI_CENTER, "PCSX-AutoBleem Next", (int)(46 * s), ab_col_text);
+		y += (int)(64 * s);
+		if (version && *version)
+			snprintf(buf, sizeof(buf), "%s %s", ab_ui_tr("Version"), version);
+		else
+			snprintf(buf, sizeof(buf), "%s %s", ab_ui_tr("Version"), REV[0] != 0 ? REV : "-");
+		ab_text(&c, cx, y, AB_UI_CENTER, buf, (int)(24 * s), ab_col_accent);
+		y += (int)(34 * s);
+		ab_text(&c, cx, y, AB_UI_CENTER, "\xc2\xa9 2026 AutoBleem team", (int)(22 * s), ab_col_name);
+		y += (int)(30 * s);
+		snprintf(buf, sizeof(buf), "%s  \xc2\xb7  %s  \xc2\xb7  %s", ab_cpu_name(), ab_gpu_name(), __DATE__);
+		ab_text(&c, cx, y, AB_UI_CENTER, buf, (int)(18 * s), ab_col_dim);
+		y += (int)(40 * s);
+		ab_ui_fill(&c, px0 + (int)(80 * s), y, pw - (int)(160 * s), 1 + (int)s, 0, ab_col_row, 150);
+		y += (int)(22 * s);
+		ab_text(&c, cx, y, AB_UI_CENTER, ab_ui_tr("Based on"), (int)(20 * s), ab_col_accent);
+		y += (int)(30 * s);
+
+		/* upstream's credits, a line each; its blank lines are half a line; its leading spaces go */
+		for (p = upstream_credits; *p; ) {
+			const char *e = strchr(p, '\n');
+			int len = e ? (int)(e - p) : (int)strlen(p);
+			while (len > 0 && *p == ' ')
+				p++, len--;
+			if (len == 0) {
+				y += (int)(10 * s);
+			} else {
+				snprintf(buf, sizeof(buf), "%.*s", len, p);
+				ab_text(&c, cx, y, AB_UI_CENTER, buf, (int)(18 * s), ab_col_dim);
+				y += (int)(23 * s);
+			}
+			if (e == NULL)
+				break;
+			p = e + 1;
+		}
+
+		ab_footer(&c, ab_ui_tr("OK"), ab_ui_tr("Back"));
+		menu_draw_end();
+		inp = in_menu_wait(PBTN_MOK|PBTN_MBACK|PBTN_MENU, NULL, 70);
+		if (ab_console_power_off_requested || (inp & (PBTN_MOK|PBTN_MBACK|PBTN_MENU)))
+			break;
+	}
+	ab_wait_released();
+}
+
 /* me_loop_d() over our screen: the same keys, the same handler contract (1 from a handler = leave the
  * menu, which is the game going on or the run ending) */
 static int ab_menu_run(menu_entry *menu, int *menu_sel)
