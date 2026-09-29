@@ -309,6 +309,9 @@ launcher reads the **`abfeatures`** file next to the binary (`frontend/ab/abfeat
   the HUD shows FPS and CPU too (`g_opts |= OPT_SHOWFPS | OPT_SHOWCPU` in `ab_config_loaded`) - for the run
   only: the bits it turned on are left out of every config save (`ab_perf_forced_opts()`, asked by
   `menu_write_config`), so the game's `pcsx.custom.cfg` never keeps them.
+- `AB_SCALER=0..4` (`scaler`, 2026-09-29): the launcher's Options -> "Emulator screen scaling" as `g_scaler`
+  (SCALE_1_1, 2_2, 4_3, 4_3v2, FULLSCREEN), set in `ab_config_loaded` ahead of `-ratio`; a game whose
+  `pcsx.custom.cfg` has its own `g_scaler3` keeps that. Unset or out of range: `-ratio` as before.
 
 Only the cards in use are created (no `card2.mcd`, which is "none"). Not yet run on a console.
 
