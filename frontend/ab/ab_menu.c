@@ -156,7 +156,8 @@ static int ab_scroll;
 
 /* The top menu's tabs, L1/R1 (the owner, 2026-09-29): the Picture section is the second tab, Controllers
  * the third, the rest the first. A tab's own heading is not drawn (the tab bar says it); each tab keeps its
- * selected row. The pages under the top menu (the PCSX menu, the cheats) have no tabs. */
+ * selected row, and the menu opens again on the tab and row it was left on (for the run). The pages under
+ * the top menu (the PCSX menu, the cheats) have no tabs. */
 #define AB_TABS 3
 static const char *ab_tab_names[AB_TABS] = { "Game", "Picture", "Controllers" };
 static int ab_tab, ab_tab_sel[AB_TABS] = { -1, -1, -1 };
@@ -1459,7 +1460,6 @@ static void ab_menu_loop_d(void)
 	}
 	ab_menu_prepare_bg();
 	ab_snap_take();		/* the frame the game was on when the menu opened */
-	ab_tab = 0;		/* the menu opens on its first tab (Resume game); each tab keeps its row */
 	do {
 		ab_rows_take();
 		ab_menu_run(e_menu_ab, &sel);
