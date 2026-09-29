@@ -4,6 +4,8 @@
 # language's glyphs (Chinese: the launcher's Noto Sans SC, linked in as fonts/ by the launch script).
 
 Change disc=Cambiar de disc
+Saves=Salvaments
+CD disc=Disc CD
 Disc=Disc
 This game has only one disc=Aqueste jòc a pas qu'un sol disc
 You can't change discs now=Impossible de cambiar de disc ara
@@ -60,6 +62,10 @@ Remove seams=Levar las juntas
 The resolution the screen is driven at; only what the TV or monitor offers is listed=La definicion utilizada per l'ecran ; sonque çò que la television o lo monitor prepausa es listat
 2x draws the PlayStation's 3D at double resolution (not in high resolution games); costs speed=2x dessenha lo 3D de la PlayStation en definicion doble (pas dins los jòcs en nauta definicion) ; còsta de velocitat
 No 1-pixel gaps between pictures made of several parts at 2x=Pas cap de manca d'1 pixèl entre imatges fachas de mantunas partidas en 2x
+Dithering=Dithering
+On=Activat
+Always=Totjorn
+The PlayStation's fine dot pattern that hides colour steps. On: where the game uses it. Always: on everything. Off: flat colours=Lo fin motiu de punts de la PlayStation que amaga los escalons de color. Activat: ont lo jòc l'utiliza. Totjorn: pertot. Atudat: colors planas
 Only with the 2x resolution=Sonque amb la definicion 2x
 Starts the game over from the beginning, as the console's Reset did=Tòrna lo jòc a son començament, coma o fasiá abans lo boton Reset de la consòla
 The console's resolution is chosen in AutoBleem's settings=La definicion de la consòla se causís dins los paramètres d'AutoBleem

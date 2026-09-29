@@ -98,6 +98,11 @@ int ab_bios_set_by_pcsx(void);
 const char *ab_exit_dir(void);
 const char *ab_memcard_dir(void);
 
+/* AB_PERF_OVERLAY=1 (abfeatures: perfoverlay): the launcher shows its performance overlay (Options ->
+ * "Show performance"), so the game's HUD shows FPS and CPU as well - for this run only: the bits it turned on
+ * are left out of every config save (menu.c's menu_write_config asks for them here). */
+int ab_perf_forced_opts(void);
+
 /* The output mode (plat_autobleem.c): AB_OUTPUT_MODE from the launcher - "auto" (the display's own mode),
  * "720", "1080" or "<w>x<h>" (any other mode the display lists: 2560x1440, 3840x2160; abfeatures:
  * outputmode) - and the menu's Display row. A mode the display does not list falls back to auto. A change in

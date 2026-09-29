@@ -44,6 +44,7 @@ enum {
 	MA_AB_DISPLAY,
 	MA_AB_ENHANCE,
 	MA_AB_NOSEAMS,
+	MA_AB_DITHER,
 };
 
 #define AB_QUICK_SLOT 2		/* slot 0 is the resume point, 1 the launcher's copy of it */
@@ -98,6 +99,12 @@ static const char *men_ab_enhance[] = { "1x", "2x", NULL };
 static const char h_ab_enhance[] = "2x draws the PlayStation's 3D at double resolution (not in high resolution"
                                    " games); costs speed";
 static const char h_ab_noseams[] = "No 1-pixel gaps between pictures made of several parts at 2x";
+/* the GPU's dithering, upstream's pl_rearmed_cbs.dithering (pcsx.cfg "dithering2": 0 off, 1 where the game
+ * asks for it, 2 on everything) - an unsigned char there, so the row edits a copy (ab_menu_loop_d) */
+static int ab_dither_sel;
+static const char *men_ab_dither[] = { "Off", "On", "Always", NULL };
+static const char h_ab_dither[] = "The PlayStation's fine dot pattern that hides colour steps. On: where the"
+                                  " game uses it. Always: on everything. Off: flat colours";
 /* why a row is greyed */
 static const char ab_why_crt[]   = "Off while a CRT filter is on";
 static const char ab_why_1x[]    = "Only with the 2x resolution";
@@ -108,16 +115,19 @@ static menu_entry e_menu_ab[] =
 {
 	mee_label     ("Game"),
 	mee_handler_id("Resume game",              MA_MAIN_RESUME_GAME, main_menu_handler),
+	mee_label     ("Saves"),
 	mee_handler_id("Quick save",               MA_AB_QUICKSAVE,     ab_menu_handler),
 	mee_handler_id("Quick load",               MA_AB_QUICKLOAD,     ab_menu_handler),
 	mee_handler_id_h("Load autosave",          MA_AB_AUTOLOAD,      ab_menu_handler, h_ab_autoload),
+	mee_label     ("CD disc"),
 	mee_handler_id("Change disc",              MA_AB_DISC,          ab_menu_handler),
 	mee_handler_id_h("Reset game",             MA_MAIN_RESET_GAME,  main_menu_handler, h_ab_reset),
 	mee_label     ("Picture"),
 	mee_enum_h    ("Display",                  MA_AB_DISPLAY,       ab_display_sel, men_ab_display, h_ab_display),
 	mee_enum_h    ("Resolution",               MA_AB_ENHANCE,       pl_rearmed_cbs.gpu_neon.enhancement_enable, men_ab_enhance, h_ab_enhance),
 	mee_onoff_h   ("Remove seams",             MA_AB_NOSEAMS,       pl_rearmed_cbs.gpu_neon.enhancement_no_seams, 1, h_ab_noseams),
-	mee_enum_h    ("Scaling",                 MA_AB_SCALER,        ab_scaler_sel, men_ab_scaler, h_ab_scaler),
+	mee_enum_h    ("Dithering",                MA_AB_DITHER,        ab_dither_sel, men_ab_dither, h_ab_dither),
+	mee_enum_h    ("Scaling",                MA_AB_SCALER,        ab_scaler_sel, men_ab_scaler, h_ab_scaler),
 	mee_enum_h    ("Smoothing",                MA_OPT_SWFILTER,     soft_filter, men_ab_smooth, h_ab_smooth),
 	mee_cust_h    ("Filter",                   MA_AB_FILTER,        ab_menu_handler, ab_filter_name, h_ab_filter),
 	mee_enum_h    ("Scanlines",                MA_OPT_SCANLINES,    scanlines, men_ab_scanlines, h_ab_scanlines),
@@ -143,6 +153,37 @@ static const char *ab_gen_names[AB_MENU_MAX_ROWS];
 /* the scroll of the page on screen (a list longer than the panel), in pixels of the list */
 static const menu_entry *ab_scroll_menu;
 static int ab_scroll;
+
+/* The top menu's tabs, L1/R1 (the owner, 2026-09-29): the Picture section is the second tab, Controllers
+ * the third, the rest the first. A tab's own heading is not drawn (the tab bar says it); each tab keeps its
+ * selected row. The pages under the top menu (the PCSX menu, the cheats) have no tabs. */
+#define AB_TABS 3
+static const char *ab_tab_names[AB_TABS] = { "Game", "Picture", "Controllers" };
+static int ab_tab, ab_tab_sel[AB_TABS] = { -1, -1, -1 };
+
+static int ab_row_tab(const menu_entry *menu, int i)
+{
+	const char *section = "";
+	int k;
+	for (k = 0; k <= i && menu[k].name; k++)
+		if (!menu[k].selectable && menu[k].generate_name == NULL && menu[k].name[0] != 0)
+			section = menu[k].name;
+	for (k = 1; k < AB_TABS; k++)
+		if (strcmp(section, ab_tab_names[k]) == 0)
+			return k;
+	return 0;
+}
+
+/* whether row i belongs on the page as it is now: always, but in the top menu only the current tab's rows,
+ * without the tab's own heading */
+static int ab_in_tab(const menu_entry *menu, int i)
+{
+	if (menu != e_menu_ab)
+		return 1;
+	if (!menu[i].selectable && menu[i].generate_name == NULL && strcmp(menu[i].name, ab_tab_names[ab_tab]) == 0)
+		return 0;
+	return ab_row_tab(menu, i) == ab_tab;
+}
 
 /* a row that takes space on the panel: enabled, not upstream's empty spacer label, and an info row only
  * with a text this frame (ab_menu_draw's first pass fills ab_gen_names) */
@@ -197,9 +238,31 @@ static void ab_snap_take(void)
 	ab_snap_h = h;
 }
 
+/* The rows that edit a copy of their setting: Scaling is g_scaler without "custom" (a custom layer shows as
+ * 4:3 and is left alone unless the row was moved), Dithering an unsigned char. The copies are taken when
+ * the menu shows and written back only when a row was moved - the PCSX menu beneath may have changed the
+ * setting itself meanwhile - before a save and when the menu closes. */
+static int ab_scaler_shown, ab_dither_shown;
+
+static void ab_rows_take(void)
+{
+	ab_scaler_sel = ab_scaler_shown = g_scaler <= SCALE_FULLSCREEN ? g_scaler : SCALE_4_3;
+	ab_dither_sel = ab_dither_shown = pl_rearmed_cbs.dithering <= 2 ? pl_rearmed_cbs.dithering : 1;
+}
+
+static void ab_rows_commit(void)
+{
+	if (ab_scaler_sel != ab_scaler_shown)
+		g_scaler = ab_scaler_shown = ab_scaler_sel;
+	/* the GPU takes it when the game goes on (menu_prepare_emu -> plugin_call_rearmed_cbs) */
+	if (ab_dither_sel != ab_dither_shown)
+		pl_rearmed_cbs.dithering = ab_dither_shown = ab_dither_sel;
+}
+
 /* the game's own config, pcsx.custom.cfg - what every save in these menus writes (ab_config.h) */
 static int ab_save_config(void)
 {
+	ab_rows_commit();
 	return menu_write_config(1);
 }
 
@@ -689,7 +752,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	for (n = 0, heads = 0, ent = menu, i = 0; ent->name; ent++, i++) {
 		if (i < AB_MENU_MAX_ROWS)
 			ab_gen_names[i] = NULL;
-		if (!ent->enabled)
+		if (!ent->enabled || !ab_in_tab(menu, i))
 			continue;
 		if (i == sel)
 			ent_sel = ent;
@@ -733,6 +796,26 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		}
 		panel_y += (int)(36 * s);
 		avail -= (int)(36 * s);
+	} else if (menu == e_menu_ab) {
+		/* the tab bar: [L1]  Game  Picture  [R1] - the current tab bright and underlined, the shoulder
+		 * buttons as chips at both ends so switching is obvious */
+		int k, tx = panel_x + (int)(8 * s), ty = panel_y, chip_px = (int)(18 * s), tab_px = (int)(24 * s);
+		int chip_h = (int)(30 * s), chip_w = (int)(44 * s), gap = (int)(22 * s);
+		ab_ui_fill(&c, tx, ty, chip_w, chip_h, (int)(7 * s), ab_col_row, 200);
+		ab_text(&c, tx + chip_w / 2, ty + (chip_h - chip_px) / 2, AB_UI_CENTER, "L1", chip_px, ab_col_text);
+		tx += chip_w + gap;
+		for (k = 0; k < AB_TABS; k++) {
+			int cur = k == ab_tab, tw;
+			tw = ab_text_shadow_w(&c, tx, ty + (chip_h - tab_px) / 2 - (int)(1 * s), ab_ui_tr(ab_tab_names[k]),
+				tab_px, cur ? ab_col_accent : ab_col_dim);
+			if (cur)
+				ab_ui_fill(&c, tx, ty + chip_h + (int)(3 * s), tw, (int)(3 * s), 0, ab_col_accent, 255);
+			tx += tw + gap;
+		}
+		ab_ui_fill(&c, tx, ty, chip_w, chip_h, (int)(7 * s), ab_col_row, 200);
+		ab_text(&c, tx + chip_w / 2, ty + (chip_h - chip_px) / 2, AB_UI_CENTER, "R1", chip_px, ab_col_text);
+		panel_y += (int)(46 * s);
+		avail -= (int)(46 * s);
 	}
 	px = row_h * 7 / 10;
 	head_px = head_h * 6 / 10;
@@ -743,7 +826,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		 * first row), and the scroll that keeps it in view with a row of margin */
 		int vy = 0, head_top = -1, sel_top = 0, sel_bot = 0, prev_head = 0, h;
 		for (ent = menu, i = 0; ent->name; ent++, i++) {
-			if (!ab_row_shown(ent, i))
+			if (!ab_row_shown(ent, i) || !ab_in_tab(menu, i))
 				continue;
 			h = ent->selectable || ent->generate_name != NULL ? row_h : head_h;
 			if (i == sel) {
@@ -787,7 +870,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		int offs = 0, is_sel = i == sel, page, h;
 		unsigned short col_name, col_val;
 
-		if (!ab_row_shown(ent, i))
+		if (!ab_row_shown(ent, i) || !ab_in_tab(menu, i))
 			continue;
 		/* only what is wholly inside the panel's view */
 		h = ent->selectable || ent->generate_name != NULL ? row_h : head_h;
@@ -1018,7 +1101,9 @@ static int ab_menu_run(menu_entry *menu, int *menu_sel)
 	sel_max = me_count(menu) - 1;
 	if (sel_max < 0)
 		return 0;
-	while ((!menu[sel].enabled || !menu[sel].selectable) && sel < sel_max)
+	if (menu == e_menu_ab && ab_row_tab(menu, sel) != ab_tab)
+		sel = ab_tab_sel[ab_tab] >= 0 ? ab_tab_sel[ab_tab] : 0;
+	while ((!menu[sel].enabled || !menu[sel].selectable || !ab_in_tab(menu, sel)) && sel < sel_max)
 		sel++;
 
 	ab_menu_draw(menu, sel);
@@ -1029,17 +1114,26 @@ static int ab_menu_run(menu_entry *menu, int *menu_sel)
 			PBTN_MOK|PBTN_MBACK|PBTN_MENU|PBTN_L|PBTN_R, NULL, 70);
 		if (ab_console_power_off_requested || (inp & (PBTN_MENU|PBTN_MBACK)))
 			break;
+		if (menu == e_menu_ab && (inp & (PBTN_L|PBTN_R))) {
+			/* L1 the tab to the left, R1 to the right (round), each keeping its row */
+			ab_tab_sel[ab_tab] = sel;
+			ab_tab = (ab_tab + ((inp & PBTN_R) ? 1 : AB_TABS - 1)) % AB_TABS;
+			sel = ab_tab_sel[ab_tab] >= 0 ? ab_tab_sel[ab_tab] : 0;
+			while ((!menu[sel].enabled || !menu[sel].selectable || !ab_in_tab(menu, sel)) && sel < sel_max)
+				sel++;
+			continue;
+		}
 		if (inp & PBTN_UP) {
 			do {
 				if (--sel < 0)
 					sel = sel_max;
-			} while (!menu[sel].enabled || !menu[sel].selectable);
+			} while (!menu[sel].enabled || !menu[sel].selectable || !ab_in_tab(menu, sel));
 		}
 		if (inp & PBTN_DOWN) {
 			do {
 				if (++sel > sel_max)
 					sel = 0;
-			} while (!menu[sel].enabled || !menu[sel].selectable);
+			} while (!menu[sel].enabled || !menu[sel].selectable || !ab_in_tab(menu, sel));
 		}
 		if (ab_row_blocked(&menu[sel]) != NULL)
 			continue;	/* greyed: its value does not move (the help says why) */
@@ -1062,6 +1156,8 @@ static int ab_menu_run(menu_entry *menu, int *menu_sel)
 		}
 	}
 	*menu_sel = sel;
+	if (menu == e_menu_ab)
+		ab_tab_sel[ab_tab] = sel;
 	return ret;
 }
 
@@ -1363,14 +1459,11 @@ static void ab_menu_loop_d(void)
 	}
 	ab_menu_prepare_bg();
 	ab_snap_take();		/* the frame the game was on when the menu opened */
+	ab_tab = 0;		/* the menu opens on its first tab (Resume game); each tab keeps its row */
 	do {
-		/* the Scaling row is g_scaler without "custom": a custom layer shows as 4:3 and is left alone
-		 * unless the row was moved */
-		int shown = g_scaler <= SCALE_FULLSCREEN ? g_scaler : SCALE_4_3;
-		ab_scaler_sel = shown;
+		ab_rows_take();
 		ab_menu_run(e_menu_ab, &sel);
-		if (ab_scaler_sel != shown)
-			g_scaler = ab_scaler_sel;
+		ab_rows_commit();
 	} while (!ready_to_go && !g_emu_want_quit);
 	/* the output mode last: switching it resizes the canvas the menu drew on */
 	if (ab_display_modes[ab_display_sel] != ab_output_mode && !g_emu_want_quit)

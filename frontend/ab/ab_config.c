@@ -15,6 +15,7 @@
 #include "../libpicofe/plat.h"
 #include "../menu.h"
 #include "../main.h"
+#include "../plugin_lib.h"
 #include "ab_config.h"
 #include "ab_hacks.h"
 
@@ -217,6 +218,13 @@ void ab_pad_order(int order[2])
 	order[1] = b;
 }
 
+static int perf_forced;
+
+int ab_perf_forced_opts(void)
+{
+	return perf_forced;
+}
+
 int ab_bios_set_by_pcsx(void)
 {
 	return bios_auto && strcmp(Config.Bios[0], AB_BIOS_WORLD) == 0;
@@ -254,10 +262,17 @@ void ab_config_loaded(int is_game)
 		plat_target.hwfilter = ab_opts.filter;	/* hwfilters[] = { "Off", "Linear", "Sharp" }: the launcher sends 0/1 */
 	if (!(is_game && custom_has_key("g_scaler3")))
 		g_scaler = ab_opts.ratio ? SCALE_FULLSCREEN : SCALE_4_3;
-	fprintf(stderr, "autobleem: %s config: filter=%s ratio=%s boot logo=%s scanlines=%d\n",
+	/* $AB_PERF_OVERLAY (abfeatures: perfoverlay): the launcher's performance overlay is on - the HUD's FPS and
+	 * CPU too, over whatever the files say, without being saved (ab_perf_forced_opts) */
+	if (ab_env("AB_PERF_OVERLAY") != NULL && strcmp(ab_env("AB_PERF_OVERLAY"), "1") == 0) {
+		perf_forced |= (OPT_SHOWFPS | OPT_SHOWCPU) & ~g_opts;
+		g_opts |= OPT_SHOWFPS | OPT_SHOWCPU;
+	}
+	fprintf(stderr, "autobleem: %s config: filter=%s ratio=%s boot logo=%s scanlines=%d dithering=%d\n",
 		is_game ? "game" : "global",
 		plat_target.hwfilters != NULL ? plat_target.hwfilters[plat_target.hwfilter] : "-",
-		g_scaler == SCALE_FULLSCREEN ? "16:9" : "4:3", Config.SlowBoot ? "shown" : "skipped", scanlines);
+		g_scaler == SCALE_FULLSCREEN ? "16:9" : "4:3", Config.SlowBoot ? "shown" : "skipped", scanlines,
+		pl_rearmed_cbs.dithering);
 	if (is_game)
 		ab_hacks_apply();	/* -sonyhacks: Sony's overrides for this serial, over the file (ab_hacks.h) */
 }

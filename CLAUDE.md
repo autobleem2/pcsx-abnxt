@@ -134,7 +134,12 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   follows the request, `plat_sdl2_shot_*` in libpicofe; a menu presents only when it redraws, so the shot
   pushes an expose first - `PBTN_RDRAW`), `screen` (boot/game/menu/pcsx/disc/message, set where our menus
   draw), `row` (the highlighted row's name - libpicofe's `menu_sel_name`, kept by every `me_draw`),
-  `status`, `frames`, `quit`. `tools/emu_drive.py start|run|stop|sheet` is the client: `run "press escape;
+  `status`, `frames`, `fps` (2026-09-29, a permanent command for any client, the launcher's too: `ok fps=F
+  vsync=V cpu=C` - the last second's frames the game drew, emulated vsyncs (under 60/50 = slower than the
+  console) and CPU load; fps/cpu are -1 unless the HUD counts them, pcsx.cfg `g_opts = 3`), `quit`.
+  Measured with it on the PSC (Soul Reaver, frameskip off): the game draws 30 of 60 vsyncs at every setting -
+  its own rate, not the emulator's - and 2x resolution takes the load from ~34% to ~85-90%, filters, Scale2x
+  and scanlines adding a few points; the GPU thread made no measurable difference there. `tools/emu_drive.py start|run|stop|sheet` is the client: `run "press escape;
   wait_screen menu; enter PCSX menu; enter Options; enter [Display]; shot d.png"` - `enter`/`select` walk
   by row name instead of counting keypresses, and a crash comes back as the connection dying with the tail
   of `build_win/run/err.txt`. Nothing of it runs without the variable. On a Pi or the console: start the
@@ -219,7 +224,7 @@ for `C:\` paths - a candidate for an upstream PR; the `ab_*` hooks: the argument
 default; `PCSX_MEMCARD_COUNT` instead of a fixed nine cards, 2 here), `frontend/main.h` (the macro's
 default, our three `SACTION_AB_*` values), `frontend/menu.c` (the `ab_config_loaded` hook, two action
 names, the game's own config - its name, load order, the merging save and binary files, see "A game's
-config" -, `men_soft_filter`'s five names on every platform; `menu_init` keeps the "Video output mode" row off
+config" -, the save leaving out the HUD bits `AB_PERF_OVERLAY` turned on, `men_soft_filter`'s five names on every platform; `menu_init` keeps the "Video output mode" row off
 when the platform has no `vout_methods` - ours has none, and upstream's `MENU_SHOW_VOUTMODE` default of 1
 re-enabled the row with a NULL name list, which crashed the PCSX menu's [Display] page on every target,
 found on the console with r26-alpha1 - a PR candidate), `frontend/menu.h` (`SOFT_FILTER_HQ2X/HQ3X`),
@@ -300,7 +305,24 @@ launcher reads the **`abfeatures`** file next to the binary (`frontend/ab/abfeat
 - `AB_LOAD_STATE` (`loadstate`): the kept slot to resume from, loaded like `-loadf` (and `-load` is then
   ignored) instead of the launcher copying it to slot 0 first.
 
+- `AB_PERF_OVERLAY=1` (`perfoverlay`, 2026-09-29): the launcher's Options -> "Show performance" is on, so
+  the HUD shows FPS and CPU too (`g_opts |= OPT_SHOWFPS | OPT_SHOWCPU` in `ab_config_loaded`) - for the run
+  only: the bits it turned on are left out of every config save (`ab_perf_forced_opts()`, asked by
+  `menu_write_config`), so the game's `pcsx.custom.cfg` never keeps them.
+
 Only the cards in use are created (no `card2.mcd`, which is "none"). Not yet run on a console.
+
+**Dithering** (2026-09-29): the in-game menu's Picture section has a Dithering row - Off / On / Always,
+upstream's `pl_rearmed_cbs.dithering` (0 = none, 1 = where the game's draw command asks for it, the
+PlayStation's own behaviour and the default, 2 = on every shaded or modulated primitive; gpu_neon's
+`allow_dithering`/`force_dithering`, the PCSX menu's "GPU dithering" is the same value). **The launcher sets
+it per game through `pcsx.cfg`: `dithering2 = 0|1|2`** (upstream's versioned key name; no line = 1). It is a
+config key, not an environment variable, so there is no `abfeatures` line: every nxt build reads it, and the
+classic pcsx-ab ignores the key (its own dither lives in `gpu_peops.iUseDither`). A game's own
+`pcsx.custom.cfg` with the key beats the launcher's value, as for every key. The row edits a copy
+(`ab_rows_take`/`ab_rows_commit`, like Scaling) that is written back before a save and when the menu closes,
+only if it was moved; the GPU takes it when the game goes on (`plugin_call_rearmed_cbs`). The config log line
+says `dithering=N`.
 
 Also: `lastcdimg.txt` is not rewritten at start when it already names the disc, and stdout is
 line-buffered off Windows (`ab_args_take`).

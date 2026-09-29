@@ -4,6 +4,8 @@
 # language's glyphs (Chinese: the launcher's Noto Sans SC, linked in as fonts/ by the launch script).
 
 Change disc=Changer de disque
+Saves=Sauvegardes
+CD disc=Disque CD
 Disc=Disque
 This game has only one disc=Ce jeu n'a qu'un seul disque
 You can't change discs now=Impossible de changer de disque maintenant
@@ -79,6 +81,10 @@ Remove seams=Supprimer les coutures
 The resolution the screen is driven at; only what the TV or monitor offers is listed=La résolution à laquelle l'écran fonctionne ; seul ce que propose le téléviseur ou le moniteur est listé
 2x draws the PlayStation's 3D at double resolution (not in high resolution games); costs speed=Le 2x dessine la 3D de la PlayStation en résolution double (pas dans les jeux en haute résolution) ; coûte en vitesse
 No 1-pixel gaps between pictures made of several parts at 2x=Pas de coutures d'un pixel entre les images composées de plusieurs parties en 2x
+Dithering=Tramage
+On=Activé
+Always=Toujours
+The PlayStation's fine dot pattern that hides colour steps. On: where the game uses it. Always: on everything. Off: flat colours=Le fin motif de points de la PlayStation qui masque les paliers de couleur. Activé : là où le jeu l'utilise. Toujours : partout. Désactivé : couleurs unies
 Only with the 2x resolution=Seulement avec la résolution 2x
 Starts the game over from the beginning, as the console's Reset did=Recommence le jeu depuis le début, comme le faisait le bouton Reset de la console
 The console's resolution is chosen in AutoBleem's settings=La résolution de la console se choisit dans les réglages d'AutoBleem

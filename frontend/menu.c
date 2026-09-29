@@ -663,6 +663,11 @@ static int menu_write_config(int is_game)
 			fprintf(f, "%s\n", AB_BIOS_SET_BY_PCSX);
 			continue;
 		}
+		/* the FPS/CPU the launcher's performance overlay turned on for this run are not the game's */
+		if (config_data[i].val == &g_opts) {
+			write_u32_value(f, g_opts & ~ab_perf_forced_opts());
+			continue;
+		}
 #endif
 		if (config_data[i].len > 8) { // string
 			fprintf(f, "%s\n", (char *)config_data[i].val);
