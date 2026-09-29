@@ -44,6 +44,7 @@ enum {
 	MA_AB_DISPLAY,
 	MA_AB_ENHANCE,
 	MA_AB_NOSEAMS,
+	MA_AB_DITHER,
 };
 
 #define AB_QUICK_SLOT 2		/* slot 0 is the resume point, 1 the launcher's copy of it */
@@ -98,6 +99,12 @@ static const char *men_ab_enhance[] = { "1x", "2x", NULL };
 static const char h_ab_enhance[] = "2x draws the PlayStation's 3D at double resolution (not in high resolution"
                                    " games); costs speed";
 static const char h_ab_noseams[] = "No 1-pixel gaps between pictures made of several parts at 2x";
+/* the GPU's dithering, upstream's pl_rearmed_cbs.dithering (pcsx.cfg "dithering2": 0 off, 1 where the game
+ * asks for it, 2 on everything) - an unsigned char there, so the row edits a copy (ab_menu_loop_d) */
+static int ab_dither_sel;
+static const char *men_ab_dither[] = { "Off", "On", "Always", NULL };
+static const char h_ab_dither[] = "The PlayStation's fine dot pattern that hides colour steps. On: where the"
+                                  " game uses it. Always: on everything. Off: flat colours";
 /* why a row is greyed */
 static const char ab_why_crt[]   = "Off while a CRT filter is on";
 static const char ab_why_1x[]    = "Only with the 2x resolution";
@@ -117,7 +124,8 @@ static menu_entry e_menu_ab[] =
 	mee_enum_h    ("Display",                  MA_AB_DISPLAY,       ab_display_sel, men_ab_display, h_ab_display),
 	mee_enum_h    ("Resolution",               MA_AB_ENHANCE,       pl_rearmed_cbs.gpu_neon.enhancement_enable, men_ab_enhance, h_ab_enhance),
 	mee_onoff_h   ("Remove seams",             MA_AB_NOSEAMS,       pl_rearmed_cbs.gpu_neon.enhancement_no_seams, 1, h_ab_noseams),
-	mee_enum_h    ("Scaling",                 MA_AB_SCALER,        ab_scaler_sel, men_ab_scaler, h_ab_scaler),
+	mee_enum_h    ("Dithering",                MA_AB_DITHER,        ab_dither_sel, men_ab_dither, h_ab_dither),
+	mee_enum_h    ("Scaling",                MA_AB_SCALER,        ab_scaler_sel, men_ab_scaler, h_ab_scaler),
 	mee_enum_h    ("Smoothing",                MA_OPT_SWFILTER,     soft_filter, men_ab_smooth, h_ab_smooth),
 	mee_cust_h    ("Filter",                   MA_AB_FILTER,        ab_menu_handler, ab_filter_name, h_ab_filter),
 	mee_enum_h    ("Scanlines",                MA_OPT_SCANLINES,    scanlines, men_ab_scanlines, h_ab_scanlines),
@@ -197,9 +205,31 @@ static void ab_snap_take(void)
 	ab_snap_h = h;
 }
 
+/* The rows that edit a copy of their setting: Scaling is g_scaler without "custom" (a custom layer shows as
+ * 4:3 and is left alone unless the row was moved), Dithering an unsigned char. The copies are taken when
+ * the menu shows and written back only when a row was moved - the PCSX menu beneath may have changed the
+ * setting itself meanwhile - before a save and when the menu closes. */
+static int ab_scaler_shown, ab_dither_shown;
+
+static void ab_rows_take(void)
+{
+	ab_scaler_sel = ab_scaler_shown = g_scaler <= SCALE_FULLSCREEN ? g_scaler : SCALE_4_3;
+	ab_dither_sel = ab_dither_shown = pl_rearmed_cbs.dithering <= 2 ? pl_rearmed_cbs.dithering : 1;
+}
+
+static void ab_rows_commit(void)
+{
+	if (ab_scaler_sel != ab_scaler_shown)
+		g_scaler = ab_scaler_shown = ab_scaler_sel;
+	/* the GPU takes it when the game goes on (menu_prepare_emu -> plugin_call_rearmed_cbs) */
+	if (ab_dither_sel != ab_dither_shown)
+		pl_rearmed_cbs.dithering = ab_dither_shown = ab_dither_sel;
+}
+
 /* the game's own config, pcsx.custom.cfg - what every save in these menus writes (ab_config.h) */
 static int ab_save_config(void)
 {
+	ab_rows_commit();
 	return menu_write_config(1);
 }
 
@@ -1364,13 +1394,9 @@ static void ab_menu_loop_d(void)
 	ab_menu_prepare_bg();
 	ab_snap_take();		/* the frame the game was on when the menu opened */
 	do {
-		/* the Scaling row is g_scaler without "custom": a custom layer shows as 4:3 and is left alone
-		 * unless the row was moved */
-		int shown = g_scaler <= SCALE_FULLSCREEN ? g_scaler : SCALE_4_3;
-		ab_scaler_sel = shown;
+		ab_rows_take();
 		ab_menu_run(e_menu_ab, &sel);
-		if (ab_scaler_sel != shown)
-			g_scaler = ab_scaler_sel;
+		ab_rows_commit();
 	} while (!ready_to_go && !g_emu_want_quit);
 	/* the output mode last: switching it resizes the canvas the menu drew on */
 	if (ab_display_modes[ab_display_sel] != ab_output_mode && !g_emu_want_quit)

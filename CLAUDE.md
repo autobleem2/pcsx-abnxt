@@ -302,6 +302,18 @@ launcher reads the **`abfeatures`** file next to the binary (`frontend/ab/abfeat
 
 Only the cards in use are created (no `card2.mcd`, which is "none"). Not yet run on a console.
 
+**Dithering** (2026-09-29): the in-game menu's Picture section has a Dithering row - Off / On / Always,
+upstream's `pl_rearmed_cbs.dithering` (0 = none, 1 = where the game's draw command asks for it, the
+PlayStation's own behaviour and the default, 2 = on every shaded or modulated primitive; gpu_neon's
+`allow_dithering`/`force_dithering`, the PCSX menu's "GPU dithering" is the same value). **The launcher sets
+it per game through `pcsx.cfg`: `dithering2 = 0|1|2`** (upstream's versioned key name; no line = 1). It is a
+config key, not an environment variable, so there is no `abfeatures` line: every nxt build reads it, and the
+classic pcsx-ab ignores the key (its own dither lives in `gpu_peops.iUseDither`). A game's own
+`pcsx.custom.cfg` with the key beats the launcher's value, as for every key. The row edits a copy
+(`ab_rows_take`/`ab_rows_commit`, like Scaling) that is written back before a save and when the menu closes,
+only if it was moved; the GPU takes it when the game goes on (`plugin_call_rearmed_cbs`). The config log line
+says `dithering=N`.
+
 Also: `lastcdimg.txt` is not rewritten at start when it already names the disc, and stdout is
 line-buffered off Windows (`ab_args_take`).
 
