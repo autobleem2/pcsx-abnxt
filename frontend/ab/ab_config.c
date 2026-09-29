@@ -260,18 +260,27 @@ void ab_config_loaded(int is_game)
 	/* the launcher's per-launch choices beat the file's - but not the game's own config's */
 	if (plat_target.hwfilters != NULL && !(is_game && custom_has_key("plat_target.hwfilter")))
 		plat_target.hwfilter = ab_opts.filter;	/* hwfilters[] = { "Off", "Linear", "Sharp" }: the launcher sends 0/1 */
-	if (!(is_game && custom_has_key("g_scaler3")))
-		g_scaler = ab_opts.ratio ? SCALE_FULLSCREEN : SCALE_4_3;
+	if (!(is_game && custom_has_key("g_scaler3"))) {
+		/* $AB_SCALER (abfeatures: scaler): the launcher's "Emulator screen scaling", one of the menu's Scaler
+		 * values without "custom" (SCALE_1_1 .. SCALE_FULLSCREEN); beats -ratio, which a launcher without it
+		 * still sends as fullscreen/4:3 */
+		const char *s = ab_env("AB_SCALER");
+		int scaler = s != NULL ? atoi(s) : -1;
+		if (scaler >= SCALE_1_1 && scaler <= SCALE_FULLSCREEN)
+			g_scaler = scaler;
+		else
+			g_scaler = ab_opts.ratio ? SCALE_FULLSCREEN : SCALE_4_3;
+	}
 	/* $AB_PERF_OVERLAY (abfeatures: perfoverlay): the launcher's performance overlay is on - the HUD's FPS and
 	 * CPU too, over whatever the files say, without being saved (ab_perf_forced_opts) */
 	if (ab_env("AB_PERF_OVERLAY") != NULL && strcmp(ab_env("AB_PERF_OVERLAY"), "1") == 0) {
 		perf_forced |= (OPT_SHOWFPS | OPT_SHOWCPU) & ~g_opts;
 		g_opts |= OPT_SHOWFPS | OPT_SHOWCPU;
 	}
-	fprintf(stderr, "autobleem: %s config: filter=%s ratio=%s boot logo=%s scanlines=%d dithering=%d\n",
+	fprintf(stderr, "autobleem: %s config: filter=%s ratio=%s scaler=%d boot logo=%s scanlines=%d dithering=%d\n",
 		is_game ? "game" : "global",
 		plat_target.hwfilters != NULL ? plat_target.hwfilters[plat_target.hwfilter] : "-",
-		g_scaler == SCALE_FULLSCREEN ? "16:9" : "4:3", Config.SlowBoot ? "shown" : "skipped", scanlines,
+		g_scaler == SCALE_FULLSCREEN ? "16:9" : "4:3", g_scaler, Config.SlowBoot ? "shown" : "skipped", scanlines,
 		pl_rearmed_cbs.dithering);
 	if (is_game)
 		ab_hacks_apply();	/* -sonyhacks: Sony's overrides for this serial, over the file (ab_hacks.h) */
