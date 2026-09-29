@@ -4,6 +4,8 @@
 # language's glyphs (Chinese: the launcher's Noto Sans SC, linked in as fonts/ by the launch script).
 
 Change disc=Cambiar de disc
+Saves=Salvaments
+CD disc=Disc CD
 Disc=Disc
 This game has only one disc=Aqueste jòc a pas qu'un sol disc
 You can't change discs now=Impossible de cambiar de disc ara

@@ -4,6 +4,8 @@
 # language's glyphs (Chinese: the launcher's Noto Sans SC, linked in as fonts/ by the launch script).
 
 Change disc=Disc wisselen
+Saves=Opgeslagen spel
+CD disc=Cd
 Disc=Disc
 This game has only one disc=Dit spel heeft maar één disc
 You can't change discs now=Je kunt nu niet van disc wisselen

@@ -4,6 +4,8 @@
 # language's glyphs (Chinese: the launcher's Noto Sans SC, linked in as fonts/ by the launch script).
 
 Change disc=Disk değiştir
+Saves=Kayıtlar
+CD disc=CD disk
 Disc=Disk
 This game has only one disc=Bu oyunun tek diski var
 You can't change discs now=Şu anda disk değiştirilemez

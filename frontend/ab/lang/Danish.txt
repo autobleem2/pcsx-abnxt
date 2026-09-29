@@ -4,6 +4,8 @@
 # language's glyphs (Chinese: the launcher's Noto Sans SC, linked in as fonts/ by the launch script).
 
 Change disc=Skift disk
+Saves=Gemte spil
+CD disc=Cd
 Disc=Disk
 This game has only one disc=Dette spil har kun én disk
 You can't change discs now=Du kan ikke skifte disk nu

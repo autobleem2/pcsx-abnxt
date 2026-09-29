@@ -4,6 +4,8 @@
 # language's glyphs (Chinese: the launcher's Noto Sans SC, linked in as fonts/ by the launch script).
 
 Change disc=更换光盘
+Saves=存档
+CD disc=光盘
 Disc=光盘
 This game has only one disc=此游戏只有一张光盘
 You can't change discs now=现在无法更换光盘

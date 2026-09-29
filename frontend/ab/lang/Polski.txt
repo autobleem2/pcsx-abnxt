@@ -4,6 +4,8 @@
 # language's glyphs (Chinese: the launcher's Noto Sans SC, linked in as fonts/ by the launch script).
 
 Change disc=Zmień płytę
+Saves=Zapis
+CD disc=Płyta CD
 Disc=Płyta
 This game has only one disc=Ta gra ma tylko jedną płytę
 You can't change discs now=Teraz nie można zmienić płyty

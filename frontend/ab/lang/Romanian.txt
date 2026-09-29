@@ -4,6 +4,8 @@
 # language's glyphs (Chinese: the launcher's Noto Sans SC, linked in as fonts/ by the launch script).
 
 Change disc=Schimbă discul
+Saves=Salvări
+CD disc=Disc CD
 Disc=Disc
 This game has only one disc=Acest joc are un singur disc
 You can't change discs now=Discul nu poate fi schimbat acum

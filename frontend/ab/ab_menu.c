@@ -115,9 +115,11 @@ static menu_entry e_menu_ab[] =
 {
 	mee_label     ("Game"),
 	mee_handler_id("Resume game",              MA_MAIN_RESUME_GAME, main_menu_handler),
+	mee_label     ("Saves"),
 	mee_handler_id("Quick save",               MA_AB_QUICKSAVE,     ab_menu_handler),
 	mee_handler_id("Quick load",               MA_AB_QUICKLOAD,     ab_menu_handler),
 	mee_handler_id_h("Load autosave",          MA_AB_AUTOLOAD,      ab_menu_handler, h_ab_autoload),
+	mee_label     ("CD disc"),
 	mee_handler_id("Change disc",              MA_AB_DISC,          ab_menu_handler),
 	mee_handler_id_h("Reset game",             MA_MAIN_RESET_GAME,  main_menu_handler, h_ab_reset),
 	mee_label     ("Picture"),
@@ -152,11 +154,12 @@ static const char *ab_gen_names[AB_MENU_MAX_ROWS];
 static const menu_entry *ab_scroll_menu;
 static int ab_scroll;
 
-/* The top menu's two tabs, L1/R1 (the owner, 2026-09-29): the Picture section is the second tab, the rest
- * the first. A tab's own heading is not drawn (the tab bar says it); each tab keeps its selected row. The
- * pages under the top menu (the PCSX menu, the cheats) have no tabs. */
-static const char *ab_tab_names[] = { "Game", "Picture" };
-static int ab_tab, ab_tab_sel[2] = { -1, -1 };
+/* The top menu's tabs, L1/R1 (the owner, 2026-09-29): the Picture section is the second tab, Controllers
+ * the third, the rest the first. A tab's own heading is not drawn (the tab bar says it); each tab keeps its
+ * selected row. The pages under the top menu (the PCSX menu, the cheats) have no tabs. */
+#define AB_TABS 3
+static const char *ab_tab_names[AB_TABS] = { "Game", "Picture", "Controllers" };
+static int ab_tab, ab_tab_sel[AB_TABS] = { -1, -1, -1 };
 
 static int ab_row_tab(const menu_entry *menu, int i)
 {
@@ -165,7 +168,10 @@ static int ab_row_tab(const menu_entry *menu, int i)
 	for (k = 0; k <= i && menu[k].name; k++)
 		if (!menu[k].selectable && menu[k].generate_name == NULL && menu[k].name[0] != 0)
 			section = menu[k].name;
-	return strcmp(section, ab_tab_names[1]) == 0 ? 1 : 0;
+	for (k = 1; k < AB_TABS; k++)
+		if (strcmp(section, ab_tab_names[k]) == 0)
+			return k;
+	return 0;
 }
 
 /* whether row i belongs on the page as it is now: always, but in the top menu only the current tab's rows,
@@ -798,7 +804,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		ab_ui_fill(&c, tx, ty, chip_w, chip_h, (int)(7 * s), ab_col_row, 200);
 		ab_text(&c, tx + chip_w / 2, ty + (chip_h - chip_px) / 2, AB_UI_CENTER, "L1", chip_px, ab_col_text);
 		tx += chip_w + gap;
-		for (k = 0; k < 2; k++) {
+		for (k = 0; k < AB_TABS; k++) {
 			int cur = k == ab_tab, tw;
 			tw = ab_text_shadow_w(&c, tx, ty + (chip_h - tab_px) / 2 - (int)(1 * s), ab_ui_tr(ab_tab_names[k]),
 				tab_px, cur ? ab_col_accent : ab_col_dim);
@@ -1109,9 +1115,9 @@ static int ab_menu_run(menu_entry *menu, int *menu_sel)
 		if (ab_console_power_off_requested || (inp & (PBTN_MENU|PBTN_MBACK)))
 			break;
 		if (menu == e_menu_ab && (inp & (PBTN_L|PBTN_R))) {
-			/* L1/R1 switch the tab (two tabs: either goes to the other), each keeping its row */
+			/* L1 the tab to the left, R1 to the right (round), each keeping its row */
 			ab_tab_sel[ab_tab] = sel;
-			ab_tab = !ab_tab;
+			ab_tab = (ab_tab + ((inp & PBTN_R) ? 1 : AB_TABS - 1)) % AB_TABS;
 			sel = ab_tab_sel[ab_tab] >= 0 ? ab_tab_sel[ab_tab] : 0;
 			while ((!menu[sel].enabled || !menu[sel].selectable || !ab_in_tab(menu, sel)) && sel < sel_max)
 				sel++;

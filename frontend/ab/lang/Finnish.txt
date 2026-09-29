@@ -4,6 +4,8 @@
 # language's glyphs (Chinese: the launcher's Noto Sans SC, linked in as fonts/ by the launch script).
 
 Change disc=Vaihda levy
+Saves=Tallennukset
+CD disc=CD-levy
 Disc=Levy
 This game has only one disc=Tässä pelissä on vain yksi levy
 You can't change discs now=Levyä ei voi vaihtaa nyt
