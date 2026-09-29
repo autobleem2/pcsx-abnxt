@@ -93,7 +93,8 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   back. The pointer itself is hidden by relative mouse mode (KMSDRM ignores `SDL_ShowCursor`).
 - **the frame's way to the screen** (libpicofe `plat_sdl2_present`, the owner's pcsx-ab chain redone on
   the GPU, 2026-09-21 after the console showed the first version's uneven scanlines): the RGB565 frame is
-  scaled **once** into the backbuffer with the filter (`-filter 0/1/2`: Off = nearest, Linear = bilinear,
+  scaled **once** into the backbuffer with the filter (`-filter 0..6`, an index into `ab_filter_names` since 2026-09-29 - the launcher's game
+  editor offers all seven; was 0..2: Off = nearest, Linear = bilinear,
   Sharp = whole-multiple prescale in a native 8888 render target then bilinear for the remainder - at 720p
   a 240-line game's Sharp equals Off, inherent), and the **scanlines go over the scaled picture**, never
   scaled again: a property of the screen like a CRT's, 240 lines over the picture's height whatever the

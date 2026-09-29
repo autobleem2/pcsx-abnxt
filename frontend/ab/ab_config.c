@@ -17,6 +17,7 @@
 #include "../main.h"
 #include "../plugin_lib.h"
 #include "ab_config.h"
+#include "ab_shaders.h"
 #include "ab_hacks.h"
 
 /* the BIOS files AutoBleem keeps in System/Bios (the launcher's launch.sh links it as bios/) */
@@ -131,7 +132,7 @@ int ab_args_take(int argc, char *argv[])
 	setvbuf(stderr, NULL, _IONBF, 0);
 
 	for (i = 1; i < argc; i++) {
-		if (take_int("-filter", &ab_opts.filter, 0, 2, argc, argv, &i)
+		if (take_int("-filter", &ab_opts.filter, 0, AB_FILTER_COUNT - 1, argc, argv, &i)
 		    || take_int("-ratio", &ab_opts.ratio, 0, 1, argc, argv, &i)
 		    || take_int("-lang", &ab_opts.lang, 1, 13, argc, argv, &i)
 		    || take_int("-region", &ab_opts.region, 1, 4, argc, argv, &i)
@@ -259,7 +260,7 @@ void ab_config_loaded(int is_game)
 
 	/* the launcher's per-launch choices beat the file's - but not the game's own config's */
 	if (plat_target.hwfilters != NULL && !(is_game && custom_has_key("plat_target.hwfilter")))
-		plat_target.hwfilter = ab_opts.filter;	/* hwfilters[] = { "Off", "Linear", "Sharp" }: the launcher sends 0/1 */
+		plat_target.hwfilter = ab_opts.filter;	/* an index into ab_filter_names (ab_shaders.c): Nearest .. CRT-Pi */
 	if (!(is_game && custom_has_key("g_scaler3"))) {
 		/* $AB_SCALER (abfeatures: scaler): the launcher's "Emulator screen scaling", one of the menu's Scaler
 		 * values without "custom" (SCALE_1_1 .. SCALE_FULLSCREEN); beats -ratio, which a launcher without it
