@@ -224,7 +224,7 @@ for `C:\` paths - a candidate for an upstream PR; the `ab_*` hooks: the argument
 default; `PCSX_MEMCARD_COUNT` instead of a fixed nine cards, 2 here), `frontend/main.h` (the macro's
 default, our three `SACTION_AB_*` values), `frontend/menu.c` (the `ab_config_loaded` hook, two action
 names, the game's own config - its name, load order, the merging save and binary files, see "A game's
-config" -, `men_soft_filter`'s five names on every platform; `menu_init` keeps the "Video output mode" row off
+config" -, the save leaving out the HUD bits `AB_PERF_OVERLAY` turned on, `men_soft_filter`'s five names on every platform; `menu_init` keeps the "Video output mode" row off
 when the platform has no `vout_methods` - ours has none, and upstream's `MENU_SHOW_VOUTMODE` default of 1
 re-enabled the row with a NULL name list, which crashed the PCSX menu's [Display] page on every target,
 found on the console with r26-alpha1 - a PR candidate), `frontend/menu.h` (`SOFT_FILTER_HQ2X/HQ3X`),
@@ -304,6 +304,11 @@ launcher reads the **`abfeatures`** file next to the binary (`frontend/ab/abfeat
   is - `Config.Mcd1` points into it - instead of being copied in and out around the run.
 - `AB_LOAD_STATE` (`loadstate`): the kept slot to resume from, loaded like `-loadf` (and `-load` is then
   ignored) instead of the launcher copying it to slot 0 first.
+
+- `AB_PERF_OVERLAY=1` (`perfoverlay`, 2026-09-29): the launcher's Options -> "Show performance" is on, so
+  the HUD shows FPS and CPU too (`g_opts |= OPT_SHOWFPS | OPT_SHOWCPU` in `ab_config_loaded`) - for the run
+  only: the bits it turned on are left out of every config save (`ab_perf_forced_opts()`, asked by
+  `menu_write_config`), so the game's `pcsx.custom.cfg` never keeps them.
 
 Only the cards in use are created (no `card2.mcd`, which is "none"). Not yet run on a console.
 
