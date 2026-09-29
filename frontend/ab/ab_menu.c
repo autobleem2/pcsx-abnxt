@@ -152,6 +152,33 @@ static const char *ab_gen_names[AB_MENU_MAX_ROWS];
 static const menu_entry *ab_scroll_menu;
 static int ab_scroll;
 
+/* The top menu's two tabs, L1/R1 (the owner, 2026-09-29): the Picture section is the second tab, the rest
+ * the first. A tab's own heading is not drawn (the tab bar says it); each tab keeps its selected row. The
+ * pages under the top menu (the PCSX menu, the cheats) have no tabs. */
+static const char *ab_tab_names[] = { "Game", "Picture" };
+static int ab_tab, ab_tab_sel[2] = { -1, -1 };
+
+static int ab_row_tab(const menu_entry *menu, int i)
+{
+	const char *section = "";
+	int k;
+	for (k = 0; k <= i && menu[k].name; k++)
+		if (!menu[k].selectable && menu[k].generate_name == NULL && menu[k].name[0] != 0)
+			section = menu[k].name;
+	return strcmp(section, ab_tab_names[1]) == 0 ? 1 : 0;
+}
+
+/* whether row i belongs on the page as it is now: always, but in the top menu only the current tab's rows,
+ * without the tab's own heading */
+static int ab_in_tab(const menu_entry *menu, int i)
+{
+	if (menu != e_menu_ab)
+		return 1;
+	if (!menu[i].selectable && menu[i].generate_name == NULL && strcmp(menu[i].name, ab_tab_names[ab_tab]) == 0)
+		return 0;
+	return ab_row_tab(menu, i) == ab_tab;
+}
+
 /* a row that takes space on the panel: enabled, not upstream's empty spacer label, and an info row only
  * with a text this frame (ab_menu_draw's first pass fills ab_gen_names) */
 static int ab_row_shown(const menu_entry *ent, int i)
@@ -719,7 +746,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	for (n = 0, heads = 0, ent = menu, i = 0; ent->name; ent++, i++) {
 		if (i < AB_MENU_MAX_ROWS)
 			ab_gen_names[i] = NULL;
-		if (!ent->enabled)
+		if (!ent->enabled || !ab_in_tab(menu, i))
 			continue;
 		if (i == sel)
 			ent_sel = ent;
@@ -763,6 +790,26 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		}
 		panel_y += (int)(36 * s);
 		avail -= (int)(36 * s);
+	} else if (menu == e_menu_ab) {
+		/* the tab bar: [L1]  Game  Picture  [R1] - the current tab bright and underlined, the shoulder
+		 * buttons as chips at both ends so switching is obvious */
+		int k, tx = panel_x + (int)(8 * s), ty = panel_y, chip_px = (int)(18 * s), tab_px = (int)(24 * s);
+		int chip_h = (int)(30 * s), chip_w = (int)(44 * s), gap = (int)(22 * s);
+		ab_ui_fill(&c, tx, ty, chip_w, chip_h, (int)(7 * s), ab_col_row, 200);
+		ab_text(&c, tx + chip_w / 2, ty + (chip_h - chip_px) / 2, AB_UI_CENTER, "L1", chip_px, ab_col_text);
+		tx += chip_w + gap;
+		for (k = 0; k < 2; k++) {
+			int cur = k == ab_tab, tw;
+			tw = ab_text_shadow_w(&c, tx, ty + (chip_h - tab_px) / 2 - (int)(1 * s), ab_ui_tr(ab_tab_names[k]),
+				tab_px, cur ? ab_col_accent : ab_col_dim);
+			if (cur)
+				ab_ui_fill(&c, tx, ty + chip_h + (int)(3 * s), tw, (int)(3 * s), 0, ab_col_accent, 255);
+			tx += tw + gap;
+		}
+		ab_ui_fill(&c, tx, ty, chip_w, chip_h, (int)(7 * s), ab_col_row, 200);
+		ab_text(&c, tx + chip_w / 2, ty + (chip_h - chip_px) / 2, AB_UI_CENTER, "R1", chip_px, ab_col_text);
+		panel_y += (int)(46 * s);
+		avail -= (int)(46 * s);
 	}
 	px = row_h * 7 / 10;
 	head_px = head_h * 6 / 10;
@@ -773,7 +820,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		 * first row), and the scroll that keeps it in view with a row of margin */
 		int vy = 0, head_top = -1, sel_top = 0, sel_bot = 0, prev_head = 0, h;
 		for (ent = menu, i = 0; ent->name; ent++, i++) {
-			if (!ab_row_shown(ent, i))
+			if (!ab_row_shown(ent, i) || !ab_in_tab(menu, i))
 				continue;
 			h = ent->selectable || ent->generate_name != NULL ? row_h : head_h;
 			if (i == sel) {
@@ -817,7 +864,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		int offs = 0, is_sel = i == sel, page, h;
 		unsigned short col_name, col_val;
 
-		if (!ab_row_shown(ent, i))
+		if (!ab_row_shown(ent, i) || !ab_in_tab(menu, i))
 			continue;
 		/* only what is wholly inside the panel's view */
 		h = ent->selectable || ent->generate_name != NULL ? row_h : head_h;
@@ -1048,7 +1095,9 @@ static int ab_menu_run(menu_entry *menu, int *menu_sel)
 	sel_max = me_count(menu) - 1;
 	if (sel_max < 0)
 		return 0;
-	while ((!menu[sel].enabled || !menu[sel].selectable) && sel < sel_max)
+	if (menu == e_menu_ab && ab_row_tab(menu, sel) != ab_tab)
+		sel = ab_tab_sel[ab_tab] >= 0 ? ab_tab_sel[ab_tab] : 0;
+	while ((!menu[sel].enabled || !menu[sel].selectable || !ab_in_tab(menu, sel)) && sel < sel_max)
 		sel++;
 
 	ab_menu_draw(menu, sel);
@@ -1059,17 +1108,26 @@ static int ab_menu_run(menu_entry *menu, int *menu_sel)
 			PBTN_MOK|PBTN_MBACK|PBTN_MENU|PBTN_L|PBTN_R, NULL, 70);
 		if (ab_console_power_off_requested || (inp & (PBTN_MENU|PBTN_MBACK)))
 			break;
+		if (menu == e_menu_ab && (inp & (PBTN_L|PBTN_R))) {
+			/* L1/R1 switch the tab (two tabs: either goes to the other), each keeping its row */
+			ab_tab_sel[ab_tab] = sel;
+			ab_tab = !ab_tab;
+			sel = ab_tab_sel[ab_tab] >= 0 ? ab_tab_sel[ab_tab] : 0;
+			while ((!menu[sel].enabled || !menu[sel].selectable || !ab_in_tab(menu, sel)) && sel < sel_max)
+				sel++;
+			continue;
+		}
 		if (inp & PBTN_UP) {
 			do {
 				if (--sel < 0)
 					sel = sel_max;
-			} while (!menu[sel].enabled || !menu[sel].selectable);
+			} while (!menu[sel].enabled || !menu[sel].selectable || !ab_in_tab(menu, sel));
 		}
 		if (inp & PBTN_DOWN) {
 			do {
 				if (++sel > sel_max)
 					sel = 0;
-			} while (!menu[sel].enabled || !menu[sel].selectable);
+			} while (!menu[sel].enabled || !menu[sel].selectable || !ab_in_tab(menu, sel));
 		}
 		if (ab_row_blocked(&menu[sel]) != NULL)
 			continue;	/* greyed: its value does not move (the help says why) */
@@ -1092,6 +1150,8 @@ static int ab_menu_run(menu_entry *menu, int *menu_sel)
 		}
 	}
 	*menu_sel = sel;
+	if (menu == e_menu_ab)
+		ab_tab_sel[ab_tab] = sel;
 	return ret;
 }
 
@@ -1393,6 +1453,7 @@ static void ab_menu_loop_d(void)
 	}
 	ab_menu_prepare_bg();
 	ab_snap_take();		/* the frame the game was on when the menu opened */
+	ab_tab = 0;		/* the menu opens on its first tab (Resume game); each tab keeps its row */
 	do {
 		ab_rows_take();
 		ab_menu_run(e_menu_ab, &sel);
