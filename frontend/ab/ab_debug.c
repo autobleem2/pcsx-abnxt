@@ -33,6 +33,8 @@ typedef int ab_sock_t;
 #include "../libpicofe/menu.h"
 #include "../libpicofe/plat_autobleem.h"
 #include "../main.h"
+#include "../menu.h"
+#include "../plugin_lib.h"
 #include "ab_debug.h"
 
 #define AB_DEBUG_LINE 512
@@ -161,6 +163,15 @@ static void handle(char *line, char *out, size_t out_size)
 	}
 	if (strcmp(cmd, "frames") == 0) {
 		snprintf(out, out_size, "ok %u", plat_ab_frame_count());
+		return;
+	}
+	if (strcmp(cmd, "fps") == 0) {
+		/* the last second's counters (plugin_lib's pl_frame_limit): the frames the game drew, the emulated
+		 * vsyncs - under 60 (50) the emulator is slower than the console - and the CPU load; fps and cpu are
+		 * only counted while the HUD shows them (pcsx.cfg g_opts = 3), -1 otherwise */
+		snprintf(out, out_size, "ok fps=%d vsync=%.1f cpu=%d",
+			(g_opts & OPT_SHOWFPS) ? pl_rearmed_cbs.flips_per_sec : -1, pl_rearmed_cbs.vsps_cur,
+			(g_opts & OPT_SHOWCPU) ? pl_rearmed_cbs.cpu_usage : -1);
 		return;
 	}
 	if (strcmp(cmd, "screen") == 0) {

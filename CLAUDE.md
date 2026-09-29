@@ -134,7 +134,12 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   follows the request, `plat_sdl2_shot_*` in libpicofe; a menu presents only when it redraws, so the shot
   pushes an expose first - `PBTN_RDRAW`), `screen` (boot/game/menu/pcsx/disc/message, set where our menus
   draw), `row` (the highlighted row's name - libpicofe's `menu_sel_name`, kept by every `me_draw`),
-  `status`, `frames`, `quit`. `tools/emu_drive.py start|run|stop|sheet` is the client: `run "press escape;
+  `status`, `frames`, `fps` (2026-09-29, a permanent command for any client, the launcher's too: `ok fps=F
+  vsync=V cpu=C` - the last second's frames the game drew, emulated vsyncs (under 60/50 = slower than the
+  console) and CPU load; fps/cpu are -1 unless the HUD counts them, pcsx.cfg `g_opts = 3`), `quit`.
+  Measured with it on the PSC (Soul Reaver, frameskip off): the game draws 30 of 60 vsyncs at every setting -
+  its own rate, not the emulator's - and 2x resolution takes the load from ~34% to ~85-90%, filters, Scale2x
+  and scanlines adding a few points; the GPU thread made no measurable difference there. `tools/emu_drive.py start|run|stop|sheet` is the client: `run "press escape;
   wait_screen menu; enter PCSX menu; enter Options; enter [Display]; shot d.png"` - `enter`/`select` walk
   by row name instead of counting keypresses, and a crash comes back as the connection dying with the tail
   of `build_win/run/err.txt`. Nothing of it runs without the variable. On a Pi or the console: start the
