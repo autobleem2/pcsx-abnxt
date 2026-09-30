@@ -57,7 +57,10 @@ at the design's sizes. Rows are one line: a name that would run into its value i
 70 % (upstream's long PCSX-menu names in fr/oc/pt_BR/de). The art's hint bar carries only the hints -
 the launcher's pad glyphs (`ab_ui_pad_glyph`: a grey disc with a blue Cross or a red Circle, the skin's
 `hint_*` colours), centred on the bar's middle line from x 490; the build's two lines moved out of the bar,
-right-aligned at x 1248, y 568/590, and the right-hand column's help/message text stops above them. **The paused game's frame is not shown any more**: `menu_leave_emu()`'s paste
+right-aligned at x 1248, y 568/590, and the right-hand column's help/message text stops above them. The
+disc picker's panel, the message box, About and the snapshot's frame are the same cut-corner panel
+(`ab_panel`; the snapshot clipped to the frame's cut), the L1/R1 chips the selected row's shape, About's
+rule a 1 px accent line. **The paused game's frame is not shown any more**: `menu_leave_emu()`'s paste
 of `pl_vout_buf` at `last_vout_w/h` was garbage on the console whenever the GPU rendered at another size
 than it reported (the 2x enhancement, say) - `ab_menu_prepare_bg()` covers it at every menu entry and
 gives libpicofe's `g_menubg_*` a darkened copy of the same art, which is what the PCSX menu beneath and

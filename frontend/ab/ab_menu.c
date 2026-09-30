@@ -548,8 +548,8 @@ static void ab_draw_disc_picker(int n, int cur, int sel)
 	x0 = (c.w - (n * 2 * r + (n - 1) * gap)) / 2 + r;
 	cy = (int)(c.h * 0.46f);
 	/* the discs on a panel, as the menu's rows are */
-	ab_ui_fill(&c, x0 - r - (int)(60 * s), cy - r - (int)(50 * s), (n - 1) * step + 2 * r + (int)(120 * s),
-		   2 * r + (int)(130 * s), (int)(14 * s), ab_col_panel, AB_PANEL_ALPHA);
+	ab_panel(&c, x0 - r - (int)(60 * s), cy - r - (int)(50 * s), (n - 1) * step + 2 * r + (int)(120 * s),
+		 2 * r + (int)(130 * s), s);
 	for (i = 0; i < n; i++) {
 		int cx = x0 + i * step;
 		ab_ui_disc(&c, cx, cy, r, i == cur, i != sel);
@@ -575,7 +575,7 @@ static void ab_draw_message(const char *msg)
 	s = c.h / 720.0f;
 	px = (int)(32 * s);
 	w = ab_text_width(msg, px) + (int)(120 * s);
-	ab_ui_fill(&c, (c.w - w) / 2, (int)(c.h * 0.44f) - (int)(40 * s), w, px + (int)(80 * s), (int)(14 * s), ab_col_panel, AB_PANEL_ALPHA);
+	ab_panel(&c, (c.w - w) / 2, (int)(c.h * 0.44f) - (int)(40 * s), w, px + (int)(80 * s), s);
 	ab_text(&c, c.w / 2, (int)(c.h * 0.44f), AB_UI_CENTER, msg, px, ab_col_text);
 	ab_footer(&c, ab_ui_str(AB_STR_OK), NULL);
 	menu_draw_end();
@@ -857,7 +857,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		 * buttons as chips at both ends so switching is obvious */
 		int k, tx = panel_x + (int)(8 * s), ty = panel_y, chip_px = (int)(18 * s), tab_px = (int)(24 * s);
 		int chip_h = (int)(30 * s), chip_w = (int)(44 * s), gap = (int)(22 * s);
-		ab_ui_fill(&c, tx, ty, chip_w, chip_h, (int)(7 * s), ab_col_row, 200);
+		ab_ui_cut_panel(&c, tx, ty, chip_w, chip_h, (int)(AB_ROW_CUT * s), ab_rim(s), ab_col_select_rim, ab_col_row, AB_ROW_ALPHA);
 		ab_text(&c, tx + chip_w / 2, ty + (chip_h - chip_px) / 2, AB_UI_CENTER, "L1", chip_px, ab_col_text);
 		tx += chip_w + gap;
 		for (k = 0; k < AB_TABS; k++) {
@@ -868,7 +868,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 				ab_ui_fill(&c, tx, ty + chip_h + (int)(3 * s), tw, (int)(3 * s), 0, ab_col_accent, 255);
 			tx += tw + gap;
 		}
-		ab_ui_fill(&c, tx, ty, chip_w, chip_h, (int)(7 * s), ab_col_row, 200);
+		ab_ui_cut_panel(&c, tx, ty, chip_w, chip_h, (int)(AB_ROW_CUT * s), ab_rim(s), ab_col_select_rim, ab_col_row, AB_ROW_ALPHA);
 		ab_text(&c, tx + chip_w / 2, ty + (chip_h - chip_px) / 2, AB_UI_CENTER, "R1", chip_px, ab_col_text);
 		panel_y += (int)(46 * s);
 		avail -= (int)(46 * s);
@@ -1036,17 +1036,20 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		}
 	}
 	{
-		/* the game's last frame, 4:3 in a frame */
+		/* the game's last frame, 4:3 in a frame: a panel of the cut-corner shape, the picture inside it cut
+		 * the same way, fr from the frame across its diagonal too (a cut (2 - sqrt(2)) * fr less) */
 		int tw = left_w < (int)(400 * s) ? left_w : (int)(400 * s), th = tw * 3 / 4, fr = (int)(6 * s);
-		ab_ui_fill(&c, x - fr, y - fr, tw + 2 * fr, th + 2 * fr, (int)(10 * s), ab_col_panel, AB_PANEL_ALPHA);
+		int cut = (int)(AB_PANEL_CUT * s), icut = cut - (fr * 586 + 500) / 1000;
+		ab_panel(&c, x - fr, y - fr, tw + 2 * fr, th + 2 * fr, s);
 		if (ab_snap != NULL) {
 			int tx, ty;
 			for (ty = 0; ty < th; ty++) {
 				const unsigned short *srow = ab_snap + (size_t)(ty * ab_snap_h / th) * ab_snap_w;
 				unsigned short *drow = c.fb + (size_t)(y + ty) * c.pitch + x;
+				int l = icut - (th - 1 - ty), r = icut - ty;
 				if (y + ty < 0 || y + ty >= c.h)
 					continue;
-				for (tx = 0; tx < tw; tx++)
+				for (tx = l > 0 ? l : 0; tx < tw - (r > 0 ? r : 0); tx++)
 					drow[tx] = srow[tx * ab_snap_w / tw];
 			}
 		}
@@ -1121,7 +1124,7 @@ static void ab_about_screen(const char *upstream_credits)
 		px0 = (c.w - pw) / 2;
 		py0 = (int)(40 * s);
 		cx = c.w / 2;
-		ab_ui_fill(&c, px0, py0, pw, ph, (int)(14 * s), ab_col_panel, AB_PANEL_ALPHA);
+		ab_panel(&c, px0, py0, pw, ph, s);
 
 		y = py0 + (int)(34 * s);
 		ab_text(&c, cx, y, AB_UI_CENTER, "PCSX-AutoBleem Next", (int)(46 * s), ab_col_text);
@@ -1137,7 +1140,7 @@ static void ab_about_screen(const char *upstream_credits)
 		snprintf(buf, sizeof(buf), "%s  \xc2\xb7  %s  \xc2\xb7  %s", ab_cpu_name(), ab_gpu_name(), __DATE__);
 		ab_text(&c, cx, y, AB_UI_CENTER, buf, (int)(18 * s), ab_col_dim);
 		y += (int)(40 * s);
-		ab_ui_fill(&c, px0 + (int)(80 * s), y, pw - (int)(160 * s), 1 + (int)s, 0, ab_col_row, 150);
+		ab_ui_fill(&c, px0 + (int)(80 * s), y, pw - (int)(160 * s), s >= 2 ? (int)s : 1, 0, ab_col_accent, 255);
 		y += (int)(22 * s);
 		ab_text(&c, cx, y, AB_UI_CENTER, ab_ui_tr("Based on"), (int)(20 * s), ab_col_accent);
 		y += (int)(30 * s);
