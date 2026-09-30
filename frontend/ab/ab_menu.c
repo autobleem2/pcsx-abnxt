@@ -991,11 +991,12 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 			val = ab_ui_tr(val);
 		{
 			/* rows are one line: a name that would run into its value (or the page's ">") is drawn
-			 * smaller, down to 70 % - upstream's long PCSX-menu names in the longer languages */
+			 * smaller, down to 70 % - upstream's long PCSX-menu names in the longer languages; the
+			 * arrows of a selected value row are counted on every row, so a name keeps its size */
 			int room = x_val - x_name - (int)(16 * s), npx = px;
 			if (val != NULL)
 				room -= ab_text_width(val, px) +
-					(is_sel && !blocked ? 2 * (ab_text_width("<", px) + (int)(8 * s)) : 0);
+					(!blocked ? 2 * (ab_text_width("<", px) + (int)(8 * s)) : 0);
 			else if (page)
 				room -= ab_text_width(">", px);
 			while (npx > px * 7 / 10 && ab_text_width(name, npx) > room)
