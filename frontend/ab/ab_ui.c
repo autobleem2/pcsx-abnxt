@@ -6,6 +6,7 @@
  * This work is licensed under the terms of the GNU GPLv2 or later.
  * See the COPYING file in the top-level directory.
  */
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,6 +49,148 @@ static void data_path(char *path, size_t size, const char *end)
 		return;
 	}
 	emu_make_data_path(path, end, size);
+}
+
+/* ---- the skin: skin/skin.cfg (docs/skin.md) ----
+ *
+ * The menu's look as data, so it can follow the launcher's theme: the colours, the panels' alpha, and the
+ * background's and the font's file names in skin/. The built-in values are ab2.0.0's (autobleem-design
+ * themes/ab2.0.0/design/emu/README.md) - the same as the shipped file - and stay for a missing file, a
+ * missing key or a bad value. Read once, the first time anything asks for it; never per frame. */
+
+static struct ab_skin skin = {
+	.text        = AB_RGB565(0xf4, 0xf6, 0xf8),
+	.dim         = AB_RGB565(0x9a, 0xa4, 0xb2),
+	.accent      = AB_RGB565(0x36, 0xd9, 0xe0),
+	.panel       = AB_RGB565(0x26, 0x2e, 0x38),
+	.row         = AB_RGB565(0x48, 0x1a, 0x36),
+	.select_rim  = AB_RGB565(0xff, 0x46, 0xaa),
+	.name        = AB_RGB565(0xd6, 0xdd, 0xe6),
+	.shadow      = AB_RGB565(0x0c, 0x0f, 0x13),
+	.grey        = AB_RGB565(0x5c, 0x66, 0x74),
+	.hint_disc   = AB_RGB565(0x3a, 0x3a, 0x3e),
+	.hint_rim    = AB_RGB565(0x59, 0x59, 0x5d),
+	.hint_cross  = AB_RGB565(0x6d, 0x7d, 0xf6),
+	.hint_circle = AB_RGB565(0xe4, 0x4e, 0x74),
+	.panel_alpha = 220,
+	.row_alpha   = 200,
+	.background  = "ab_background.jpg",
+	.font        = "ui.ttf",
+};
+static int skin_read;
+
+static const struct { const char *key; size_t off; } skin_colours[] = {
+	{ "text", offsetof(struct ab_skin, text) },
+	{ "dim", offsetof(struct ab_skin, dim) },
+	{ "accent", offsetof(struct ab_skin, accent) },
+	{ "panel", offsetof(struct ab_skin, panel) },
+	{ "row", offsetof(struct ab_skin, row) },
+	{ "select_rim", offsetof(struct ab_skin, select_rim) },
+	{ "name", offsetof(struct ab_skin, name) },
+	{ "shadow", offsetof(struct ab_skin, shadow) },
+	{ "grey", offsetof(struct ab_skin, grey) },
+	{ "hint_disc", offsetof(struct ab_skin, hint_disc) },
+	{ "hint_rim", offsetof(struct ab_skin, hint_rim) },
+	{ "hint_cross", offsetof(struct ab_skin, hint_cross) },
+	{ "hint_circle", offsetof(struct ab_skin, hint_circle) },
+};
+
+static char *trim(char *s)
+{
+	char *e;
+
+	while (*s == ' ' || *s == '\t')
+		s++;
+	for (e = s + strlen(s); e > s && (e[-1] == ' ' || e[-1] == '\t' || e[-1] == '\r' || e[-1] == '\n'); e--)
+		e[-1] = 0;
+	return s;
+}
+
+/* "RRGGBB" or "#RRGGBB" */
+static int parse_colour(const char *v, unsigned short *out)
+{
+	unsigned long rgb;
+	char *end;
+
+	if (*v == '#')
+		v++;
+	if (strlen(v) != 6)
+		return 0;
+	rgb = strtoul(v, &end, 16);
+	if (*end != 0)
+		return 0;
+	*out = AB_RGB565((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff);
+	return 1;
+}
+
+/* a file name in skin/, not a path */
+static int parse_file(const char *v, char *out, size_t size)
+{
+	if (v[0] == 0 || v[0] == '.' || strchr(v, '/') != NULL || strchr(v, '\\') != NULL || strlen(v) >= size)
+		return 0;
+	snprintf(out, size, "%s", v);
+	return 1;
+}
+
+static void skin_line(char *line, const char *path, int n)
+{
+	char *eq, *key, *val;
+	unsigned int i;
+	int ok = 0;
+
+	key = trim(line);
+	if (key[0] == '#' || key[0] == 0)
+		return;
+	eq = strchr(key, '=');
+	if (eq == NULL) {
+		SysPrintf("autobleem: %s:%d: not key = value, left out\n", path, n);
+		return;
+	}
+	*eq = 0;
+	key = trim(key);
+	val = trim(eq + 1);
+	for (i = 0; i < sizeof(skin_colours) / sizeof(skin_colours[0]); i++)
+		if (strcmp(key, skin_colours[i].key) == 0)
+			break;
+	if (i < sizeof(skin_colours) / sizeof(skin_colours[0]))
+		ok = parse_colour(val, (unsigned short *)((char *)&skin + skin_colours[i].off));
+	else if (strcmp(key, "panel_alpha") == 0 || strcmp(key, "row_alpha") == 0) {
+		char *end;
+		long a = strtol(val, &end, 10);
+		if ((ok = val[0] != 0 && *end == 0 && a >= 0 && a <= 255))
+			*(key[0] == 'p' ? &skin.panel_alpha : &skin.row_alpha) = (int)a;
+	} else if (strcmp(key, "background") == 0)
+		ok = parse_file(val, skin.background, sizeof(skin.background));
+	else if (strcmp(key, "font") == 0)
+		ok = parse_file(val, skin.font, sizeof(skin.font));
+	else {
+		SysPrintf("autobleem: %s:%d: unknown key %s, left out\n", path, n, key);
+		return;
+	}
+	if (!ok)
+		SysPrintf("autobleem: %s:%d: bad value for %s (%s), the built-in one stays\n", path, n, key, val);
+}
+
+const struct ab_skin *ab_ui_skin(void)
+{
+	char path[MAXPATHLEN], line[256];
+	FILE *f;
+	int n = 0;
+
+	if (skin_read)
+		return &skin;
+	skin_read = 1;
+	data_path(path, sizeof(path), "skin/skin.cfg");
+	f = fopen(path, "r");
+	if (f == NULL) {
+		SysPrintf("autobleem: no %s, the menu has its built-in look\n", path);
+		return &skin;
+	}
+	while (fgets(line, sizeof(line), f) != NULL)
+		skin_line(line, path, ++n);
+	fclose(f);
+	SysPrintf("autobleem: menu skin from %s\n", path);
+	return &skin;
 }
 
 /* every "English=Translated" pair of the language file (the menu, its help, its messages, the HUD's) */
@@ -175,8 +318,14 @@ void ab_ui_load(const char *language)
 		if (!font_ok)
 			SysPrintf("autobleem: the font %s the language file names is not in skin/ or fonts/\n", font_name);
 	}
-	if (!font_ok)
-		font_ok = load_font_file("skin/ui.ttf");
+	if (!font_ok) {
+		snprintf(end, sizeof(end), "skin/%s", ab_ui_skin()->font);
+		font_ok = load_font_file(end);
+		if (!font_ok && strcmp(ab_ui_skin()->font, "ui.ttf") != 0) {
+			SysPrintf("autobleem: the skin's font %s is not in skin/, trying ui.ttf\n", ab_ui_skin()->font);
+			font_ok = load_font_file("skin/ui.ttf");
+		}
+	}
 	if (!font_ok)
 		SysPrintf("autobleem: no ui font, the emulator's screens use the built-in font, in English\n");
 }
@@ -579,7 +728,7 @@ static unsigned char *read_file(const char *path, long *size)
 int ab_ui_background(unsigned short *dst, int w, int h)
 {
 	static int missing;
-	char path[MAXPATHLEN];
+	char path[MAXPATHLEN], end[96];
 	unsigned char *file, *img;
 	long size;
 	int iw, ih, n, x, y;
@@ -588,8 +737,14 @@ int ab_ui_background(unsigned short *dst, int w, int h)
 
 	if (missing || w <= 0 || h <= 0)
 		return 0;
-	data_path(path, sizeof(path), "skin/ab_background.jpg");
+	snprintf(end, sizeof(end), "skin/%s", ab_ui_skin()->background);
+	data_path(path, sizeof(path), end);
 	file = read_file(path, &size);
+	if (file == NULL && strcmp(ab_ui_skin()->background, "ab_background.jpg") != 0) {
+		SysPrintf("autobleem: no %s, trying skin/ab_background.jpg\n", path);
+		data_path(path, sizeof(path), "skin/ab_background.jpg");
+		file = read_file(path, &size);
+	}
 	if (file == NULL) {
 		SysPrintf("autobleem: no %s, the menu has a plain background\n", path);
 		missing = 1;

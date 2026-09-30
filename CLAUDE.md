@@ -43,7 +43,10 @@ game's name and id top left with the selected row's help or the last message und
 translucent panel on the right (a value row shows its value with `< >` arrows when selected - Filter
 became one, `mee_cust_h` over `plat_target.hwfilters`), the pad hints and the build (`REV`, the CPU
 engine, the GPU, `__DATE__`) on the art's bar. Everything is a 1280x720 design scaled by the canvas'
-height, in the ab_ui font. **The paused game's frame is not shown any more**: `menu_leave_emu()`'s paste
+height, in the ab_ui font. **The look is data** (2026-09-30, the owner's call, EMU-16): the colours, the
+panels' alpha and the background's and font's file names are `skin/skin.cfg` (`docs/skin.md` has the keys),
+read once by `ab_ui_skin()`, ab2.0.0's values built in for a missing file or a bad key - so the menu can
+follow the launcher's theme once the launcher writes that file (a later step); the layout stays code. **The paused game's frame is not shown any more**: `menu_leave_emu()`'s paste
 of `pl_vout_buf` at `last_vout_w/h` was garbage on the console whenever the GPU rendered at another size
 than it reported (the 2x enhancement, say) - `ab_menu_prepare_bg()` covers it at every menu entry and
 gives libpicofe's `g_menubg_*` a darkened copy of the same art, which is what the PCSX menu beneath and

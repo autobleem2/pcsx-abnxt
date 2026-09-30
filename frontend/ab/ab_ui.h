@@ -28,7 +28,19 @@ enum ab_ui_str {
 	AB_STR_COUNT
 };
 
-/* reads lang/<language>.txt and the font, once; harmless to call again */
+/* the menu's look, skin/skin.cfg (docs/skin.md): colours as RGB565, the panels' and the selected row's
+ * alpha, the background's and the font's file names in skin/. Read once, the first time it is asked for;
+ * a missing file, key or a bad value keeps the built-in ab2.0.0 value. */
+struct ab_skin {
+	unsigned short text, dim, accent, panel, row, select_rim, name, shadow, grey;
+	unsigned short hint_disc, hint_rim, hint_cross, hint_circle;
+	int panel_alpha, row_alpha;
+	char background[64], font[64];
+};
+const struct ab_skin *ab_ui_skin(void);
+
+/* reads lang/<language>.txt and the font (the skin's, or the one the language file names), once; harmless
+ * to call again */
 void ab_ui_load(const char *language);
 /* the string in the launcher's language (with a font to draw it), or the English default */
 const char *ab_ui_str(enum ab_ui_str s);

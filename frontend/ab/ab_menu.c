@@ -358,14 +358,18 @@ static const char *ab_filter_name(int id, int *offs)
  * font, in English, when there is no ui font). Sony's picker started on the next disc and so does this
  * one: Open, Cross is the common case. */
 
-static const unsigned short ab_col_text   = AB_RGB565(0xf4, 0xf6, 0xf8);
-static const unsigned short ab_col_dim    = AB_RGB565(0x9a, 0xa4, 0xb2);
-static const unsigned short ab_col_accent = AB_RGB565(0x4f, 0xc3, 0xf7);
-static const unsigned short ab_col_panel  = AB_RGB565(0x04, 0x12, 0x30);
-static const unsigned short ab_col_row    = AB_RGB565(0x1a, 0x7e, 0xc4);
-static const unsigned short ab_col_name   = AB_RGB565(0xd6, 0xdd, 0xe6);
-static const unsigned short ab_col_shadow = AB_RGB565(0x00, 0x08, 0x1c);
-static const unsigned short ab_col_grey   = AB_RGB565(0x5c, 0x66, 0x74);	/* a greyed row */
+/* the look is data - skin/skin.cfg through ab_ui_skin() (docs/skin.md), ab2.0.0's values built in */
+#define ab_col_text       (ab_ui_skin()->text)
+#define ab_col_dim        (ab_ui_skin()->dim)		/* values, help */
+#define ab_col_accent     (ab_ui_skin()->accent)	/* rims, headings, arrows */
+#define ab_col_panel      (ab_ui_skin()->panel)
+#define ab_col_row        (ab_ui_skin()->row)		/* the selected row's wash, the L1/R1 chips */
+#define ab_col_select_rim (ab_ui_skin()->select_rim)	/* the selected row's rim */
+#define ab_col_name       (ab_ui_skin()->name)
+#define ab_col_shadow     (ab_ui_skin()->shadow)
+#define ab_col_grey       (ab_ui_skin()->grey)		/* a greyed row */
+#define AB_PANEL_ALPHA    (ab_ui_skin()->panel_alpha)	/* every panel over the art */
+#define AB_ROW_ALPHA      (ab_ui_skin()->row_alpha)	/* the selected row's wash over its panel */
 
 static unsigned short *ab_bg;		/* the art at the canvas' size, bright (ab_menu_prepare_bg) */
 static int ab_bg_w, ab_bg_h;
@@ -504,7 +508,7 @@ static void ab_draw_disc_picker(int n, int cur, int sel)
 	cy = (int)(c.h * 0.46f);
 	/* the discs on a panel, as the menu's rows are */
 	ab_ui_fill(&c, x0 - r - (int)(60 * s), cy - r - (int)(50 * s), (n - 1) * step + 2 * r + (int)(120 * s),
-		   2 * r + (int)(130 * s), (int)(14 * s), ab_col_panel, 210);
+		   2 * r + (int)(130 * s), (int)(14 * s), ab_col_panel, AB_PANEL_ALPHA);
 	for (i = 0; i < n; i++) {
 		int cx = x0 + i * step;
 		ab_ui_disc(&c, cx, cy, r, i == cur, i != sel);
@@ -530,7 +534,7 @@ static void ab_draw_message(const char *msg)
 	s = c.h / 720.0f;
 	px = (int)(32 * s);
 	w = ab_text_width(msg, px) + (int)(120 * s);
-	ab_ui_fill(&c, (c.w - w) / 2, (int)(c.h * 0.44f) - (int)(40 * s), w, px + (int)(80 * s), (int)(14 * s), ab_col_panel, 210);
+	ab_ui_fill(&c, (c.w - w) / 2, (int)(c.h * 0.44f) - (int)(40 * s), w, px + (int)(80 * s), (int)(14 * s), ab_col_panel, AB_PANEL_ALPHA);
 	ab_text(&c, c.w / 2, (int)(c.h * 0.44f), AB_UI_CENTER, msg, px, ab_col_text);
 	ab_footer(&c, ab_ui_str(AB_STR_OK), NULL);
 	menu_draw_end();
@@ -857,7 +861,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		}
 	}
 	panel_h = (total < view_h ? total : view_h) + 2 * pad;
-	ab_ui_fill(&c, panel_x, panel_y, panel_w, panel_h, (int)(14 * s), ab_col_panel, 210);
+	ab_ui_fill(&c, panel_x, panel_y, panel_w, panel_h, (int)(14 * s), ab_col_panel, AB_PANEL_ALPHA);
 	if (ab_scroll > 0)
 		ab_chevron(&c, panel_x + panel_w / 2, panel_y + pad / 2 - (int)(3 * s), (int)(7 * s), 1);
 	if (ab_scroll + view_h < total)
@@ -897,7 +901,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		col_name = blocked ? ab_col_grey : is_sel ? ab_col_text : ab_col_name;
 		col_val = blocked ? col_name : ab_col_dim;
 		if (is_sel)
-			ab_ui_fill(&c, panel_x + (int)(10 * s), y, panel_w - (int)(20 * s), row_h, (int)(8 * s), ab_col_row, 170);
+			ab_ui_fill(&c, panel_x + (int)(10 * s), y, panel_w - (int)(20 * s), row_h, (int)(8 * s), ab_col_row, AB_ROW_ALPHA);
 		if (name[0] == 0 && ent->generate_name != NULL)
 			name = ent->generate_name(ent->id, &offs);
 		/* "[name]" opens a page: the name without its brackets and a ">" where a value would be */
@@ -967,7 +971,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	{
 		/* the game's last frame, 4:3 in a frame */
 		int tw = left_w < (int)(400 * s) ? left_w : (int)(400 * s), th = tw * 3 / 4, fr = (int)(6 * s);
-		ab_ui_fill(&c, x - fr, y - fr, tw + 2 * fr, th + 2 * fr, (int)(10 * s), ab_col_panel, 210);
+		ab_ui_fill(&c, x - fr, y - fr, tw + 2 * fr, th + 2 * fr, (int)(10 * s), ab_col_panel, AB_PANEL_ALPHA);
 		if (ab_snap != NULL) {
 			int tx, ty;
 			for (ty = 0; ty < th; ty++) {
@@ -1045,7 +1049,7 @@ static void ab_about_screen(const char *upstream_credits)
 		px0 = (c.w - pw) / 2;
 		py0 = (int)(40 * s);
 		cx = c.w / 2;
-		ab_ui_fill(&c, px0, py0, pw, ph, (int)(14 * s), ab_col_panel, 215);
+		ab_ui_fill(&c, px0, py0, pw, ph, (int)(14 * s), ab_col_panel, AB_PANEL_ALPHA);
 
 		y = py0 + (int)(34 * s);
 		ab_text(&c, cx, y, AB_UI_CENTER, "PCSX-AutoBleem Next", (int)(46 * s), ab_col_text);
