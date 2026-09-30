@@ -34,14 +34,33 @@ upstream's; a "which disc" picker in the launcher's resume menu and the `.m3u` h
 
 **The menu's look** (2026-09-20 night, `feature/menu-improvements`): the Home-button menu is drawn by
 `ab_menu.c` itself (`ab_menu_draw`/`ab_menu_run` - libpicofe's `menu_entry` rows and its handler contract,
-`me_loop_d`'s keys, but our screen): AutoBleem 2's launcher art (`skin/ab_background.jpg`, the ab2
-theme's `AB-EvoBack.jpg` at 1280x720, decoded by **stb_image** - vendored `frontend/ab/stb_image.h`,
+`me_loop_d`'s keys, but our screen): AutoBleem 2's launcher art (`skin/ab_background.jpg`, since
+2026-09-30 the ab2.0.0 art from autobleem-design `themes/ab2.0.0/design/emu/ab_background-p5.jpg` - the
+logo bottom left, a cut-corner hint bar at 466..1268 x 614..684 - before that the ab2 theme's
+`AB-EvoBack.jpg`; 1280x720, decoded by **stb_image** - vendored `frontend/ab/stb_image.h`,
 JPEG+PNG only - and scaled to cover the canvas by `ab_ui_background`; plain navy without the file), the
 game's name and id top left with the selected row's help or the last message under them, the rows on a
 translucent panel on the right (a value row shows its value with `< >` arrows when selected - Filter
 became one, `mee_cust_h` over `plat_target.hwfilters`), the pad hints and the build (`REV`, the CPU
 engine, the GPU, `__DATE__`) on the art's bar. Everything is a 1280x720 design scaled by the canvas'
-height, in the ab_ui font. **The paused game's frame is not shown any more**: `menu_leave_emu()`'s paste
+height, in the ab_ui font. **The look is data** (2026-09-30, the owner's call, EMU-16): the colours, the
+panels' alpha and the background's and font's file names are `skin/skin.cfg` (`docs/skin.md` has the keys),
+read once by `ab_ui_skin()`, ab2.0.0's values built in for a missing file or a bad key - so the menu can
+follow the launcher's theme once the launcher writes that file (a later step); the layout stays code.
+**The ab2.0.0 layout** (EMU-16, the named `AB_PANEL_*`/`AB_ROW_*` constants at the top of the menu screen's
+code in `ab_menu.c`): the rows' panel at x 32..572, y 24..596 (18 px above the art's hint bar, clear of the
+logo) with the v02b cut corners (top right and bottom left, 16 px) and a 2 px accent rim, drawn by
+`ab_ui_cut_panel` (one `ab_ui_fill` span per row, rim and inside never overlapping); the selected row the
+same shape (cut 8) in the wash colour with a magenta rim; section headings with a 1 px accent rule to the
+panel's right. The skin's `text_scale` (110 for Red Hat Text) keeps the glyphs as large as Selawik's were
+at the design's sizes. Rows are one line: a name that would run into its value is drawn smaller, down to
+70 % (upstream's long PCSX-menu names in fr/oc/pt_BR/de). The art's hint bar carries only the hints -
+the launcher's pad glyphs (`ab_ui_pad_glyph`: a grey disc with a blue Cross or a red Circle, the skin's
+`hint_*` colours), centred on the bar's middle line from x 490; the build's two lines moved out of the bar,
+right-aligned at x 1248, y 568/590, and the right-hand column's help/message text stops above them. The
+disc picker's panel, the message box, About and the snapshot's frame are the same cut-corner panel
+(`ab_panel`; the snapshot clipped to the frame's cut), the L1/R1 chips the selected row's shape, About's
+rule a 1 px accent line. **The paused game's frame is not shown any more**: `menu_leave_emu()`'s paste
 of `pl_vout_buf` at `last_vout_w/h` was garbage on the console whenever the GPU rendered at another size
 than it reported (the 2x enhancement, say) - `ab_menu_prepare_bg()` covers it at every menu entry and
 gives libpicofe's `g_menubg_*` a darkened copy of the same art, which is what the PCSX menu beneath and
@@ -69,9 +88,15 @@ file - only nxt gets it, the classic pcsx-ab would take it for a file) and `lang
 emulator (`frontend/ab/lang/`, all 17 of the launcher's languages, its `English text=Translated text`
 format) has the seven strings; `ab_ui.c` rasterises them with **stb_truetype** (vendored,
 `frontend/ab/stb_truetype.h`, public domain - no new library on any platform) straight into the menu's
-RGB565 canvas from `skin/ui.ttf` (Selawik Regular, `selawk.ttf` from Microsoft's Selawik 1.01 release,
-44 KB, OFL - the ab2 theme's family; Light until 2026-09-28, too thin over a game for the HUD, which
-draws with it too) or the font a language file names with `|@font|` (Chinese: the launcher's
+RGB565 canvas from `skin/ui.ttf` (**Red Hat Text Medium** since 2026-09-30, EMU-16 - the ab2.0.0 theme's
+`font/RedHatText-Medium.ttf`, 52 KB, OFL 1.1, its licence shipped next to it as `skin/ui-OFL.txt`; it must
+be a **static** instance: stb_truetype ignores `gvar`, so the variable `RedHatText[wght].ttf` would draw
+its default weight. Its `px` box is the hhea ascent-descent, 1.32 em against Selawik's 1.20, so the same
+`px` draws ~9 % smaller glyphs - the menu's sizes are scaled by the skin's `text_scale`, the HUD's lines by
+its `hud_scale` (both 110; the HUD's in `ab_hud_line_update`, only when a line's text changed and it is
+rendered again, capped so the strip fits its 64 px slot). No Cyrillic/Greek/kana, as
+Selawik had none: a language that needs them names its own `|@font|`. Until then Selawik Regular 1.01,
+Light until 2026-09-28, too thin over a game for the HUD, which draws with it too) or the font a language file names with `|@font|` (Chinese: the launcher's
 `NotoSansSC-Regular.otf`, found in `fonts/`, which the launch scripts link to the launcher's fonts
 folder). No font = English through libpicofe's 8x8 font. `ci/build.sh`'s `dist()`, `make_packages.sh`
 and `make_win.sh` ship `skin/ui.ttf` + `lang/` with the emulator. **Do not call `CheckCdrom()` after

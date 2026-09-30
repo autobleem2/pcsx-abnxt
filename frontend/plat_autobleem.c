@@ -399,6 +399,11 @@ static int ab_hud_line_update(AbHudLine *line, const char *text, int sh)
   ab_ui_load(ab_opts.language);   /* the font and the strings, once (the menu loads them too) */
   if (size < 12)
     size = 12;
+  /* the skin's hud_scale (percent, skin.cfg): Red Hat Text's glyphs as large as Selawik's were; the strip
+   * (size + size / 3) still fits its slot. Only here, when the line's text changed - never per frame */
+  size = (size * ab_ui_skin()->hud_scale + 50) / 100;
+  if (size > HUD_LINE_MAX_H * 3 / 4)
+    size = HUD_LINE_MAX_H * 3 / 4;
   if (!ab_hud_line_render(px, ab_ui_tr(text), size, scale, &w, &h))
     return 0;
   if (plat_ab_hud_image(line->slot, px, ab_ui_has_font() ? w : w / scale, ab_ui_has_font() ? h : h / scale) != 0)

@@ -28,7 +28,21 @@ enum ab_ui_str {
 	AB_STR_COUNT
 };
 
-/* reads lang/<language>.txt and the font, once; harmless to call again */
+/* the menu's look, skin/skin.cfg (docs/skin.md): colours as RGB565, the panels' and the selected row's
+ * alpha, the background's and the font's file names in skin/. Read once, the first time it is asked for;
+ * a missing file, key or a bad value keeps the built-in ab2.0.0 value. */
+struct ab_skin {
+	unsigned short text, dim, accent, panel, row, select_rim, name, shadow, grey;
+	unsigned short hint_disc, hint_rim, hint_cross, hint_circle;
+	int panel_alpha, row_alpha;
+	int text_scale;		/* percent: the menu's text sizes for this font (the design's are Selawik's) */
+	int hud_scale;		/* percent: the in-game HUD's text size for this font */
+	char background[64], font[64];
+};
+const struct ab_skin *ab_ui_skin(void);
+
+/* reads lang/<language>.txt and the font (the skin's, or the one the language file names), once; harmless
+ * to call again */
 void ab_ui_load(const char *language);
 /* the string in the launcher's language (with a font to draw it), or the English default */
 const char *ab_ui_str(enum ab_ui_str s);
@@ -61,9 +75,18 @@ void ab_ui_ring(struct ab_canvas *c, int cx, int cy, int r, int t, unsigned shor
 /* the pad's Cross and Circle, r the glyph's half size */
 void ab_ui_cross(struct ab_canvas *c, int cx, int cy, int r, unsigned short rgb565);
 void ab_ui_circle(struct ab_canvas *c, int cx, int cy, int r, unsigned short rgb565);
+/* the launcher's hint-bar pad glyph: a filled disc of radius r with a thin rim, a Cross or a Circle on it */
+void ab_ui_pad_glyph(struct ab_canvas *c, int cx, int cy, int r, int is_cross,
+		     unsigned short disc, unsigned short rim, unsigned short mark);
 
 /* a filled rectangle with corners rounded by r, blended over the canvas at alpha (0..255) */
 void ab_ui_fill(struct ab_canvas *c, int x, int y, int w, int h, int r, unsigned short rgb565, int alpha);
+/* ab2.0.0's cut-corner shape (the launcher's and the installer's panels): the top right and bottom left
+ * corners cut at 45 degrees by `cut` pixels, a rim `t` pixels thick in `rim` (opaque) around an inside of
+ * `fill` blended at alpha; t = 0 draws no rim. One ab_ui_fill span per row, the rim and the inside never
+ * overlapping, so a translucent inside does not show the rim through it. The diagonals are not smoothed. */
+void ab_ui_cut_panel(struct ab_canvas *c, int x, int y, int w, int h, int cut, int t,
+		     unsigned short rim, unsigned short fill, int alpha);
 
 /* skin/ab_background.jpg (AutoBleem 2's launcher art, 1280x720) scaled to cover w x h pixels of `dst`
  * (pitch w; bilinear, centred, the overhang cropped); 0 and `dst` untouched when there is no image */
