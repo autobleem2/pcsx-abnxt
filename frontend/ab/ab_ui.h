@@ -64,6 +64,12 @@ void ab_ui_circle(struct ab_canvas *c, int cx, int cy, int r, unsigned short rgb
 
 /* a filled rectangle with corners rounded by r, blended over the canvas at alpha (0..255) */
 void ab_ui_fill(struct ab_canvas *c, int x, int y, int w, int h, int r, unsigned short rgb565, int alpha);
+/* ab2.0.0's cut-corner shape (the launcher's and the installer's panels): the top right and bottom left
+ * corners cut at 45 degrees by `cut` pixels, a rim `t` pixels thick in `rim` (opaque) around an inside of
+ * `fill` blended at alpha; t = 0 draws no rim. One ab_ui_fill span per row, the rim and the inside never
+ * overlapping, so a translucent inside does not show the rim through it. The diagonals are not smoothed. */
+void ab_ui_cut_panel(struct ab_canvas *c, int x, int y, int w, int h, int cut, int t,
+		     unsigned short rim, unsigned short fill, int alpha);
 
 /* skin/ab_background.jpg (AutoBleem 2's launcher art, 1280x720) scaled to cover w x h pixels of `dst`
  * (pitch w; bilinear, centred, the overhang cropped); 0 and `dst` untouched when there is no image */

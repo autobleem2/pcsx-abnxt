@@ -508,6 +508,54 @@ void ab_ui_fill(struct ab_canvas *c, int x, int y, int w, int h, int r, unsigned
 	}
 }
 
+void ab_ui_cut_panel(struct ab_canvas *c, int x, int y, int w, int h, int cut, int t,
+		     unsigned short rim, unsigned short fill, int alpha)
+{
+	int row, ic;
+
+	if (w <= 0 || h <= 0)
+		return;
+	if (cut > w / 2)
+		cut = w / 2;
+	if (cut > h / 2)
+		cut = h / 2;
+	if (cut < 0)
+		cut = 0;
+	if (t < 0)
+		t = 0;
+	/* the inside's cut: a 45 degree edge moved in by t across itself moves t * sqrt(2) along a row, of
+	 * which the inset takes t - so the inside's diagonal starts (sqrt(2) - 1) * t further in */
+	ic = cut - (t * 586 + 500) / 1000;
+	if (ic < 0)
+		ic = 0;
+	for (row = 0; row < h; row++) {
+		/* the outline's insets on this row, left (the bottom left cut) and right (the top right one) */
+		int ol = cut - (h - 1 - row), or_ = cut - row, il, ir;
+		if (ol < 0)
+			ol = 0;
+		if (or_ < 0)
+			or_ = 0;
+		if (row < t || row >= h - t || w - 2 * t <= 0) {
+			ab_ui_fill(c, x + ol, y + row, w - ol - or_, 1, 0, rim, 255);
+			continue;
+		}
+		/* the inside's, in the same coordinates */
+		il = ic - (h - t - 1 - row);
+		ir = ic - (row - t);
+		il = t + (il > 0 ? il : 0);
+		ir = t + (ir > 0 ? ir : 0);
+		if (il < ol)
+			il = ol;
+		if (ir < or_)
+			ir = or_;
+		if (t > 0) {
+			ab_ui_fill(c, x + ol, y + row, il - ol, 1, 0, rim, 255);
+			ab_ui_fill(c, x + w - ir, y + row, ir - or_, 1, 0, rim, 255);
+		}
+		ab_ui_fill(c, x + il, y + row, w - il - ir, 1, 0, fill, alpha);
+	}
+}
+
 /* the file whole, NULL when it is not there */
 static unsigned char *read_file(const char *path, long *size)
 {
