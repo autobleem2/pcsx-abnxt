@@ -35,6 +35,7 @@ struct ab_skin {
 	unsigned short text, dim, accent, panel, row, select_rim, name, shadow, grey;
 	unsigned short hint_disc, hint_rim, hint_cross, hint_circle;
 	int panel_alpha, row_alpha;
+	int text_scale;		/* percent: the menu's text sizes for this font (the design's are Selawik's) */
 	char background[64], font[64];
 };
 const struct ab_skin *ab_ui_skin(void);

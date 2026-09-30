@@ -31,11 +31,12 @@ value (the same as the shipped file) and says so in the log (`autobleem: skin/sk
 | `hint_circle` | colour | `e44e74` | ... the Circle |
 | `background` | file name | `ab_background.jpg` | the art behind the menu, a JPEG or PNG in `skin/`, scaled to cover the screen (a 1280x720 design: the logo bottom left, the hint bar at 466..1268 x 614..684) |
 | `font` | file name | `ui.ttf` | the TrueType font in `skin/` for the menu and the HUD - a static instance (stb_truetype ignores a variable font's axes); a language file's `\|@font\|` still wins |
+| `text_scale` | 50..200 | `110` | percent: the menu's text sizes for this font. The layout's sizes are a text box of Selawik's proportions (ascent - descent = 1.20 em); Red Hat Text's box is 1.32 em, so 110 draws its glyphs as large as Selawik's were. Not the HUD's. |
 
 A colour is `RRGGBB` or `#RRGGBB` (hex, drawn as RGB565). A file name is a name in `skin/`, not a path (no
 `/`, `\` or leading `.`); when the named file is missing the default name is tried.
 
 **Not in the file** (code, `ab_menu.c`): the layout - the 1280x720 design's positions and sizes, the cut
-corners' sizes, the text sizes.
+corners' sizes, the text sizes (only their scale for the font is `text_scale`).
 
 The launcher writing this file from its current theme is a later step; until then the shipped file is the look.

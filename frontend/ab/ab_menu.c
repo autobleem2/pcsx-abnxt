@@ -371,6 +371,19 @@ static const char *ab_filter_name(int id, int *offs)
 #define AB_PANEL_ALPHA    (ab_ui_skin()->panel_alpha)	/* every panel over the art */
 #define AB_ROW_ALPHA      (ab_ui_skin()->row_alpha)	/* the selected row's wash over its panel */
 
+/* the layout, in the 1280x720 design (autobleem-design themes/ab2.0.0/design/emu/README.md, the mockup
+ * emu-menu-v2-p5.png): the rows' panel from x 32, 540 wide, between y AB_PANEL_TOP and AB_PANEL_BOTTOM -
+ * 18 above the art's hint bar (614) and clear of its logo */
+#define AB_PANEL_TOP      24
+#define AB_PANEL_BOTTOM   596
+#define AB_PANEL_CUT      16	/* ab2.0.0's cut corners (top right, bottom left): the panels' */
+#define AB_ROW_CUT        8	/* the selected row's */
+#define AB_RIM            2	/* the rims' thickness */
+#define AB_ROW_INSET      16	/* the selected row's shape from the panel's sides */
+#define AB_NAME_X         40	/* the rows' names from the panel's left (headings 12 less) */
+#define AB_VALUE_X        32	/* the values' right edge from the panel's right */
+#define AB_RULE_END       24	/* a heading's rule ends this far from the panel's right */
+
 static unsigned short *ab_bg;		/* the art at the canvas' size, bright (ab_menu_prepare_bg) */
 static int ab_bg_w, ab_bg_h;
 
@@ -378,6 +391,19 @@ static struct ab_canvas ab_canvas(void)
 {
 	struct ab_canvas c = { g_menuscreen_ptr, g_menuscreen_w, g_menuscreen_h, g_menuscreen_pp };
 	return c;
+}
+
+/* a rim's thickness at the canvas' scale, at least a pixel */
+static int ab_rim(float s)
+{
+	int t = (int)(AB_RIM * s + 0.5f);
+	return t < 1 ? 1 : t;
+}
+
+/* a panel in the ab2.0.0 style: the cut corners, the accent rim, the skin's panel colour and alpha */
+static void ab_panel(struct ab_canvas *c, int x, int y, int w, int h, float s)
+{
+	ab_ui_cut_panel(c, x, y, w, h, (int)(AB_PANEL_CUT * s), ab_rim(s), ab_col_accent, ab_col_panel, AB_PANEL_ALPHA);
 }
 
 /* a small filled triangle, pointing up or down: more rows above or below the panel's view */
@@ -390,9 +416,17 @@ static void ab_chevron(struct ab_canvas *c, int cx, int y, int size, int up)
 	}
 }
 
+/* the design's text sizes are line boxes of Selawik's proportions; the skin's text_scale draws another
+ * font's glyphs as large (Red Hat Text: 110 %) - the box's top stays where the layout puts it, and its
+ * baseline lands within a pixel of where Selawik's was */
+static int ab_px(int px)
+{
+	return (px * ab_ui_skin()->text_scale + 50) / 100;
+}
+
 static int ab_text_width(const char *s, int px)
 {
-	return ab_ui_has_font() ? ab_ui_text_width(s, px) : (int)strlen(s) * me_mfont_w;
+	return ab_ui_has_font() ? ab_ui_text_width(s, ab_px(px)) : (int)strlen(s) * me_mfont_w;
 }
 
 /* returns the text's width */
@@ -401,7 +435,7 @@ static int ab_text(struct ab_canvas *c, int x, int y, int align, const char *s, 
 	int w;
 
 	if (ab_ui_has_font())
-		return ab_ui_text(c, x, y, align, s, px, col);
+		return ab_ui_text(c, x, y, align, s, ab_px(px), col);
 	w = ab_text_width(s, px);
 	if (align == AB_UI_CENTER)
 		x -= w / 2;
@@ -782,8 +816,8 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	row_h = (int)(38 * s);
 	head_h = (int)(34 * s);
 	pad = (int)(16 * s);
-	avail = (int)(596 * s);		/* 24..620 of the design: over the art's bar */
-	panel_y = (int)(24 * s);
+	avail = (int)((AB_PANEL_BOTTOM - AB_PANEL_TOP) * s);
+	panel_y = (int)(AB_PANEL_TOP * s);
 	if (ab_crumb_n > 0) {
 		/* a page one level down or more: where it is, over the panel ("PCSX menu > Options > Display") */
 		int k, cx = panel_x + (int)(8 * s);
@@ -861,13 +895,13 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		}
 	}
 	panel_h = (total < view_h ? total : view_h) + 2 * pad;
-	ab_ui_fill(&c, panel_x, panel_y, panel_w, panel_h, (int)(14 * s), ab_col_panel, AB_PANEL_ALPHA);
+	ab_panel(&c, panel_x, panel_y, panel_w, panel_h, s);
 	if (ab_scroll > 0)
 		ab_chevron(&c, panel_x + panel_w / 2, panel_y + pad / 2 - (int)(3 * s), (int)(7 * s), 1);
 	if (ab_scroll + view_h < total)
 		ab_chevron(&c, panel_x + panel_w / 2, panel_y + panel_h - pad / 2 - (int)(4 * s), (int)(7 * s), 0);
-	x_name = panel_x + (int)(28 * s);
-	x_val = panel_x + panel_w - (int)(28 * s);
+	x_name = panel_x + (int)(AB_NAME_X * s);
+	x_val = panel_x + panel_w - (int)(AB_VALUE_X * s);
 	y = panel_y + pad - ab_scroll;
 	for (ent = menu, i = 0; ent->name; ent++, i++) {
 		const char *name = ent->name, *val = NULL;
@@ -889,11 +923,13 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 			continue;
 		}
 		if (!ent->selectable) {
-			/* a section's heading, with a thin rule after it */
-			int tw = ab_text(&c, x_name - (int)(12 * s), y + head_h - head_px - (int)(4 * s), AB_UI_LEFT,
+			/* a section's heading, with a thin rule after it to the panel's right */
+			int tw, rx;
+			tw = ab_text(&c, x_name - (int)(12 * s), y + head_h - head_px - (int)(4 * s), AB_UI_LEFT,
 				ab_ui_tr(name), head_px, ab_col_accent);
-			ab_ui_fill(&c, x_name - (int)(12 * s) + tw + (int)(10 * s), y + head_h - head_px / 2 - (int)(4 * s),
-				x_val - (x_name - (int)(12 * s) + tw + (int)(10 * s)), 1 + (int)s, 0, ab_col_row, 120);
+			rx = x_name - (int)(12 * s) + tw + (int)(10 * s);
+			ab_ui_fill(&c, rx, y + head_h - head_px / 2 - (int)(4 * s),
+				panel_x + panel_w - (int)(AB_RULE_END * s) - rx, s >= 2 ? (int)s : 1, 0, ab_col_accent, 255);
 			y += head_h;
 			continue;
 		}
@@ -901,7 +937,8 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		col_name = blocked ? ab_col_grey : is_sel ? ab_col_text : ab_col_name;
 		col_val = blocked ? col_name : ab_col_dim;
 		if (is_sel)
-			ab_ui_fill(&c, panel_x + (int)(10 * s), y, panel_w - (int)(20 * s), row_h, (int)(8 * s), ab_col_row, AB_ROW_ALPHA);
+			ab_ui_cut_panel(&c, panel_x + (int)(AB_ROW_INSET * s), y, panel_w - 2 * (int)(AB_ROW_INSET * s), row_h,
+				(int)(AB_ROW_CUT * s), ab_rim(s), ab_col_select_rim, ab_col_row, AB_ROW_ALPHA);
 		if (name[0] == 0 && ent->generate_name != NULL)
 			name = ent->generate_name(ent->id, &offs);
 		/* "[name]" opens a page: the name without its brackets and a ">" where a value would be */
@@ -933,10 +970,23 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		default:
 			break;
 		}
-		ab_text(&c, x_name, y + (row_h - px) / 2, AB_UI_LEFT, name, px, col_name);
+		if (val != NULL)
+			val = ab_ui_tr(val);
+		{
+			/* rows are one line: a name that would run into its value (or the page's ">") is drawn
+			 * smaller, down to 70 % - upstream's long PCSX-menu names in the longer languages */
+			int room = x_val - x_name - (int)(16 * s), npx = px;
+			if (val != NULL)
+				room -= ab_text_width(val, px) +
+					(is_sel && !blocked ? 2 * (ab_text_width("<", px) + (int)(8 * s)) : 0);
+			else if (page)
+				room -= ab_text_width(">", px);
+			while (npx > px * 7 / 10 && ab_text_width(name, npx) > room)
+				npx--;
+			ab_text(&c, x_name, y + (row_h - npx) / 2, AB_UI_LEFT, name, npx, col_name);
+		}
 		if (val != NULL) {
 			int vx = x_val, vy = y + (row_h - px) / 2;
-			val = ab_ui_tr(val);
 			if (blocked) {
 				ab_text(&c, vx, vy, AB_UI_RIGHT, val, px, col_val);
 			} else if (is_sel) {

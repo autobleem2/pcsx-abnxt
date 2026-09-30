@@ -74,6 +74,7 @@ static struct ab_skin skin = {
 	.hint_circle = AB_RGB565(0xe4, 0x4e, 0x74),
 	.panel_alpha = 220,
 	.row_alpha   = 200,
+	.text_scale  = 110,
 	.background  = "ab_background.jpg",
 	.font        = "ui.ttf",
 };
@@ -94,6 +95,22 @@ static const struct { const char *key; size_t off; } skin_colours[] = {
 	{ "hint_cross", offsetof(struct ab_skin, hint_cross) },
 	{ "hint_circle", offsetof(struct ab_skin, hint_circle) },
 };
+
+static const struct { const char *key; size_t off; int lo, hi; } skin_ints[] = {
+	{ "panel_alpha", offsetof(struct ab_skin, panel_alpha), 0, 255 },
+	{ "row_alpha", offsetof(struct ab_skin, row_alpha), 0, 255 },
+	{ "text_scale", offsetof(struct ab_skin, text_scale), 50, 200 },
+};
+
+static unsigned int skin_int(const char *key)
+{
+	unsigned int i;
+
+	for (i = 0; i < sizeof(skin_ints) / sizeof(skin_ints[0]); i++)
+		if (strcmp(key, skin_ints[i].key) == 0)
+			break;
+	return i;
+}
 
 static char *trim(char *s)
 {
@@ -154,11 +171,11 @@ static void skin_line(char *line, const char *path, int n)
 			break;
 	if (i < sizeof(skin_colours) / sizeof(skin_colours[0]))
 		ok = parse_colour(val, (unsigned short *)((char *)&skin + skin_colours[i].off));
-	else if (strcmp(key, "panel_alpha") == 0 || strcmp(key, "row_alpha") == 0) {
+	else if ((i = skin_int(key)) < sizeof(skin_ints) / sizeof(skin_ints[0])) {
 		char *end;
-		long a = strtol(val, &end, 10);
-		if ((ok = val[0] != 0 && *end == 0 && a >= 0 && a <= 255))
-			*(key[0] == 'p' ? &skin.panel_alpha : &skin.row_alpha) = (int)a;
+		long v = strtol(val, &end, 10);
+		if ((ok = val[0] != 0 && *end == 0 && v >= skin_ints[i].lo && v <= skin_ints[i].hi))
+			*(int *)((char *)&skin + skin_ints[i].off) = (int)v;
 	} else if (strcmp(key, "background") == 0)
 		ok = parse_file(val, skin.background, sizeof(skin.background));
 	else if (strcmp(key, "font") == 0)

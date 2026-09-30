@@ -46,7 +46,15 @@ engine, the GPU, `__DATE__`) on the art's bar. Everything is a 1280x720 design s
 height, in the ab_ui font. **The look is data** (2026-09-30, the owner's call, EMU-16): the colours, the
 panels' alpha and the background's and font's file names are `skin/skin.cfg` (`docs/skin.md` has the keys),
 read once by `ab_ui_skin()`, ab2.0.0's values built in for a missing file or a bad key - so the menu can
-follow the launcher's theme once the launcher writes that file (a later step); the layout stays code. **The paused game's frame is not shown any more**: `menu_leave_emu()`'s paste
+follow the launcher's theme once the launcher writes that file (a later step); the layout stays code.
+**The ab2.0.0 layout** (EMU-16, the named `AB_PANEL_*`/`AB_ROW_*` constants at the top of the menu screen's
+code in `ab_menu.c`): the rows' panel at x 32..572, y 24..596 (18 px above the art's hint bar, clear of the
+logo) with the v02b cut corners (top right and bottom left, 16 px) and a 2 px accent rim, drawn by
+`ab_ui_cut_panel` (one `ab_ui_fill` span per row, rim and inside never overlapping); the selected row the
+same shape (cut 8) in the wash colour with a magenta rim; section headings with a 1 px accent rule to the
+panel's right. The skin's `text_scale` (110 for Red Hat Text) keeps the glyphs as large as Selawik's were
+at the design's sizes. Rows are one line: a name that would run into its value is drawn smaller, down to
+70 % (upstream's long PCSX-menu names in fr/oc/pt_BR/de). **The paused game's frame is not shown any more**: `menu_leave_emu()`'s paste
 of `pl_vout_buf` at `last_vout_w/h` was garbage on the console whenever the GPU rendered at another size
 than it reported (the 2x enhancement, say) - `ab_menu_prepare_bg()` covers it at every menu entry and
 gives libpicofe's `g_menubg_*` a darkened copy of the same art, which is what the PCSX menu beneath and
