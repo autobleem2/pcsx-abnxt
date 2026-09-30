@@ -92,7 +92,9 @@ RGB565 canvas from `skin/ui.ttf` (**Red Hat Text Medium** since 2026-09-30, EMU-
 `font/RedHatText-Medium.ttf`, 52 KB, OFL 1.1, its licence shipped next to it as `skin/ui-OFL.txt`; it must
 be a **static** instance: stb_truetype ignores `gvar`, so the variable `RedHatText[wght].ttf` would draw
 its default weight. Its `px` box is the hhea ascent-descent, 1.32 em against Selawik's 1.20, so the same
-`px` draws ~9 % smaller glyphs. No Cyrillic/Greek/kana, as
+`px` draws ~9 % smaller glyphs - the menu's sizes are scaled by the skin's `text_scale`, the HUD's lines by
+its `hud_scale` (both 110; the HUD's in `ab_hud_line_update`, only when a line's text changed and it is
+rendered again, capped so the strip fits its 64 px slot). No Cyrillic/Greek/kana, as
 Selawik had none: a language that needs them names its own `|@font|`. Until then Selawik Regular 1.01,
 Light until 2026-09-28, too thin over a game for the HUD, which draws with it too) or the font a language file names with `|@font|` (Chinese: the launcher's
 `NotoSansSC-Regular.otf`, found in `fonts/`, which the launch scripts link to the launcher's fonts

@@ -75,6 +75,7 @@ static struct ab_skin skin = {
 	.panel_alpha = 220,
 	.row_alpha   = 200,
 	.text_scale  = 110,
+	.hud_scale   = 110,
 	.background  = "ab_background.jpg",
 	.font        = "ui.ttf",
 };
@@ -100,6 +101,7 @@ static const struct { const char *key; size_t off; int lo, hi; } skin_ints[] = {
 	{ "panel_alpha", offsetof(struct ab_skin, panel_alpha), 0, 255 },
 	{ "row_alpha", offsetof(struct ab_skin, row_alpha), 0, 255 },
 	{ "text_scale", offsetof(struct ab_skin, text_scale), 50, 200 },
+	{ "hud_scale", offsetof(struct ab_skin, hud_scale), 50, 200 },
 };
 
 static unsigned int skin_int(const char *key)
