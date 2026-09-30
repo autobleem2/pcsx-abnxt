@@ -646,6 +646,33 @@ void ab_ui_circle(struct ab_canvas *c, int cx, int cy, int r, unsigned short rgb
 	ab_ui_ring(c, cx, cy, (int)(r * 0.55f), r * 0.2f > 1 ? (int)(r * 0.2f) : 1, rgb565);
 }
 
+void ab_ui_pad_glyph(struct ab_canvas *c, int cx, int cy, int r, int is_cross,
+		     unsigned short disc, unsigned short rim, unsigned short mark)
+{
+	float t = r * 0.07f > 1 ? r * 0.07f : 1;
+	int x, y, dr, dg, db, mr, mg, mb;
+
+	/* the disc, its edge smoothed */
+	unpack(disc, &dr, &dg, &db);
+	for (y = -r - 1; y <= r + 1; y++)
+		for (x = -r - 1; x <= r + 1; x++) {
+			float cov = edge((float)r, sqrtf((float)(x * x + y * y)));
+			if (cov > 0)
+				plot(c, cx + x, cy + y, dr, dg, db, (int)(cov * 255));
+		}
+	ab_ui_ring(c, cx, cy, (int)(r - t / 2 + 0.5f), (int)(t + 0.5f), rim);
+	/* the mark, in the launcher's default glyphs' proportions (30 px: a cross of +-6.5, a ring of radius 6.5) */
+	unpack(mark, &mr, &mg, &mb);
+	if (is_cross) {
+		float a = r * 0.42f, w = r * 0.2f > 1.5f ? r * 0.2f : 1.5f;
+		line(c, cx - a, cy - a, cx + a, cy + a, w, mr, mg, mb);
+		line(c, cx - a, cy + a, cx + a, cy - a, w, mr, mg, mb);
+	} else {
+		int w = r * 0.16f > 1 ? (int)(r * 0.16f + 0.5f) : 1;
+		ab_ui_ring(c, cx, cy, (int)(r * 0.45f + 0.5f), w, mark);
+	}
+}
+
 void ab_ui_fill(struct ab_canvas *c, int x, int y, int w, int h, int r, unsigned short rgb565, int alpha)
 {
 	int cr, cg, cb, px, py;

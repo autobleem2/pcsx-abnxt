@@ -54,7 +54,10 @@ logo) with the v02b cut corners (top right and bottom left, 16 px) and a 2 px ac
 same shape (cut 8) in the wash colour with a magenta rim; section headings with a 1 px accent rule to the
 panel's right. The skin's `text_scale` (110 for Red Hat Text) keeps the glyphs as large as Selawik's were
 at the design's sizes. Rows are one line: a name that would run into its value is drawn smaller, down to
-70 % (upstream's long PCSX-menu names in fr/oc/pt_BR/de). **The paused game's frame is not shown any more**: `menu_leave_emu()`'s paste
+70 % (upstream's long PCSX-menu names in fr/oc/pt_BR/de). The art's hint bar carries only the hints -
+the launcher's pad glyphs (`ab_ui_pad_glyph`: a grey disc with a blue Cross or a red Circle, the skin's
+`hint_*` colours), centred on the bar's middle line from x 490; the build's two lines moved out of the bar,
+right-aligned at x 1248, y 568/590, and the right-hand column's help/message text stops above them. **The paused game's frame is not shown any more**: `menu_leave_emu()`'s paste
 of `pl_vout_buf` at `last_vout_w/h` was garbage on the console whenever the GPU rendered at another size
 than it reported (the 2x enhancement, say) - `ab_menu_prepare_bg()` covers it at every menu entry and
 gives libpicofe's `g_menubg_*` a darkened copy of the same art, which is what the PCSX menu beneath and

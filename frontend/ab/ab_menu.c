@@ -383,6 +383,14 @@ static const char *ab_filter_name(int id, int *offs)
 #define AB_NAME_X         40	/* the rows' names from the panel's left (headings 12 less) */
 #define AB_VALUE_X        32	/* the values' right edge from the panel's right */
 #define AB_RULE_END       24	/* a heading's rule ends this far from the panel's right */
+/* the art's hint bar (466..1268 x 614..684) carries only the hints: from x 490, on the bar's middle line;
+ * the build's two lines sit right-aligned just above it, under the right-hand column */
+#define AB_HINT_X         490
+#define AB_HINT_CY        649
+#define AB_HINT_R         14	/* the pad glyph's radius (the launcher's 30 px glyphs) */
+#define AB_HINT_GAP       48	/* from a hint's text to the next glyph */
+#define AB_BUILD_X        1248	/* the build lines' right edge (the bar's inner right) */
+#define AB_BUILD_Y        568	/* the first build line's top; the second 22 below */
 
 static unsigned short *ab_bg;		/* the art at the canvas' size, bright (ab_menu_prepare_bg) */
 static int ab_bg_w, ab_bg_h;
@@ -496,29 +504,28 @@ static int ab_battery_icon(struct ab_canvas *c, int x, int y, float s, int perce
 	return w + nub;
 }
 
-/* a pad glyph and its text, left to right from *x, which moves past them */
-static void ab_hint(struct ab_canvas *c, int *x, int y, int px, int is_cross, const char *text)
+/* a pad glyph (the launcher's hint bar's: a disc with a blue Cross or a red Circle) and its text, centred
+ * on cy, left to right from *x, which moves past them */
+static void ab_hint(struct ab_canvas *c, int *x, int cy, int px, int is_cross, const char *text)
 {
 	float s = c->h / 720.0f;
-	int r = (int)(12 * s), gap = (int)(10 * s);
+	int r = (int)(AB_HINT_R * s), gap = (int)(10 * s);
 
-	if (is_cross)
-		ab_ui_cross(c, *x + r, y + px / 2, r, ab_col_accent);
-	else
-		ab_ui_circle(c, *x + r, y + px / 2, r, ab_col_accent);
+	ab_ui_pad_glyph(c, *x + r, cy, r, is_cross, ab_ui_skin()->hint_disc, ab_ui_skin()->hint_rim,
+			is_cross ? ab_ui_skin()->hint_cross : ab_ui_skin()->hint_circle);
 	*x += 2 * r + gap;
-	*x += ab_text(c, *x, y, AB_UI_LEFT, text, px, ab_col_text) + (int)(36 * s);
+	*x += ab_text(c, *x, cy - px / 2, AB_UI_LEFT, text, px, ab_col_text) + (int)(AB_HINT_GAP * s);
 }
 
 /* "(x) ok   (o) back" on the art's bar, from its left end; back == NULL for a plain "(x) OK" */
 static void ab_footer(struct ab_canvas *c, const char *ok, const char *back)
 {
 	float s = c->h / 720.0f;
-	int px = (int)(22 * s), x = (int)(490 * s), y = (int)(647 * s);
+	int px = (int)(22 * s), x = (int)(AB_HINT_X * s), cy = (int)(AB_HINT_CY * s);
 
-	ab_hint(c, &x, y, px, 1, ok);
+	ab_hint(c, &x, cy, px, 1, ok);
 	if (back != NULL)
-		ab_hint(c, &x, y, px, 0, back);
+		ab_hint(c, &x, cy, px, 0, back);
 }
 
 static void ab_draw_disc_picker(int n, int cur, int sel)
@@ -725,6 +732,16 @@ static int ab_text_wrap(struct ab_canvas *c, int x, int y, const char *s, int px
 	return n;
 }
 
+/* how many of ab_text_wrap's lines of px, from y, end above `bottom` - at most `max` */
+static int ab_lines_fit(int y, int bottom, int px, int max)
+{
+	int n = 0, glyph_h = ab_ui_has_font() ? ab_px(px) : px;
+
+	while (n < max && y + n * (px + px / 4) + glyph_h <= bottom)
+		n++;
+	return n;
+}
+
 static const char *ab_cpu_name(void)
 {
 	if (Config.Cpu == CPU_INTERPRETER)
@@ -759,7 +776,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	time_t ltime;
 	float s;
 	int n, i, y, x, px, row_h, pad, panel_x, panel_y, panel_w, panel_h, x_name, x_val;
-	int heads, head_h, head_px, avail, left_w, total, view_h;
+	int heads, head_h, head_px, avail, left_w, total, view_h, help_bottom;
 	const char *blocked;
 
 	ab_debug_screen("menu");
@@ -1036,12 +1053,16 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		y += th + fr + (int)(24 * s);
 	}
 	blocked = ent_sel != NULL ? ab_row_blocked(ent_sel) : NULL;
+	/* the column ends above the build lines */
+	help_bottom = (int)((AB_BUILD_Y - 8) * s);
 	if (menu_error_msg[0] != 0) {
-		ab_text_wrap(&c, x, y, ab_ui_tr(menu_error_msg), (int)(22 * s), left_w, 3, ab_col_accent);
+		ab_text_wrap(&c, x, y, ab_ui_tr(menu_error_msg), (int)(22 * s), left_w,
+			     ab_lines_fit(y, help_bottom, (int)(22 * s), 3), ab_col_accent);
 		if (plat_get_ticks_ms() - menu_error_time > 2048)
 			menu_error_msg[0] = 0;
 	} else if (blocked != NULL) {
-		ab_text_wrap(&c, x, y, ab_ui_tr(blocked), (int)(20 * s), left_w, 3, ab_col_accent);
+		ab_text_wrap(&c, x, y, ab_ui_tr(blocked), (int)(20 * s), left_w,
+			     ab_lines_fit(y, help_bottom, (int)(20 * s), 3), ab_col_accent);
 	} else if (ent_sel != NULL && ent_sel->help != NULL) {
 		/* upstream's help texts break their lines with '\n' for its 8x8 font: one paragraph here, wrapped */
 		/* (spaces collapsed too: the language files' keys are these texts in one line) */
@@ -1056,13 +1077,14 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		while (q > help && q[-1] == ' ')
 			q--;
 		*q = 0;
-		ab_text_wrap(&c, x, y, ab_ui_tr(help), (int)(20 * s), left_w, 5, ab_col_dim);
+		ab_text_wrap(&c, x, y, ab_ui_tr(help), (int)(20 * s), left_w,
+			     ab_lines_fit(y, help_bottom, (int)(20 * s), 5), ab_col_dim);
 	}
 
-	/* the bar: the hints on its left, the build on its right */
+	/* the bar: only the hints; the build right-aligned just above it */
 	ab_footer(&c, ab_ui_tr("Select"), ab_ui_tr(ab_crumb_n > 0 || !ready_to_go ? "Back" : "Resume"));
 	px = (int)(17 * s);
-	x = c.w - (int)(40 * s);
+	x = (int)(AB_BUILD_X * s);
 	/* the package's version (AB_VERSION, exported by the launcher) - what every program on the stick shows;
 	   the emulator's own git describe only when it was started without the launcher */
 	{
@@ -1072,9 +1094,9 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		else
 			snprintf(buf, sizeof(buf), "pcsx-abnxt %s", REV[0] != 0 ? REV : "(no version)");
 	}
-	ab_text(&c, x, (int)(636 * s), AB_UI_RIGHT, buf, px, ab_col_text);
+	ab_text_shadow(&c, x, (int)(AB_BUILD_Y * s), AB_UI_RIGHT, buf, px, ab_col_dim);
 	snprintf(buf, sizeof(buf), "PCSX-ReARMed  \xc2\xb7  %s  \xc2\xb7  %s  \xc2\xb7  built %s", ab_cpu_name(), ab_gpu_name(), __DATE__);
-	ab_text(&c, x, (int)(660 * s), AB_UI_RIGHT, buf, px, ab_col_dim);
+	ab_text_shadow(&c, x, (int)((AB_BUILD_Y + 22) * s), AB_UI_RIGHT, buf, px, ab_col_dim);
 
 	menu_draw_end();
 }

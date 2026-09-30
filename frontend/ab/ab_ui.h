@@ -74,6 +74,9 @@ void ab_ui_ring(struct ab_canvas *c, int cx, int cy, int r, int t, unsigned shor
 /* the pad's Cross and Circle, r the glyph's half size */
 void ab_ui_cross(struct ab_canvas *c, int cx, int cy, int r, unsigned short rgb565);
 void ab_ui_circle(struct ab_canvas *c, int cx, int cy, int r, unsigned short rgb565);
+/* the launcher's hint-bar pad glyph: a filled disc of radius r with a thin rim, a Cross or a Circle on it */
+void ab_ui_pad_glyph(struct ab_canvas *c, int cx, int cy, int r, int is_cross,
+		     unsigned short disc, unsigned short rim, unsigned short mark);
 
 /* a filled rectangle with corners rounded by r, blended over the canvas at alpha (0..255) */
 void ab_ui_fill(struct ab_canvas *c, int x, int y, int w, int h, int r, unsigned short rgb565, int alpha);
