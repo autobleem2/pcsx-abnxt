@@ -34,8 +34,10 @@ upstream's; a "which disc" picker in the launcher's resume menu and the `.m3u` h
 
 **The menu's look** (2026-09-20 night, `feature/menu-improvements`): the Home-button menu is drawn by
 `ab_menu.c` itself (`ab_menu_draw`/`ab_menu_run` - libpicofe's `menu_entry` rows and its handler contract,
-`me_loop_d`'s keys, but our screen): AutoBleem 2's launcher art (`skin/ab_background.jpg`, the ab2
-theme's `AB-EvoBack.jpg` at 1280x720, decoded by **stb_image** - vendored `frontend/ab/stb_image.h`,
+`me_loop_d`'s keys, but our screen): AutoBleem 2's launcher art (`skin/ab_background.jpg`, since
+2026-09-30 the ab2.0.0 art from autobleem-design `themes/ab2.0.0/design/emu/ab_background-p5.jpg` - the
+logo bottom left, a cut-corner hint bar at 466..1268 x 614..684 - before that the ab2 theme's
+`AB-EvoBack.jpg`; 1280x720, decoded by **stb_image** - vendored `frontend/ab/stb_image.h`,
 JPEG+PNG only - and scaled to cover the canvas by `ab_ui_background`; plain navy without the file), the
 game's name and id top left with the selected row's help or the last message under them, the rows on a
 translucent panel on the right (a value row shows its value with `< >` arrows when selected - Filter
@@ -69,9 +71,13 @@ file - only nxt gets it, the classic pcsx-ab would take it for a file) and `lang
 emulator (`frontend/ab/lang/`, all 17 of the launcher's languages, its `English text=Translated text`
 format) has the seven strings; `ab_ui.c` rasterises them with **stb_truetype** (vendored,
 `frontend/ab/stb_truetype.h`, public domain - no new library on any platform) straight into the menu's
-RGB565 canvas from `skin/ui.ttf` (Selawik Regular, `selawk.ttf` from Microsoft's Selawik 1.01 release,
-44 KB, OFL - the ab2 theme's family; Light until 2026-09-28, too thin over a game for the HUD, which
-draws with it too) or the font a language file names with `|@font|` (Chinese: the launcher's
+RGB565 canvas from `skin/ui.ttf` (**Red Hat Text Medium** since 2026-09-30, EMU-16 - the ab2.0.0 theme's
+`font/RedHatText-Medium.ttf`, 52 KB, OFL 1.1, its licence shipped next to it as `skin/ui-OFL.txt`; it must
+be a **static** instance: stb_truetype ignores `gvar`, so the variable `RedHatText[wght].ttf` would draw
+its default weight. Its `px` box is the hhea ascent-descent, 1.32 em against Selawik's 1.20, so the same
+`px` draws ~9 % smaller glyphs. No Cyrillic/Greek/kana, as
+Selawik had none: a language that needs them names its own `|@font|`. Until then Selawik Regular 1.01,
+Light until 2026-09-28, too thin over a game for the HUD, which draws with it too) or the font a language file names with `|@font|` (Chinese: the launcher's
 `NotoSansSC-Regular.otf`, found in `fonts/`, which the launch scripts link to the launcher's fonts
 folder). No font = English through libpicofe's 8x8 font. `ci/build.sh`'s `dist()`, `make_packages.sh`
 and `make_win.sh` ship `skin/ui.ttf` + `lang/` with the emulator. **Do not call `CheckCdrom()` after
