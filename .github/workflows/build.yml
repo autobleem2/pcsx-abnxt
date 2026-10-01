@@ -17,6 +17,10 @@ on:
     branches: [develop, master]
   workflow_dispatch:
     inputs:
+      channel:
+        description: preview = publish this branch's build as the rolling `preview` release (a feature branch)
+        type: string
+        default: ''
       # No longer decides where the Linux matrix build lands (see the `route`/`route_runner` jobs
       # below, autobleem-build's route.yml) - kept only because the `publish` job's `if:` still
       # reads it (inputs.runner != 'github'), unchanged from before this routing change.
@@ -201,7 +205,7 @@ jobs:
     steps:
       - uses: autobleem2/autobleem-build/.github/actions/signpath-sign@develop
         with:
-          enabled: ${{ vars.AB_SIGNING_ENABLED == 'true' && github.event_name != 'pull_request' }}
+          enabled: ${{ vars.AB_SIGNING_ENABLED == 'true' && github.event_name != 'pull_request' && inputs.channel != 'preview' }}
           artifact: win-unsigned
           path: winstage
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
@@ -306,6 +310,24 @@ jobs:
           files: out/*
           version: ${{ needs.plan.outputs.version }}
           dispatch-token: ${{ steps.app.outputs.token }}
+
+  # a preview build (PLATFORM-20): a manual run of a feature branch with channel=preview replaces the assets of
+  # the rolling `preview` pre-release. It never touches `nightly` and never starts an assembly - autobleem-main's
+  # preview workflow builds every component that has the branch, then assembles the preview.
+  preview:
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.channel == 'preview' && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/develop' && inputs.targets == ''
+    needs: [plan, package]
+    runs-on: ubuntu-24.04
+    permissions: { contents: write }
+    steps:
+      - uses: actions/download-artifact@v8
+        with: { name: packages, path: out }
+      - uses: autobleem2/autobleem-build/.github/actions/nightly-release@develop
+        with:
+          files: out/*
+          tag: preview
+          version: ${{ needs.plan.outputs.version }}
 
   publish:
     # the site's emu/ tree, on the build server's disk: the psc-build runner. Not a `container:` job -
