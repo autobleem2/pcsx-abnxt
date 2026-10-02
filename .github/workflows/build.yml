@@ -2,9 +2,7 @@
 # docs/ci-org-migration-plan.md in the launcher repo). Four Linux targets in the shared autobleem-build
 # image; the Windows .exe natively on windows-latest with MSYS2 UCRT64; `package` -> the site packages
 # (tools/make_packages.sh); `publish` (self-hosted, tag/manual only) -> emu/pcsx-abnxt/ (repo_publish kind
-# `pcsx`). Differences from pcsx-ab: recursive submodules (libpicofe et al.), `git describe` versioning, and
-# the Windows build needs sdl12-compat + an explicit SDL2.dll (sdl12-compat's SDL.dll loads it at run time,
-# which ldd cannot see).
+# `pcsx`). Differences from pcsx-ab: recursive submodules (libpicofe et al.), and `git describe` versioning.
 #
 # Nothing runs until the repository variable AB_CI_ENABLED is 'true'.
 name: build
@@ -174,7 +172,6 @@ jobs:
             mingw-w64-ucrt-x86_64-pkgconf
             mingw-w64-ucrt-x86_64-libpng
             mingw-w64-ucrt-x86_64-zlib
-            mingw-w64-ucrt-x86_64-sdl12-compat
             mingw-w64-ucrt-x86_64-SDL2
       - name: Build (Release)
         run: |
@@ -184,8 +181,7 @@ jobs:
         run: |
           mkdir -p winstage/plugins
           cp build_win_rel/pcsx-ab.exe winstage/
-          # sdl12-compat's SDL.dll loads SDL2.dll at run time, invisible to ldd - copy it explicitly
-          for dll in $(ldd build_win_rel/pcsx-ab.exe | awk '/ucrt64/ {print $3}') /ucrt64/bin/SDL2.dll; do cp -u "$dll" winstage/; done
+          for dll in $(ldd build_win_rel/pcsx-ab.exe | awk '/ucrt64/ {print $3}'); do cp -u "$dll" winstage/; done
           cp build_win_rel/plugins/*.dll winstage/plugins/ 2>/dev/null || true
       # unsigned: sign-win below signs pcsx-ab.exe and uploads dist-win
       - uses: actions/upload-artifact@v7
