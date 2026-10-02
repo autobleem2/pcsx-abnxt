@@ -147,6 +147,13 @@ static void quit_cb(void)
   emu_core_ask_exit();
 }
 
+/* a quit (the window's close, or SIGTERM - SDL turns it into SDL_QUIT, quit_cb above) while a menu waits for
+ * a key: the menus unwind as if Back were pressed, and main()'s loop ends the run the normal way (EMU-18) */
+static int menu_quit_check(void)
+{
+  return g_emu_want_quit;
+}
+
 /* the window's output size changed: the menu's canvas and the layer the frame is scaled into follow */
 static void resize_cb(int w, int h)
 {
@@ -679,6 +686,7 @@ void plat_init(void)
   in_sdl2_init(&in_sdl2_platform_data, sdl_event_handler);
   in_sdl2gc_init(&in_sdl2gc_platform_data, controller_db_files, pads_changed);
   in_probe();
+  in_set_menu_quit_check(menu_quit_check);
 
   pl_rearmed_cbs.only_16bpp = 1;
   pl_rearmed_cbs.pl_get_layer_pos = get_layer_pos;

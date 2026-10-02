@@ -234,6 +234,11 @@ oldest snapshot, ~10 s back, as Sony's firmware did - the ring (`ab_autosave`, a
 2 s) is gone with it. Two things a way out still waits for (`leave()` in `ab_buttons.c`): a memory-card
 write in the last 2 s (`ab_memcard`; "SAVING..." on the HUD - the state and the card file must agree),
 and two frames presented without the HUD, which is printed into the frame the resume picture is taken from.
+**A quit while a menu is open** (the window's close, or SIGTERM, which SDL turns into SDL_QUIT - a stop from
+the launcher, a power-off, a test kit; EMU-18, 2026-10-02) used to wait until the player left the menu:
+`plat_autobleem.c` sets libpicofe's `in_set_menu_quit_check()`, so a menu's wait for a key ends and
+`in_menu_wait()` answers Back until every menu has unwound, and main()'s loop ends the run as the menu's Exit
+does (the same resume point).
 `ab_console`: the power daemon's `prepare_suspend` and `cpu_temp`/`temp_limit` watchers (inotify threads,
 Linux only, ending at once without the files). `ab_disc`: the disc set (multi-disc PBP, an `.m3u`, or the
 folder's images of the same kind) and the Open button through the core's lid, refused for 22 s after the
@@ -402,7 +407,8 @@ line-buffered off Windows (`ab_args_take`).
   Verified: `--platform=generic` links upstream's `pcsx` with nothing of ours but the soft filter, and
   `--platform=psclassic` with the console toolchain links our emulator (same libraries as the CMake one).
   The libpicofe fork needs no gating: six new files, and of notaz's own only `menu.c`/`menu.h` touched -
-  one line each, `menu_sel_name` (the highlighted row's name, which the debug driver reads). The CMake build stays the
+  one line each, `menu_sel_name` (the highlighted row's name, which the debug driver reads) - and
+  `input.c`/`input.h`: `in_set_menu_quit_check()`, a hook that does nothing until a platform sets it (EMU-18). The CMake build stays the
   one the scripts and CI use; the Makefile path is the shape a future PR to notaz would take.
 - **Video**: one SDL2 platform everywhere - window + `SDL_GL_CreateContext` (Wayland on the console, KMSDRM
   on the Pi, WGL on Windows) into libpicofe's `gl.c`, SDL_Renderer as the fallback. No hand-written Wayland
