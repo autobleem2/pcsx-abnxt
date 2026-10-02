@@ -238,7 +238,7 @@ set(PCSXAB_SOURCES
     # AutoBleem's own (the port's rule: new files, hooks only in upstream's)
     frontend/ab/ab_config.c frontend/ab/ab_session.c frontend/ab/ab_buttons.c frontend/ab/ab_memcard.c
     frontend/ab/ab_console.c frontend/ab/ab_disc.c frontend/ab/ab_ui.c frontend/ab/ab_hacks.c
-    frontend/ab/ab_debug.c frontend/ab/ab_pad_battery.c frontend/ab/ab_headless.c frontend/ab/ab_hud_text.c
+    frontend/ab/ab_pad_battery.c frontend/ab/ab_headless.c frontend/ab/ab_hud_text.c
     # the smoothing scalers: ours (scale2x/eagle2x in C) and hqx (LGPL, adapted to RGB565)
     frontend/ab/ab_scaler.c frontend/ab/hqx/hqx_init.c frontend/ab/hqx/hq2x.c frontend/ab/hqx/hq3x.c
 )
@@ -269,10 +269,12 @@ if (PCSXAB_PLATFORM STREQUAL "sdl2")
     # libpicofe's plat_dummy.c is the (empty) plat_target, as for upstream's generic platform
     # our GL video (plat_autobleem, docs/render-pipeline-plan.md) + SDL2 input; ab_shaders.c = its passes
     list(APPEND PCSXAB_SOURCES frontend/plat_autobleem.c frontend/libpicofe/plat_autobleem.c
-        frontend/ab/ab_shaders.c
+        frontend/ab/ab_shaders.c frontend/ab/ab_debug.c
         frontend/libpicofe/in_sdl2.c frontend/libpicofe/in_sdl2gc.c frontend/libpicofe/plat_dummy.c)
 elseif (PCSXAB_PLATFORM STREQUAL "sdl")
-    list(APPEND PCSXAB_SOURCES frontend/plat_sdl.c frontend/libpicofe/in_sdl.c frontend/libpicofe/plat_dummy.c)
+    # ab_plat_stubs.c: the debug driver and the output modes are the SDL2 platform's - none here (BUG-19)
+    list(APPEND PCSXAB_SOURCES frontend/plat_sdl.c frontend/libpicofe/in_sdl.c frontend/libpicofe/plat_dummy.c
+        frontend/ab/ab_plat_stubs.c)
     set_source_files_properties(frontend/plat_sdl.c PROPERTIES COMPILE_DEFINITIONS SDL_OVERLAY_2X)
     if (NOT WIN32)
         list(APPEND PCSXAB_SOURCES frontend/libpicofe/linux/in_evdev.c)

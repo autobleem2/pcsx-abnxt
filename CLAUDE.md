@@ -246,7 +246,7 @@ start; one press = the next disc, with a HUD line. `SaveMcd()` fsyncs and tells 
 the in-game menu (Resume, Quick save/load = slot 2, Change disc, Filter, Smoothing, Screen, Scanlines,
 the controllers, PCSX menu = upstream's whole menu beneath, Save settings for this game = the game's own
 `pcsx.custom.cfg` - see "A game's config", Exit) on its own screen (see "The menu's look"), `#include`d into `frontend/menu.c` like
-libpicofe's menu.c because the menu machinery is static there. `ab_debug.c`: the debug driver (see "the debug driver"; `AB_DEBUG_PORT` only). `ab_scaler.c` + `hqx/`: the smoothing
+libpicofe's menu.c because the menu machinery is static there. `ab_debug.c`: the debug driver (see "the debug driver"; `AB_DEBUG_PORT` only; SDL2, so built with the sdl2 platform only - `ab_plat_stubs.c` gives the `sdl` platform its no-op hooks and a single "Auto" output mode, BUG-19). `ab_scaler.c` + `hqx/`: the smoothing
 scalers (see "Smoothing"; `tools/vendor_hqx.py` regenerates `hqx/hq2x.c`/`hq3x.c` from a clone of
 grom358/hqx). Player 2's sticks: `in_adev[4]` ([2]/[3]), `update_analogs()` over both players.
 
