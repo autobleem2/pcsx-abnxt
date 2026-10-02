@@ -98,7 +98,12 @@ rendered again, capped so the strip fits its 64 px slot). No Cyrillic/Greek/kana
 Selawik had none: a language that needs them names its own `|@font|`. Until then Selawik Regular 1.01,
 Light until 2026-09-28, too thin over a game for the HUD, which draws with it too) or the font a language file names with `|@font|` (Chinese: the launcher's
 `NotoSansSC-Regular.otf`, found in `fonts/`, which the launch scripts link to the launcher's fonts
-folder). No font = English through libpicofe's 8x8 font. `ci/build.sh`'s `dist()`, `make_packages.sh`
+folder). No font = English through libpicofe's 8x8 font (built into the binary; the English texts in the
+code are the built-in string table - a missing `lang/` file or key falls back to them, and without a font
+translations are not used at all): the menu's text goes through `ab_ui_ascii()` first - accented letters
+as their base letter, `·` as `-`, `©` as `(c)`, anything else `?` - and is clipped to the canvas, because
+libpicofe's `text_out16_()` indexes its glyphs with a plain `char` (BUG-51, 2026-10-02: a bare binary with
+no `skin/` crashed at the menu's first `·` on x86, where `char` is signed). `ci/build.sh`'s `dist()`, `make_packages.sh`
 and `make_win.sh` ship `skin/ui.ttf` + `lang/` with the emulator. **Do not call `CheckCdrom()` after
 `LidInterrupt()`**: the core's lid sequence runs it itself on the close, and a second one mid-sequence
 killed the game. A swap while a game is loading kills it as on hardware (Crash during its boot: an

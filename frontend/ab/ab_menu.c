@@ -434,22 +434,32 @@ static int ab_px(int px)
 
 static int ab_text_width(const char *s, int px)
 {
-	return ab_ui_has_font() ? ab_ui_text_width(s, ab_px(px)) : (int)strlen(s) * me_mfont_w;
+	char ascii[256];
+
+	if (ab_ui_has_font())
+		return ab_ui_text_width(s, ab_px(px));
+	return ab_ui_ascii(s, ascii, sizeof(ascii)) * me_mfont_w;
 }
 
-/* returns the text's width */
+/* returns the text's width. No font: libpicofe's built-in one, in ASCII (ab_ui_ascii), clipped to the canvas */
 static int ab_text(struct ab_canvas *c, int x, int y, int align, const char *s, int px, unsigned short col)
 {
+	char ascii[256];
+	const char *t = ascii;
 	int w;
 
 	if (ab_ui_has_font())
 		return ab_ui_text(c, x, y, align, s, ab_px(px), col);
-	w = ab_text_width(s, px);
+	w = ab_ui_ascii(s, ascii, sizeof(ascii)) * me_mfont_w;
 	if (align == AB_UI_CENTER)
 		x -= w / 2;
 	else if (align == AB_UI_RIGHT)
 		x -= w;
-	text_out16(x, y + (px - me_mfont_h) / 2, "%s", s);
+	y += (px - me_mfont_h) / 2;
+	for (; x < 0 && *t != 0; t++)
+		x += me_mfont_w;
+	if (y >= 0 && y + me_mfont_h <= c->h && *t != 0)
+		text_out16(x, y, "%s", t);
 	return w;
 }
 
