@@ -238,7 +238,8 @@ and two frames presented without the HUD, which is printed into the frame the re
 the launcher, a power-off, a test kit; EMU-18, 2026-10-02) used to wait until the player left the menu:
 `plat_autobleem.c` sets libpicofe's `in_set_menu_quit_check()`, so a menu's wait for a key ends and
 `in_menu_wait()` answers Back until every menu has unwound, and main()'s loop ends the run as the menu's Exit
-does (the same resume point).
+does (the same resume point). The power daemon's power-off request and the overheat stop unwind the menus the
+same way while a game runs; the game goes on and its frame tick leaves through `leave()` as in the game.
 `ab_console`: the power daemon's `prepare_suspend` and `cpu_temp`/`temp_limit` watchers (inotify threads,
 Linux only, ending at once without the files). `ab_disc`: the disc set (multi-disc PBP, an `.m3u`, or the
 folder's images of the same kind) and the Open button through the core's lid, refused for 22 s after the

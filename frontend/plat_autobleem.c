@@ -148,10 +148,14 @@ static void quit_cb(void)
 }
 
 /* a quit (the window's close, or SIGTERM - SDL turns it into SDL_QUIT, quit_cb above) while a menu waits for
- * a key: the menus unwind as if Back were pressed, and main()'s loop ends the run the normal way (EMU-18) */
+ * a key: the menus unwind as if Back were pressed, and main()'s loop ends the run the normal way (EMU-18).
+ * The power daemon's power-off and the overheat stop too: the menus unwind, the game goes on, and its next
+ * frame tick (ab_frame_tick) leaves the way it does in the game - leave(), the memory card, the clean frames,
+ * the resume point. Only with a game running: without one there is no frame tick to leave through */
 static int menu_quit_check(void)
 {
-  return g_emu_want_quit;
+  return g_emu_want_quit ||
+    ((ab_console_power_off_requested || ab_console_overheated) && ready_to_go);
 }
 
 /* the window's output size changed: the menu's canvas and the layer the frame is scaled into follow */
