@@ -260,7 +260,9 @@ if (PCSXAB_PLATFORM STREQUAL "sdl2")
         frontend/ab/ab_shaders.c frontend/ab/ab_debug.c
         frontend/libpicofe/in_sdl2.c frontend/libpicofe/in_sdl2gc.c frontend/libpicofe/plat_dummy.c)
 elseif (PCSXAB_PLATFORM STREQUAL "headless")
-    list(APPEND PCSXAB_SOURCES frontend/plat_dummy.c frontend/libpicofe/plat_dummy.c)
+    # ab_plat_headless.c: the sdl2 platform's hooks frontend/ab/ calls (the debug driver, the output modes)
+    list(APPEND PCSXAB_SOURCES frontend/plat_dummy.c frontend/libpicofe/plat_dummy.c
+        frontend/ab/ab_plat_headless.c)
 else()
     message(FATAL_ERROR "unknown PCSXAB_PLATFORM '${PCSXAB_PLATFORM}'")
 endif()
