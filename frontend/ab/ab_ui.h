@@ -51,6 +51,11 @@ const char *ab_ui_str(enum ab_ui_str s);
 const char *ab_ui_tr(const char *en);
 /* whether a font was loaded (else the caller draws with libpicofe's font) */
 int ab_ui_has_font(void);
+/* utf8 as printable ASCII for libpicofe's built-in font, into out (size bytes, always terminated): an accented
+ * Latin letter as its base letter, the middle dot as '-', the copyright sign as "(c)", anything else '?' -
+ * the font has glyphs for 32..126 only, and its text_out16() indexes it with a plain char, so a UTF-8 byte
+ * read past it (on x86, where char is signed, far outside it: BUG-51's crash). Returns the length. */
+int ab_ui_ascii(const char *utf8, char *out, int size);
 
 enum { AB_UI_LEFT, AB_UI_CENTER, AB_UI_RIGHT };
 

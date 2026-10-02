@@ -98,7 +98,12 @@ rendered again, capped so the strip fits its 64 px slot). No Cyrillic/Greek/kana
 Selawik had none: a language that needs them names its own `|@font|`. Until then Selawik Regular 1.01,
 Light until 2026-09-28, too thin over a game for the HUD, which draws with it too) or the font a language file names with `|@font|` (Chinese: the launcher's
 `NotoSansSC-Regular.otf`, found in `fonts/`, which the launch scripts link to the launcher's fonts
-folder). No font = English through libpicofe's 8x8 font. `ci/build.sh`'s `dist()`, `make_packages.sh`
+folder). No font = English through libpicofe's 8x8 font (built into the binary; the English texts in the
+code are the built-in string table - a missing `lang/` file or key falls back to them, and without a font
+translations are not used at all): the menu's text goes through `ab_ui_ascii()` first - accented letters
+as their base letter, `·` as `-`, `©` as `(c)`, anything else `?` - and is clipped to the canvas, because
+libpicofe's `text_out16_()` indexes its glyphs with a plain `char` (BUG-51, 2026-10-02: a bare binary with
+no `skin/` crashed at the menu's first `·` on x86, where `char` is signed). `ci/build.sh`'s `dist()`, `make_packages.sh`
 and `make_win.sh` ship `skin/ui.ttf` + `lang/` with the emulator. **Do not call `CheckCdrom()` after
 `LidInterrupt()`**: the core's lid sequence runs it itself on the close, and a second one mid-sequence
 killed the game. A swap while a game is loading kills it as on hardware (Crash during its boot: an
@@ -199,7 +204,7 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
 | Base | upstream tag **`r26`** (2026-03-29, `56fef013`), the latest stable; `develop` starts there |
 | Branches | `master` mirrors upstream master (fast-forward only, never committed to); `develop` is ours; `feature/<slug>` off `develop`, merged `--no-ff` (gitflow, as in every AutoBleem repo); `upstream` remote = notaz |
 | libpicofe | submodule `frontend/libpicofe` -> **`github.com/autobleem2/libpicofe`** (our fork of notaz's), branch `develop`: r26's commit plus our SDL2 files (`plat_sdl2.*`, `in_sdl2.*`, `in_sdl2gc.*`); `upstream` remote there too. The other submodules (`deps/libchdr`, `lightrec`, `lightning`, `libretro-common`, `mman`, `frontend/warm`) are upstream's, untouched |
-| Build | `CMakeLists.txt`: upstream's `configure`/`Makefile` as CMake options (`PCSXAB_*`), the plugins, libchdr/lightrec/lightning/mman compiled from `deps/`; upstream's own build files stay untouched. `PCSXAB_PLATFORM=sdl2` (ours, the default), `sdl` (upstream's SDL 1.2 frontend, needs sdl12-compat on a PC) or `headless` |
+| Build | `CMakeLists.txt`: upstream's `configure`/`Makefile` as CMake options (`PCSXAB_*`), the plugins, libchdr/lightrec/lightning/mman compiled from `deps/`; upstream's own build files stay untouched. `PCSXAB_PLATFORM=sdl2` (ours, the default) or `headless` (a link check, no video: `frontend/ab/ab_plat_headless.c` stands in for the sdl2 platform's debug-driver and output-mode hooks - BUG-50); upstream's SDL 1.2 frontend (`frontend/plat_sdl.c`) stays in the tree but is not a build option any more |
 | Windows | `./make_win.sh` -> `build_win/pcsx-ab.exe`: **lightrec + C-SIMD gpu_neon, plays games** - Crash Bandicoot's intro in a 1280x720 window, Esc opens the menu, `tools/emu_drive.py` drives it over the debug driver's socket (see "the debug driver"); `tools/win_drive.ps1` is the older way, keys posted to the window |
 | Pi 32-bit / 64-bit | `./make_rpi.sh`, `./make_rpi64.sh` -> `build_rpi*/dist/`: Ari64 ARM / ARM64 dynarec, NEON asm / C-SIMD GPU, the SDL2 platform - **the 64-bit build runs on the Pi 400** (2026-09-20), 32-bit built, unrun |
 | PlayStation Classic | `ci/build.sh psc` in the Docker image (gcc-6, `/opt/psc`, SDL 2.0.14): builds and links, GLIBC <= 2.24, no RPATH, ARM dynarec + NEON - **runs on the console since 2026-09-21** (`build_psc/dist/` on the PC holds the last fetch; the console's SDL is 2.0.14, see "a crash on the console"); `make_psc.sh` is the Sony-toolchain path over ssh, untested here |
@@ -234,6 +239,20 @@ oldest snapshot, ~10 s back, as Sony's firmware did - the ring (`ab_autosave`, a
 2 s) is gone with it. Two things a way out still waits for (`leave()` in `ab_buttons.c`): a memory-card
 write in the last 2 s (`ab_memcard`; "SAVING..." on the HUD - the state and the card file must agree),
 and two frames presented without the HUD, which is printed into the frame the resume picture is taken from.
+**"Please wait..."** (2026-10-02, the owner's PSC test): `ab_session_exit()` puts the menu's message box over
+its art (`ab_menu_wait_screen()`, no hint) before the resume point is written, on every way out with a game
+loaded - the picture is the emulated frame (`plat_prepare_screenshot()`'s `shadow_fb`), never the screen, so
+the box cannot reach it. Its text is the lang files' `Please wait...` (English and Polish so far).
+**A quit while a menu is open** (the window's close, or SIGTERM, which SDL turns into SDL_QUIT - a stop from
+the launcher, a power-off, a test kit; EMU-18, 2026-10-02) used to wait until the player left the menu:
+`plat_autobleem.c` sets libpicofe's `in_set_menu_quit_check()`, so a menu's wait for a key ends and
+`in_menu_wait()` answers Back until every menu has unwound, and main()'s loop ends the run as the menu's Exit
+does (the same resume point). The power daemon's power-off request and the overheat stop unwind the menus the
+same way while a game runs; the game goes on and its frame tick leaves through `leave()` as in the game. So
+does the console's **Reset button** (any key bound to "RESET button"), which a menu's key wait does not read
+as a menu key: libpicofe's `in_set_menu_emu_key()` hands `plat_autobleem.c` the EMU binds of a key pressed in a
+menu, and Reset there (game loaded) unwinds the menus and `ab_defer_action()` has the next frame tick ask for
+`SACTION_AB_RESET` - the in-game Reset.
 `ab_console`: the power daemon's `prepare_suspend` and `cpu_temp`/`temp_limit` watchers (inotify threads,
 Linux only, ending at once without the files). `ab_disc`: the disc set (multi-disc PBP, an `.m3u`, or the
 folder's images of the same kind) and the Open button through the core's lid, refused for 22 s after the
@@ -241,7 +260,7 @@ start; one press = the next disc, with a HUD line. `SaveMcd()` fsyncs and tells 
 the in-game menu (Resume, Quick save/load = slot 2, Change disc, Filter, Smoothing, Screen, Scanlines,
 the controllers, PCSX menu = upstream's whole menu beneath, Save settings for this game = the game's own
 `pcsx.custom.cfg` - see "A game's config", Exit) on its own screen (see "The menu's look"), `#include`d into `frontend/menu.c` like
-libpicofe's menu.c because the menu machinery is static there. `ab_debug.c`: the debug driver (see "the debug driver"; `AB_DEBUG_PORT` only). `ab_scaler.c` + `hqx/`: the smoothing
+libpicofe's menu.c because the menu machinery is static there. `ab_debug.c`: the debug driver (see "the debug driver"; `AB_DEBUG_PORT` only; SDL2, so built with the sdl2 platform only). `ab_scaler.c` + `hqx/`: the smoothing
 scalers (see "Smoothing"; `tools/vendor_hqx.py` regenerates `hqx/hq2x.c`/`hq3x.c` from a clone of
 grom358/hqx). Player 2's sticks: `in_adev[4]` ([2]/[3]), `update_analogs()` over both players.
 
@@ -402,7 +421,9 @@ line-buffered off Windows (`ab_args_take`).
   Verified: `--platform=generic` links upstream's `pcsx` with nothing of ours but the soft filter, and
   `--platform=psclassic` with the console toolchain links our emulator (same libraries as the CMake one).
   The libpicofe fork needs no gating: six new files, and of notaz's own only `menu.c`/`menu.h` touched -
-  one line each, `menu_sel_name` (the highlighted row's name, which the debug driver reads). The CMake build stays the
+  one line each, `menu_sel_name` (the highlighted row's name, which the debug driver reads) - and
+  `input.c`/`input.h`: `in_set_menu_quit_check()` and `in_set_menu_emu_key()`, hooks that do nothing until a
+  platform sets them (EMU-18), and `in_menu_keys_held()`, the menus' key state read without reading a key (BUG-52). The CMake build stays the
   one the scripts and CI use; the Makefile path is the shape a future PR to notaz would take.
 - **Video**: one SDL2 platform everywhere - window + `SDL_GL_CreateContext` (Wayland on the console, KMSDRM
   on the Pi, WGL on Windows) into libpicofe's `gl.c`, SDL_Renderer as the fallback. No hand-written Wayland

@@ -38,6 +38,10 @@ void ab_frame_tick(void);
 /* asks the emulator to run <action> (SACTION_*) as soon as the current slice ends, from the main thread */
 void ab_request_action(int action);
 
+/* <action> (a way out: SACTION_AB_RESET) asked for while a menu is open: the first frame tick after the menu
+ * asks for it, so it runs the in-game way (ab_emu_action -> leave()). Nothing if a way out is pending already */
+void ab_defer_action(int action);
+
 /* update_input()'s emulator action, with the menu button's press/hold told apart (see the top); called
  * every frame with SACTION_NONE when nothing is pressed */
 int ab_filter_action(int action);

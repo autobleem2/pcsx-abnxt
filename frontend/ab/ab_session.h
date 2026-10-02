@@ -29,7 +29,10 @@ const char *ab_session_game_name(void);
 /* the resume state, its picture and the two text files; 0 when all of them are written */
 int ab_session_save_exit(void);
 
-/* main()'s way out: ab_session_save_exit() once, whichever path led here */
+/* main()'s way out: ab_session_save_exit() once, whichever path led here, with "Please wait..." on the screen */
 void ab_session_exit(void);
+
+/* that "Please wait..." screen (ab_menu.c, the menu's look) */
+void ab_menu_wait_screen(void);
 
 #endif

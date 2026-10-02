@@ -434,22 +434,32 @@ static int ab_px(int px)
 
 static int ab_text_width(const char *s, int px)
 {
-	return ab_ui_has_font() ? ab_ui_text_width(s, ab_px(px)) : (int)strlen(s) * me_mfont_w;
+	char ascii[256];
+
+	if (ab_ui_has_font())
+		return ab_ui_text_width(s, ab_px(px));
+	return ab_ui_ascii(s, ascii, sizeof(ascii)) * me_mfont_w;
 }
 
-/* returns the text's width */
+/* returns the text's width. No font: libpicofe's built-in one, in ASCII (ab_ui_ascii), clipped to the canvas */
 static int ab_text(struct ab_canvas *c, int x, int y, int align, const char *s, int px, unsigned short col)
 {
+	char ascii[256];
+	const char *t = ascii;
 	int w;
 
 	if (ab_ui_has_font())
 		return ab_ui_text(c, x, y, align, s, ab_px(px), col);
-	w = ab_text_width(s, px);
+	w = ab_ui_ascii(s, ascii, sizeof(ascii)) * me_mfont_w;
 	if (align == AB_UI_CENTER)
 		x -= w / 2;
 	else if (align == AB_UI_RIGHT)
 		x -= w;
-	text_out16(x, y + (px - me_mfont_h) / 2, "%s", s);
+	y += (px - me_mfont_h) / 2;
+	for (; x < 0 && *t != 0; t++)
+		x += me_mfont_w;
+	if (y >= 0 && y + me_mfont_h <= c->h && *t != 0)
+		text_out16(x, y, "%s", t);
 	return w;
 }
 
@@ -563,28 +573,52 @@ static void ab_draw_disc_picker(int n, int cur, int sel)
 	menu_draw_end();
 }
 
-static void ab_draw_message(const char *msg)
+/* the message box; with ok == NULL no hint (the way out's "Please wait...", which takes no key) */
+static void ab_draw_box(const char *msg, const char *ok)
 {
 	struct ab_canvas c;
 	float s;
 
 	int px, w;
 
-	ab_debug_screen("message");
 	c = ab_screen_begin();
 	s = c.h / 720.0f;
 	px = (int)(32 * s);
 	w = ab_text_width(msg, px) + (int)(120 * s);
 	ab_panel(&c, (c.w - w) / 2, (int)(c.h * 0.44f) - (int)(40 * s), w, px + (int)(80 * s), s);
 	ab_text(&c, c.w / 2, (int)(c.h * 0.44f), AB_UI_CENTER, msg, px, ab_col_text);
-	ab_footer(&c, ab_ui_str(AB_STR_OK), NULL);
+	if (ok != NULL)
+		ab_footer(&c, ok, NULL);
 	menu_draw_end();
 }
 
-/* the buttons that got us here are not the screen's */
+static void ab_draw_message(const char *msg)
+{
+	ab_debug_screen("message");
+	ab_draw_box(msg, ab_ui_str(AB_STR_OK));
+}
+
+/* The way out's "Please wait..." (ab_session_exit(), before the resume point and its files are written,
+ * which on a console's CPU and stick takes a moment): the message box over the menu's art, no hint. Safe
+ * for the resume picture: it is the emulated frame (plat_prepare_screenshot()'s shadow_fb), not the screen,
+ * and menu_leave_emu() only copies it - so the box can go up as soon as the run has ended */
+void ab_menu_wait_screen(void)
+{
+	menu_leave_emu();
+	ab_menu_prepare_bg();
+	ab_ui_load(ab_opts.language);
+	ab_draw_box(ab_ui_tr("Please wait..."), NULL);
+	ab_debug_screen("wait");
+}
+
+/* the buttons that got us here are not the screen's: wait only for those still held - in_menu_wait_any()
+ * reads a key, so asking it when nothing is held ate the first press made as the screen came up (BUG-52:
+ * the menu opened from the game, whose keys never reach the menus' key state, lost its first Down/Return) */
 static void ab_wait_released(void)
 {
-	while (in_menu_wait_any(NULL, 50) & (PBTN_MOK|PBTN_MBACK|PBTN_MENU)) {
+	int held = in_menu_keys_held() & (PBTN_MOK|PBTN_MBACK|PBTN_MENU);
+
+	while (held && (held &= in_menu_wait_any(NULL, 50))) {
 		if (ab_console_power_off_requested)
 			break;
 	}

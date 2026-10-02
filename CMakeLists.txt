@@ -49,8 +49,8 @@ else()
     set(_pcsxab_neon_default OFF)
 endif()
 
-set(PCSXAB_PLATFORM "sdl2" CACHE STRING "Frontend platform: sdl2 (ours: frontend/plat_autobleem.c - GL video, SDL2 input - every target), sdl (upstream's SDL 1.2 frontend, a PC with sdl12-compat) or headless (no video/input - a link check)")
-set_property(CACHE PCSXAB_PLATFORM PROPERTY STRINGS sdl2 sdl headless)
+set(PCSXAB_PLATFORM "sdl2" CACHE STRING "Frontend platform: sdl2 (ours: frontend/plat_autobleem.c - GL video, SDL2 input - every target) or headless (no video/input - a link check)")
+set_property(CACHE PCSXAB_PLATFORM PROPERTY STRINGS sdl2 headless)
 set(PCSXAB_DYNAREC "auto" CACHE STRING "CPU recompiler: auto, ari64 (ARM/AArch64), lightrec (everything else), none (interpreter)")
 set_property(CACHE PCSXAB_DYNAREC PROPERTY STRINGS auto ari64 lightrec none)
 option(PCSXAB_NEON        "ARM NEON assembly (GTE, GPU, scalers). 32-bit ARMv7+ only; AArch64 uses the C SIMD code" ${_pcsxab_neon_default})
@@ -111,18 +111,6 @@ if (PCSXAB_PLATFORM STREQUAL "sdl2")
     endforeach()
     list(REMOVE_DUPLICATES _pcsxab_sdl_incs)
     set(_pcsxab_sdl_libs SDL2::SDL2)
-elseif (PCSXAB_PLATFORM STREQUAL "sdl")
-    # upstream's frontend is SDL 1.2 (a compatibility build over SDL2 does on a PC: sdl12-compat)
-    find_package(SDL REQUIRED)
-    # FindSDL on MinGW adds SDLmain, mingw32 and -mwindows: not wanted - main() is frontend/main.c's and the
-    # console window is the log
-    set(_pcsxab_sdl_libs "")
-    foreach(_lib ${SDL_LIBRARY})
-        if (NOT _lib MATCHES "SDLmain|^mingw32$|-mwindows")
-            list(APPEND _pcsxab_sdl_libs "${_lib}")
-        endif()
-    endforeach()
-    set(_pcsxab_sdl_incs ${SDL_INCLUDE_DIR})
 endif()
 
 # ---------------------------------------------------------------------------------------------------------
@@ -238,7 +226,7 @@ set(PCSXAB_SOURCES
     # AutoBleem's own (the port's rule: new files, hooks only in upstream's)
     frontend/ab/ab_config.c frontend/ab/ab_session.c frontend/ab/ab_buttons.c frontend/ab/ab_memcard.c
     frontend/ab/ab_console.c frontend/ab/ab_disc.c frontend/ab/ab_ui.c frontend/ab/ab_hacks.c
-    frontend/ab/ab_debug.c frontend/ab/ab_pad_battery.c frontend/ab/ab_headless.c frontend/ab/ab_hud_text.c
+    frontend/ab/ab_pad_battery.c frontend/ab/ab_headless.c frontend/ab/ab_hud_text.c
     # the smoothing scalers: ours (scale2x/eagle2x in C) and hqx (LGPL, adapted to RGB565)
     frontend/ab/ab_scaler.c frontend/ab/hqx/hqx_init.c frontend/ab/hqx/hq2x.c frontend/ab/hqx/hq3x.c
 )
@@ -269,22 +257,12 @@ if (PCSXAB_PLATFORM STREQUAL "sdl2")
     # libpicofe's plat_dummy.c is the (empty) plat_target, as for upstream's generic platform
     # our GL video (plat_autobleem, docs/render-pipeline-plan.md) + SDL2 input; ab_shaders.c = its passes
     list(APPEND PCSXAB_SOURCES frontend/plat_autobleem.c frontend/libpicofe/plat_autobleem.c
-        frontend/ab/ab_shaders.c
+        frontend/ab/ab_shaders.c frontend/ab/ab_debug.c
         frontend/libpicofe/in_sdl2.c frontend/libpicofe/in_sdl2gc.c frontend/libpicofe/plat_dummy.c)
-elseif (PCSXAB_PLATFORM STREQUAL "sdl")
-    list(APPEND PCSXAB_SOURCES frontend/plat_sdl.c frontend/libpicofe/in_sdl.c frontend/libpicofe/plat_dummy.c)
-    set_source_files_properties(frontend/plat_sdl.c PROPERTIES COMPILE_DEFINITIONS SDL_OVERLAY_2X)
-    if (NOT WIN32)
-        list(APPEND PCSXAB_SOURCES frontend/libpicofe/linux/in_evdev.c)
-    endif()
-    if (PCSXAB_GLES)
-        list(APPEND PCSXAB_SOURCES frontend/libpicofe/gl.c frontend/libpicofe/gl_platform.c frontend/libpicofe/gl_loader.c)
-        set_source_files_properties(frontend/plat_sdl.c frontend/libpicofe/gl.c frontend/libpicofe/gl_platform.c
-            frontend/libpicofe/gl_loader.c PROPERTIES COMPILE_DEFINITIONS "SDL_OVERLAY_2X;HAVE_GLES")
-        set_property(SOURCE frontend/menu.c APPEND PROPERTY COMPILE_DEFINITIONS HAVE_GLES)
-    endif()
 elseif (PCSXAB_PLATFORM STREQUAL "headless")
-    list(APPEND PCSXAB_SOURCES frontend/plat_dummy.c frontend/libpicofe/plat_dummy.c)
+    # ab_plat_headless.c: the sdl2 platform's hooks frontend/ab/ calls (the debug driver, the output modes)
+    list(APPEND PCSXAB_SOURCES frontend/plat_dummy.c frontend/libpicofe/plat_dummy.c
+        frontend/ab/ab_plat_headless.c)
 else()
     message(FATAL_ERROR "unknown PCSXAB_PLATFORM '${PCSXAB_PLATFORM}'")
 endif()

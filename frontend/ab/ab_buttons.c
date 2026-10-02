@@ -37,10 +37,13 @@ static const char hold_hint[] = "HOLD TO EXIT";
 
 void ab_request_action(int action)
 {
-	/* plugin_lib's emu_set_action(), which is static there */
+	/* plugin_lib's emu_set_action() (static there), but a request always ends the slice: its "the same
+	 * action as last time" skip is for a key held over several frames, and a way out we ask for while that
+	 * key is still held (Reset's own, two frames after the press - leave()) was skipped, then overwritten
+	 * by the key's release on the next frame - the first Reset press was lost */
 	if (action == SACTION_NONE)
 		emu_action_old = 0;
-	else if (action != emu_action_old)
+	else
 		psxRegs.stop++;
 	emu_action = action;
 }
@@ -71,6 +74,13 @@ static void leave(int action, const char *why)
 	}
 	SysPrintf("autobleem: %s - leaving with the resume point\n", why);
 	emu_core_ask_exit();
+}
+
+void ab_defer_action(int action)
+{
+	/* exit_held is what ab_frame_tick() hands to ab_request_action(); with no frames to wait it does so at once */
+	if (!exit_held)
+		exit_held = action;
 }
 
 int ab_filter_action(int action)

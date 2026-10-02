@@ -428,6 +428,37 @@ static int utf8_next(const char **s)
 	return cp;
 }
 
+int ab_ui_ascii(const char *utf8, char *out, int size)
+{
+	/* U+00C0..U+00FF's base letters ('?' for the signs among them) */
+	static const char latin1[] = "AAAAAAACEEEEIIIIDNOOOOOxOUUUUYTs" "aaaaaaaceeeeiiiidnooooo-ouuuuyty";
+	const char *s = utf8, *rep;
+	char one[2] = { 0, 0 };
+	int cp, n = 0;
+
+	if (size <= 0)
+		return 0;
+	while (s != NULL && (cp = utf8_next(&s)) != 0) {
+		rep = one;
+		if (cp >= 0x20 && cp < 0x7f)
+			one[0] = (char)cp;
+		else if (cp >= 0xc0 && cp <= 0xff)
+			one[0] = latin1[cp - 0xc0];
+		else if (cp == 0xb7)
+			rep = "-";
+		else if (cp == 0xa9)
+			rep = "(c)";
+		else if (cp == '\n' || cp == '\t' || cp == 0xa0)
+			rep = " ";
+		else
+			rep = "?";
+		for (; *rep != 0 && n < size - 1; rep++)
+			out[n++] = *rep;
+	}
+	out[n] = 0;
+	return n;
+}
+
 int ab_ui_text_width(const char *utf8, int px)
 {
 	float scale, w = 0;

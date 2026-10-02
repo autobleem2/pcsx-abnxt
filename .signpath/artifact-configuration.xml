@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The SignPath project's default artifact configuration - paste it there; SignPath reads its own copy, not
      this file. The artifact is build.yml's win-unsigned (the windows job's winstage/): pcsx-ab.exe is ours
-     and signed; the MSYS2 runtime DLLs next to it (SDL2, sdl12-compat, ...) are third-party and stay as they are. -->
+     and signed; the MSYS2 runtime DLLs next to it (SDL2, libpng, ...) are third-party and stay as they are. -->
 <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
   <zip-file>
     <pe-file path="pcsx-ab.exe">

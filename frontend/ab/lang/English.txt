@@ -261,3 +261,5 @@ failed to write config=failed to write config
 rescan complete.=rescan complete.
 defaults restored=defaults restored
 failed to load cheats=failed to load cheats
+# the way out (Reset, power-off, Exit): shown while the resume point is written
+Please wait...=Please wait...

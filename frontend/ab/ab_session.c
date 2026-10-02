@@ -137,5 +137,9 @@ void ab_session_exit(void)
 	if (exit_saved)
 		return;
 	exit_saved = 1;
+	/* every way out ends here (Reset, power-off, overheat, the menu's Exit, SIGTERM, the window's close):
+	 * "Please wait..." while the resume point is written, when there is one to write */
+	if (ready_to_go && ab_session_game_name()[0] != 0)
+		ab_menu_wait_screen();
 	ab_session_save_exit();
 }
