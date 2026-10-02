@@ -42,6 +42,7 @@
 #include "ab/ab_hud_text.h"
 #include "ab/ab_shaders.h"
 #include "ab/ab_console.h"
+#include "ab/ab_buttons.h"
 #include "ab/ab_ui.h"
 
 /* the keyboard: the same keys upstream's SDL 1.2 platform binds, by scancode */
@@ -152,10 +153,23 @@ static void quit_cb(void)
  * The power daemon's power-off and the overheat stop too: the menus unwind, the game goes on, and its next
  * frame tick (ab_frame_tick) leaves the way it does in the game - leave(), the memory card, the clean frames,
  * the resume point. Only with a game running: without one there is no frame tick to leave through */
+static int menu_reset;	/* the Reset key went down in a menu while a game runs: the run is ending */
+
 static int menu_quit_check(void)
 {
-  return g_emu_want_quit ||
+  return g_emu_want_quit || menu_reset ||
     ((ab_console_power_off_requested || ab_console_overheated) && ready_to_go);
+}
+
+/* the console's Reset button (or F10 - whatever pcsx.cfg binds to "RESET button") is an emulator action, which
+ * a menu's key wait does not read: pressed in a menu it is the same as in the game - the menus unwind, and the
+ * first frame tick after them asks for SACTION_AB_RESET (ab_defer_action), so it leaves through leave() */
+static void menu_emu_key(int acts)
+{
+  if ((acts & (1 << SACTION_AB_RESET)) && ready_to_go && !menu_reset) {
+    menu_reset = 1;
+    ab_defer_action(SACTION_AB_RESET);
+  }
 }
 
 /* the window's output size changed: the menu's canvas and the layer the frame is scaled into follow */
@@ -691,6 +705,7 @@ void plat_init(void)
   in_sdl2gc_init(&in_sdl2gc_platform_data, controller_db_files, pads_changed);
   in_probe();
   in_set_menu_quit_check(menu_quit_check);
+  in_set_menu_emu_key(menu_emu_key);
 
   pl_rearmed_cbs.only_16bpp = 1;
   pl_rearmed_cbs.pl_get_layer_pos = get_layer_pos;

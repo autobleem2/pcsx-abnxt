@@ -73,6 +73,13 @@ static void leave(int action, const char *why)
 	emu_core_ask_exit();
 }
 
+void ab_defer_action(int action)
+{
+	/* exit_held is what ab_frame_tick() hands to ab_request_action(); with no frames to wait it does so at once */
+	if (!exit_held)
+		exit_held = action;
+}
+
 int ab_filter_action(int action)
 {
 	static int held, fired;
