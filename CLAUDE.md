@@ -413,7 +413,8 @@ line-buffered off Windows (`ab_args_take`).
   `--platform=psclassic` with the console toolchain links our emulator (same libraries as the CMake one).
   The libpicofe fork needs no gating: six new files, and of notaz's own only `menu.c`/`menu.h` touched -
   one line each, `menu_sel_name` (the highlighted row's name, which the debug driver reads) - and
-  `input.c`/`input.h`: `in_set_menu_quit_check()`, a hook that does nothing until a platform sets it (EMU-18). The CMake build stays the
+  `input.c`/`input.h`: `in_set_menu_quit_check()` and `in_set_menu_emu_key()`, hooks that do nothing until a
+  platform sets them (EMU-18), and `in_menu_keys_held()`, the menus' key state read without reading a key (BUG-52). The CMake build stays the
   one the scripts and CI use; the Makefile path is the shape a future PR to notaz would take.
 - **Video**: one SDL2 platform everywhere - window + `SDL_GL_CreateContext` (Wayland on the console, KMSDRM
   on the Pi, WGL on Windows) into libpicofe's `gl.c`, SDL_Renderer as the fallback. No hand-written Wayland

@@ -581,10 +581,14 @@ static void ab_draw_message(const char *msg)
 	menu_draw_end();
 }
 
-/* the buttons that got us here are not the screen's */
+/* the buttons that got us here are not the screen's: wait only for those still held - in_menu_wait_any()
+ * reads a key, so asking it when nothing is held ate the first press made as the screen came up (BUG-52:
+ * the menu opened from the game, whose keys never reach the menus' key state, lost its first Down/Return) */
 static void ab_wait_released(void)
 {
-	while (in_menu_wait_any(NULL, 50) & (PBTN_MOK|PBTN_MBACK|PBTN_MENU)) {
+	int held = in_menu_keys_held() & (PBTN_MOK|PBTN_MBACK|PBTN_MENU);
+
+	while (held && (held &= in_menu_wait_any(NULL, 50))) {
 		if (ab_console_power_off_requested)
 			break;
 	}
