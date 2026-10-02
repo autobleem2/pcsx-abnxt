@@ -563,22 +563,42 @@ static void ab_draw_disc_picker(int n, int cur, int sel)
 	menu_draw_end();
 }
 
-static void ab_draw_message(const char *msg)
+/* the message box; with ok == NULL no hint (the way out's "Please wait...", which takes no key) */
+static void ab_draw_box(const char *msg, const char *ok)
 {
 	struct ab_canvas c;
 	float s;
 
 	int px, w;
 
-	ab_debug_screen("message");
 	c = ab_screen_begin();
 	s = c.h / 720.0f;
 	px = (int)(32 * s);
 	w = ab_text_width(msg, px) + (int)(120 * s);
 	ab_panel(&c, (c.w - w) / 2, (int)(c.h * 0.44f) - (int)(40 * s), w, px + (int)(80 * s), s);
 	ab_text(&c, c.w / 2, (int)(c.h * 0.44f), AB_UI_CENTER, msg, px, ab_col_text);
-	ab_footer(&c, ab_ui_str(AB_STR_OK), NULL);
+	if (ok != NULL)
+		ab_footer(&c, ok, NULL);
 	menu_draw_end();
+}
+
+static void ab_draw_message(const char *msg)
+{
+	ab_debug_screen("message");
+	ab_draw_box(msg, ab_ui_str(AB_STR_OK));
+}
+
+/* The way out's "Please wait..." (ab_session_exit(), before the resume point and its files are written,
+ * which on a console's CPU and stick takes a moment): the message box over the menu's art, no hint. Safe
+ * for the resume picture: it is the emulated frame (plat_prepare_screenshot()'s shadow_fb), not the screen,
+ * and menu_leave_emu() only copies it - so the box can go up as soon as the run has ended */
+void ab_menu_wait_screen(void)
+{
+	menu_leave_emu();
+	ab_menu_prepare_bg();
+	ab_ui_load(ab_opts.language);
+	ab_draw_box(ab_ui_tr("Please wait..."), NULL);
+	ab_debug_screen("wait");
 }
 
 /* the buttons that got us here are not the screen's: wait only for those still held - in_menu_wait_any()

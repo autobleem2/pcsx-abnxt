@@ -234,6 +234,10 @@ oldest snapshot, ~10 s back, as Sony's firmware did - the ring (`ab_autosave`, a
 2 s) is gone with it. Two things a way out still waits for (`leave()` in `ab_buttons.c`): a memory-card
 write in the last 2 s (`ab_memcard`; "SAVING..." on the HUD - the state and the card file must agree),
 and two frames presented without the HUD, which is printed into the frame the resume picture is taken from.
+**"Please wait..."** (2026-10-02, the owner's PSC test): `ab_session_exit()` puts the menu's message box over
+its art (`ab_menu_wait_screen()`, no hint) before the resume point is written, on every way out with a game
+loaded - the picture is the emulated frame (`plat_prepare_screenshot()`'s `shadow_fb`), never the screen, so
+the box cannot reach it. Its text is the lang files' `Please wait...` (English and Polish so far).
 **A quit while a menu is open** (the window's close, or SIGTERM, which SDL turns into SDL_QUIT - a stop from
 the launcher, a power-off, a test kit; EMU-18, 2026-10-02) used to wait until the player left the menu:
 `plat_autobleem.c` sets libpicofe's `in_set_menu_quit_check()`, so a menu's wait for a key ends and
