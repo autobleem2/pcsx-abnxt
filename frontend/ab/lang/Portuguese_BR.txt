@@ -261,3 +261,4 @@ failed to write config=Falha ao gravar a configuração
 rescan complete.=Varredura concluída.
 defaults restored=Padrões restaurados
 failed to load cheats=Falha ao carregar os cheats
+Please wait...=Aguarde...

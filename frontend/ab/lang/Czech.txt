@@ -261,3 +261,4 @@ failed to write config=Zápis konfigurace se nezdařil
 rescan complete.=Nový sken dokončen.
 defaults restored=Obnoveno výchozí nastavení
 failed to load cheats=Načtení cheatů se nezdařilo
+Please wait...=Čekejte prosím...

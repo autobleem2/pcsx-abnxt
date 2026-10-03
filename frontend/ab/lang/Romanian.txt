@@ -260,3 +260,4 @@ failed to write config=Scrierea configurației a eșuat
 rescan complete.=Rescanare finalizată.
 defaults restored=Setările implicite au fost restaurate
 failed to load cheats=Încărcarea cheat-urilor a eșuat
+Please wait...=Vă rugăm așteptați...

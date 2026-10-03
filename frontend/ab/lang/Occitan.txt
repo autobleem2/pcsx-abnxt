@@ -258,3 +258,4 @@ failed to write config=l'enregistrament de la configuracion a fracassat
 rescan complete.=recèrca acabada.
 defaults restored=paramètres per defaut restablits
 failed to load cheats=cargament dels còdis de trichariá fracassat
+Please wait...=Esperatz...

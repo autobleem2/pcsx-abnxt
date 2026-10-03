@@ -260,3 +260,4 @@ failed to write config=nastavenia sa nepodarilo uložiť
 rescan complete.=vyhľadávanie dokončené.
 defaults restored=predvolené nastavenia obnovené
 failed to load cheats=nepodarilo sa načítať cheaty
+Please wait...=Čakajte prosím...

@@ -259,3 +259,4 @@ failed to write config=yapılandırma yazılamadı
 rescan complete.=tarama tamamlandı.
 defaults restored=varsayılanlar geri yüklendi
 failed to load cheats=hileler yüklenemedi
+Please wait...=Lütfen bekleyin...
