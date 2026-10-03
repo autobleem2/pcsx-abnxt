@@ -261,3 +261,4 @@ failed to write config=Det gick inte att skriva konfigurationen
 rescan complete.=Sökningen slutförd.
 defaults restored=Standardinställningar återställda
 failed to load cheats=Det gick inte att läsa in fusk
+Please wait...=Vänta...

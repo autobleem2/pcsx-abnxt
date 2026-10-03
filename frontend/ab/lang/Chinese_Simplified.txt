@@ -258,3 +258,4 @@ failed to write config=设置写入失败
 rescan complete.=扫描完成。
 defaults restored=已恢复默认设置
 failed to load cheats=金手指加载失败
+Please wait...=请稍候...

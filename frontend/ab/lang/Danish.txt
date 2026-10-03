@@ -261,3 +261,4 @@ failed to write config=Konfigurationen kunne ikke skrives.
 rescan complete.=Ny gennemsøgning fuldført.
 defaults restored=Standardindstillinger gendannet.
 failed to load cheats=Snydekoder kunne ikke indlæses.
+Please wait...=Vent venligst...

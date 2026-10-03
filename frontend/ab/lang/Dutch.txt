@@ -261,3 +261,4 @@ failed to write config=Configuratie schrijven mislukt.
 rescan complete.=Opnieuw scannen voltooid.
 defaults restored=Standaardinstellingen hersteld.
 failed to load cheats=Cheats laden mislukt.
+Please wait...=Even geduld...

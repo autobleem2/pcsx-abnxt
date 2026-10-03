@@ -261,3 +261,4 @@ failed to write config=Asetusten kirjoittaminen epäonnistui
 rescan complete.=Uudelleentarkistus valmis.
 defaults restored=Oletusasetukset palautettu
 failed to load cheats=Huijausten lataaminen epäonnistui
+Please wait...=Odota...

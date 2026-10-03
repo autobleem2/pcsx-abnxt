@@ -261,3 +261,4 @@ failed to write config=No se pudo escribir la configuración
 rescan complete.=Análisis completado.
 defaults restored=Configuración predeterminada restaurada
 failed to load cheats=No se pudieron cargar los trucos
+Please wait...=Espera, por favor...
