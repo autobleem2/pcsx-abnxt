@@ -345,6 +345,10 @@ jobs:
         with:
           repository: autobleem2/autobleem-repo
           path: autobleem-repo-tools
+      # the self-hosted workspace outlives the job: without this, `dist/packages/*` below also published every
+      # earlier build's packages still lying there (2026-10-03: alpha0/alpha2 files in emu/pcsx-abnxt/v2.0.0-alpha1/)
+      - name: Start from an empty dist/packages
+        run: rm -rf dist/packages
       - uses: actions/download-artifact@v8
         with:
           name: packages
@@ -373,6 +377,10 @@ jobs:
         with:
           repository: autobleem2/autobleem-repo
           path: autobleem-repo-tools
+      # the self-hosted workspace outlives the job: without this, `dist/packages/*` below also published every
+      # earlier build's packages still lying there (2026-10-03: alpha0/alpha2 files in emu/pcsx-abnxt/v2.0.0-alpha1/)
+      - name: Start from an empty dist/packages
+        run: rm -rf dist/packages
       - uses: actions/download-artifact@v8
         with:
           name: packages
