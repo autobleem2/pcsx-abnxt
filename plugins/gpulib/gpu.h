@@ -84,7 +84,7 @@ struct psx_gpu {
     uint32_t fb_dirty_display_area:1;
     uint32_t draw_display_intersect:1;
     uint32_t old_interlace:1;
-    uint32_t allow_interlace:2;
+    uint32_t allow_interlace:2;         // 0 off, 1 on, 2 guess, 3 on_db
     uint32_t blanked:1;
     uint32_t use_alternative_flip:1;
     uint32_t enhancement_enable:1;
@@ -162,8 +162,8 @@ void vout_set_config(const struct rearmed_cbs *config);
 // helpers
 #define VRAM_MEM_XY(vram_, x, y) &vram_[(y) * 1024 + (x)]
 
-int  do_vram_copy(uint16_t *vram, const uint32_t *ex_regs,
-       const uint32_t *params, int *cpu_cycles);
+int  do_vram_copy_pre(struct psx_gpu *gpu, const uint32_t *params, int *cpu_cycles);
+int  do_vram_copy(uint16_t *vram, const uint32_t *ex_regs, const uint32_t *params);
 
 int  prim_try_simplify_quad_t (void *simplified, const void *prim);
 int  prim_try_simplify_quad_gt(void *simplified, const void *prim);

@@ -20,7 +20,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #endif
-#include <zlib.h>
+#include "zlib_wrapper.h"
 
 #include "retro_miscellaneous.h"
 #ifdef SWITCH
@@ -37,6 +37,7 @@
 #include "../libpcsxcore/cheat.h"
 #include "../libpcsxcore/r3000a.h"
 #include "../libpcsxcore/gpu.h"
+#include "../libpcsxcore/sio.h"
 #include "../libpcsxcore/database.h"
 #include "../plugins/dfsound/out.h"
 #include "../plugins/dfsound/spu_config.h"
@@ -53,6 +54,8 @@
 
 #ifdef USE_LIBRETRO_VFS
 #include <streams/file_stream_transforms.h>
+#include <file/file_path.h>
+#include <retro_dirent.h>
 #endif
 
 #ifdef _3DS
@@ -87,8 +90,7 @@
 #define RETRO_ENVIRONMENT_SET_SAVE_STATE_DISABLE_UNDO 0x800005
 #endif
 
-//hack to prevent retroarch freezing when reseting in the menu but not while running with the hot key
-static int rebootemu = 0;
+static bool reset_pending = false;
 
 static retro_video_refresh_t video_cb;
 static retro_input_poll_t input_poll_cb;
@@ -124,8 +126,16 @@ static bool show_advanced_gpu_peops_settings = true;
 #ifdef GPU_UNAI
 static bool show_advanced_gpu_unai_settings = true;
 #endif
+static bool show_info_notifications = true;
 static float mouse_sensitivity = 1.0f;
 static unsigned int disk_current_index;
+
+static enum {
+   MEMCARDTYPE_NONE = 0,
+   MEMCARDTYPE_SERIAL,
+   MEMCARDTYPE_SHARED,
+   MEMCARDTYPE_LIBRETRO,
+} memcard_type[2];
 
 typedef enum
 {
@@ -152,11 +162,6 @@ static enum retro_pixel_format current_fmt;
 static int plugins_opened;
 
 #define is_pal_mode Config.PsxType
-
-/* memory card data */
-extern char Mcd1Data[MCD_SIZE];
-extern char Mcd2Data[MCD_SIZE];
-extern char McdDisable[2];
 
 /* PCSX ReARMed core calls and stuff */
 int in_type[8] = {
@@ -1117,10 +1122,14 @@ void retro_set_environment(retro_environment_t cb)
    }
 
 #ifdef USE_LIBRETRO_VFS
-   vfs_iface_info.required_interface_version = 1;
+   vfs_iface_info.required_interface_version = 3; /* stat */
    vfs_iface_info.iface                      = NULL;
    if (environ_cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs_iface_info))
+   {
 	   filestream_vfs_init(&vfs_iface_info);
+	   path_vfs_init(&vfs_iface_info);
+	   dirent_vfs_init(&vfs_iface_info);
+   }
 #endif
 }
 
@@ -1323,6 +1332,10 @@ static void save_close(void *file)
    free(fp);
 }
 
+struct PcsxSaveFuncs SaveFuncs = {
+	save_open, save_read, save_write, save_seek, save_close
+};
+
 bool retro_serialize(void *data, size_t size)
 {
    int ret;
@@ -1501,13 +1514,13 @@ static unsigned int disk_get_image_index(void)
 
 static bool disk_set_image_index(unsigned int index)
 {
-   if (index >= sizeof(disks) / sizeof(disks[0]))
+   if (index > disk_count)
       return false;
 
    CdromId[0] = '\0';
    CdromLabel[0] = '\0';
 
-   if (disks[index].fname == NULL)
+   if (index == disk_count || disks[index].fname == NULL)
    {
       LogErr("missing disk #%u\n", index);
       cdra_shutdown();
@@ -1706,7 +1719,11 @@ static bool read_m3u(const char *file)
          char disk_label[PATH_MAX];
          disk_label[0] = '\0';
 
-         snprintf(name, sizeof(name), "%s%c%s", base_dir, SLASH, line);
+         if (line[0] == '/' || line[0] == '\\' ||
+             (line[1] == ':' && (line[2] == '/' || line[2] == '\\')))
+            snprintf(name, sizeof(name), "%s", line);
+         else
+            snprintf(name, sizeof(name), "%s%c%s", base_dir, SLASH, line);
          disks[disk_count].fname = strdup(name);
 
          get_disk_label(disk_label, name, PATH_MAX);
@@ -1788,8 +1805,9 @@ static void set_retro_memmap(void)
    environ_cb(RETRO_ENVIRONMENT_SET_MEMORY_MAPS, &retromap);
 }
 
-static void show_notification(const char *msg_str,
-      unsigned duration_ms, unsigned priority, enum retro_log_level level)
+static void show_message(const char *msg_str,
+      unsigned duration_ms, unsigned priority, enum retro_log_level level,
+      enum retro_message_target target, enum retro_message_type type)
 {
    if (msg_interface_version >= 1)
    {
@@ -1797,10 +1815,7 @@ static void show_notification(const char *msg_str,
          msg_str,
          duration_ms,
          priority,
-         level,
-         RETRO_MESSAGE_TARGET_ALL,
-         RETRO_MESSAGE_TYPE_NOTIFICATION,
-         -1
+         level, target, type, -1
       };
       environ_cb(RETRO_ENVIRONMENT_SET_MESSAGE_EXT, &msg);
    }
@@ -1812,6 +1827,13 @@ static void show_notification(const char *msg_str,
       };
       environ_cb(RETRO_ENVIRONMENT_SET_MESSAGE, &msg);
    }
+}
+
+static void show_notification(const char *msg_str,
+      unsigned duration_ms, unsigned priority, enum retro_log_level level)
+{
+   show_message(msg_str, duration_ms, priority, level,
+         RETRO_MESSAGE_TARGET_ALL, RETRO_MESSAGE_TYPE_NOTIFICATION);
 }
 
 static void retro_audio_buff_status_cb(
@@ -1871,6 +1893,7 @@ static void retro_set_audio_buff_status_cb(void)
 }
 
 static void update_variables(bool in_flight);
+static void load_memcards(void);
 
 static int get_bool_variable(const char *key)
 {
@@ -1883,6 +1906,47 @@ static int get_bool_variable(const char *key)
          return 1;
    }
    return 0;
+}
+
+static void show_enabled_hacks(void)
+{
+   char msg[256], *p = msg;
+   int count = 0;
+
+   snprintf(p, sizeof(msg) - (p - msg), "Enabled hacks: ");
+   p += strlen(p);
+   if (Config.TurboCD) {
+      snprintf(p, sizeof(msg) - (p - msg), "TurboCD");
+      p += strlen(p);
+      count++;
+   }
+   if (pl_rearmed_cbs.gpu_neon.enhancement_enable &&
+         pl_rearmed_cbs.gpu_neon.enhancement_no_main) {
+      snprintf(p, sizeof(msg) - (p - msg), "%s%s", count ? ", " : "",
+            "Enh. Res. Speed Hack");
+      p += strlen(p);
+      count++;
+   }
+   if (Config.cycle_multiplier != CYCLE_MULT_DEFAULT) {
+      snprintf(p, sizeof(msg) - (p - msg), "%s%s%d", count ? ", " : "", "PSX CPU Clock",
+            Config.cycle_multiplier > 0 ? 10000 / Config.cycle_multiplier : 0);
+      p += strlen(p);
+      count++;
+   }
+#if !defined(DRC_DISABLE) && !defined(LIGHTREC)
+   if (ndrc_g.hacks & (NDHACK_NO_SMC_CHECK|NDHACK_GTE_UNNEEDED|NDHACK_GTE_NO_FLAGS|
+                       NDHACK_NO_LD_DELAY)) {
+      snprintf(p, sizeof(msg) - (p - msg), "%s%s", count ? ", " : "",
+            "DRC Hacks");
+      p += strlen(p);
+      count++;
+   }
+#endif
+   if (count) {
+      LogWarn("%s\n", msg);
+      if (show_info_notifications)
+         show_notification(msg, 1600, 2, RETRO_LOG_INFO);
+   }
 }
 
 bool retro_load_game(const struct retro_game_info *info)
@@ -2016,7 +2080,7 @@ bool retro_load_game(const struct retro_game_info *info)
 
    plugins_opened = 1;
 
-   if (OpenPlugins() == -1)
+   if (OpenPlugins(0) == -1)
    {
       LogErr("failed to open plugins\n");
       return false;
@@ -2106,13 +2170,14 @@ bool retro_load_game(const struct retro_game_info *info)
       Config.PsxType = PSX_TYPE_NTSC;
    }
 
+   load_memcards();
    plugin_call_rearmed_cbs();
    SysReset();
 
    if (is_exe)
       ret = Load(info->path);
    else
-      ret = LoadCdrom();
+      ret = LoadCdromMainExe(NULL);
    if (ret != 0)
    {
       LogErr("could not load %s (%d)\n", is_exe ? "exe" : "CD", ret);
@@ -2137,16 +2202,16 @@ bool retro_load_game(const struct retro_game_info *info)
       show_notification("LibCrypt protected game with missing SBI detected",
             3000, 3, RETRO_LOG_WARN);
    }
-   if (Config.SlowBoot)
+   if (Config.SlowBoot && show_info_notifications)
    {
       char buf[16+64];
       if (Config.PsxRegion < ARRAY_SIZE(Config.Bios) && Config.Bios[Config.PsxRegion][0]) {
          snprintf(buf, sizeof(buf), "Booting BIOS: %s", Config.Bios[Config.PsxRegion]);
-         show_notification(buf, 1000, 2, RETRO_LOG_INFO);
+         show_message(buf, 1200, 2, RETRO_LOG_INFO, RETRO_MESSAGE_TARGET_OSD,
+               RETRO_MESSAGE_TYPE_PROGRESS);
       }
    }
-   if (Config.TurboCD)
-      show_notification("TurboCD is ON", 700, 2, RETRO_LOG_INFO);
+   show_enabled_hacks();
 
    return true;
 }
@@ -2158,28 +2223,34 @@ unsigned retro_get_region(void)
 
 void *retro_get_memory_data(unsigned id)
 {
-   if (id == RETRO_MEMORY_SAVE_RAM)
-      return Mcd1Data;
-   else if (id == RETRO_MEMORY_SYSTEM_RAM)
+   switch (id)
+   {
+   case RETRO_MEMORY_SYSTEM_RAM:
       return psxRegs.ptrs.psxM;
-   else
-      return NULL;
+   case RETRO_MEMORY_SAVE_RAM:
+      if (memcard_type[0] == MEMCARDTYPE_LIBRETRO)
+         return Mcd1Data;
+   }
+   return NULL;
 }
 
 size_t retro_get_memory_size(unsigned id)
 {
-   if (id == RETRO_MEMORY_SAVE_RAM)
-      return MCD_SIZE;
-   else if (id == RETRO_MEMORY_SYSTEM_RAM)
+   switch (id)
+   {
+   case RETRO_MEMORY_SYSTEM_RAM:
       return 0x200000;
-   else
-      return 0;
+   case RETRO_MEMORY_SAVE_RAM:
+      if (memcard_type[0] == MEMCARDTYPE_LIBRETRO)
+         return MCD_SIZE;
+   }
+   return 0;
 }
 
 void retro_reset(void)
 {
    //hack to prevent retroarch freezing when reseting in the menu but not while running with the hot key
-   rebootemu = 1;
+   reset_pending = true;
    //SysReset();
 }
 
@@ -2428,6 +2499,8 @@ static void update_variables(bool in_flight)
          display_internal_fps = 0;
    }
 
+   show_info_notifications = get_bool_variable("pcsx_rearmed_display_info");
+
    var.value = NULL;
    var.key = "pcsx_rearmed_cd_turbo";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
@@ -2544,6 +2617,16 @@ static void update_variables(bool in_flight)
          ndrc_g.hacks |= NDHACK_NO_COMPAT_HACKS;
       else
          ndrc_g.hacks &= ~NDHACK_NO_COMPAT_HACKS;
+   }
+
+   var.value = NULL;
+   var.key = "pcsx_rearmed_nolddelay";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (strcmp(var.value, "enabled") == 0)
+         ndrc_g.hacks |= NDHACK_NO_LD_DELAY;
+      else
+         ndrc_g.hacks &= ~NDHACK_NO_LD_DELAY;
    }
 #endif /* !DRC_DISABLE && !LIGHTREC */
 
@@ -3419,13 +3502,15 @@ static void prepare_bios(bool use_hle);
 void retro_run(void)
 {
    //SysReset must be run while core is running,Not in menu (Locks up Retroarch)
-   if (rebootemu != 0)
+   if (reset_pending)
    {
-      rebootemu = 0;
+      reset_pending = false;
       prepare_bios(get_bios_config_hle());
       SysReset();
-      if (Config.HLE)
-         LoadCdrom();
+      if (CheckResetManualExe())
+         ;
+      else if (Config.HLE)
+         LoadCdromMainExe(NULL);
    }
 
    set_vout_fb();
@@ -3590,6 +3675,33 @@ finish:
 }
 
 #ifndef VITA
+#ifdef USE_LIBRETRO_VFS
+/**
+ * Finds a given bios by using libretro-common's readdir().
+ */
+static void find_any_bios(const char *dirpath, char *path, size_t path_size)
+{
+   struct RDIR *dir;
+   const char *name;
+
+   dir = retro_opendir(dirpath);
+   if (dir == NULL)
+      return;
+
+   while (retro_readdir(dir))
+   {
+      name = retro_dirent_get_name(dir);
+      if (name[0] == '.' && (name[1] == '.' || !name[1]))
+         continue;
+      snprintf(path, path_size, "%s%c%s", dirpath, SLASH, name);
+      try_use_bios(path, path_size, true, false);
+      if (have_all_bios())
+         break;
+   }
+
+   retro_closedir(dir);
+}
+#else
 #include <sys/types.h>
 #include <dirent.h>
 
@@ -3604,6 +3716,8 @@ static void find_any_bios(const char *dirpath, char *path, size_t path_size)
 
    while ((ent = readdir(dir)))
    {
+      if (ent->d_name[0] == '.' && (ent->d_name[1] == '.' || !ent->d_name[1]))
+         continue;
       snprintf(path, path_size, "%s%c%s", dirpath, SLASH, ent->d_name);
       try_use_bios(path, path_size, true, false);
       if (have_all_bios())
@@ -3612,6 +3726,7 @@ static void find_any_bios(const char *dirpath, char *path, size_t path_size)
 
    closedir(dir);
 }
+#endif
 #else
 #define find_any_bios(...)
 #endif
@@ -3622,50 +3737,78 @@ static void check_system_specs(void)
    environ_cb(RETRO_ENVIRONMENT_SET_PERFORMANCE_LEVEL, &level);
 }
 
-static int init_memcards(void)
+static void init_memcards(void)
 {
-   int ret = 0;
-   const char *dir;
-   struct retro_variable var = { .key = "pcsx_rearmed_memcard2", .value = NULL };
-   static const char CARD2_FILE[] = "pcsx-card2.mcd";
-
-   // Memcard2 will be handled and is re-enabled if needed using core
-   // operations.
-   // Memcard1 is handled by libretro, doing this will set core to
-   // skip file io operations for memcard1 like SaveMcd
    snprintf(Config.Mcd1, sizeof(Config.Mcd1), "none");
    snprintf(Config.Mcd2, sizeof(Config.Mcd2), "none");
    init_memcard(Mcd1Data);
-   // Memcard 2 is managed by the emulator on the filesystem,
-   // There is no need to initialize Mcd2Data like Mcd1Data.
+   init_memcard(Mcd2Data);
 
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      SysPrintf("Memcard 2: %s\n", var.value);
-      if (memcmp(var.value, "enabled", 7) == 0)
-      {
-         if (environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir) && dir)
-         {
-            if (strlen(dir) + strlen(CARD2_FILE) + 2 > sizeof(Config.Mcd2))
-            {
-               LogErr("Path '%s' is too long. Cannot use memcard 2. Use a shorter path.\n", dir);
-               ret = -1;
-            }
-            else
-            {
-               McdDisable[1] = 0;
-               snprintf(Config.Mcd2, sizeof(Config.Mcd2), "%s/%s", dir, CARD2_FILE);
-               SysPrintf("Use memcard 2: %s\n", Config.Mcd2);
-            }
-         }
-         else
-         {
-            LogErr("Could not get save directory! Could not create memcard 2.");
-            ret = -1;
-         }
+   // we'll do the actual loading after the game's serial is known
+}
+
+static void get_dash_serial(char *dst, size_t size)
+{
+   bool dash_added = false;
+   size_t d, s;
+   for (d = s = 0; d + 1 < size; d++) {
+      char c = CdromId[s];
+      if (c == 0)
+         break;
+      if (!dash_added && '0' <= c && c <= '9') {
+         dst[d] = '-';
+         dash_added = true;
+         continue;
       }
+      dst[d] = c;
+      s++;
    }
-   return ret;
+   dst[d] = 0;
+}
+
+static void load_memcards(void)
+{
+   struct retro_variable var = { NULL, };
+   const char *dir = NULL;
+   char buf[128];
+   int c;
+
+   if (!environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir) || !dir)
+      LogErr("Could not get save directory! Memory card saving might not work.");
+   else if (strlen(dir) + strlen("XXXX-00000_1.mcd") + 2 > sizeof(Config.Mcd1)) {
+      LogErr("Path '%s' is too long. Memory card saving might not work.", dir);
+      dir = NULL;
+   }
+
+   for (c = 1; c <= 2; c++) {
+      char *mcdpath = (c == 1) ? Config.Mcd1 : Config.Mcd2;
+      snprintf(buf, sizeof(buf), "pcsx_rearmed_memcard%d", c);
+      var.key = buf;
+      if (!environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) || !var.value) {
+         LogErr("non memcard%d config?", c);
+         continue;
+      }
+      if (!strcmp(var.value, "libretro")) {
+         memcard_type[c - 1] = MEMCARDTYPE_LIBRETRO;
+         mcdpath[0] = 0;
+         SysPrintf("memcard %d is libretro-managed\n", c);
+      }
+      else if (!strcmp(var.value, "serial") && dir && CdromId[0]) {
+         memcard_type[c - 1] = MEMCARDTYPE_SERIAL;
+         get_dash_serial(buf, sizeof(buf));
+         snprintf(mcdpath, sizeof(Config.Mcd1), "%s/%s_%d.mcd", dir, buf, c);
+      }
+      else if (!strcmp(var.value, "shared") && dir) {
+         memcard_type[c - 1] = MEMCARDTYPE_SHARED;
+         snprintf(mcdpath, sizeof(Config.Mcd1), "%s/pcsx-card%d.mcd", dir, c);
+      }
+      else {
+         memcard_type[c - 1] = MEMCARDTYPE_NONE;
+         snprintf(mcdpath, sizeof(Config.Mcd1), "none");
+         SysPrintf("memcard %d is disabled\n", c);
+      }
+      LoadMcd(c, mcdpath);
+   }
 }
 
 static bool get_bios_config_hle(void)
@@ -3796,7 +3939,7 @@ void retro_init(void)
    if (!__ctr_svchax)
       Config.Cpu = CPU_INTERPRETER;
 #endif
-   ret |= init_memcards();
+   init_memcards();
 
    ret |= emu_core_init();
    if (ret != 0)
@@ -3852,12 +3995,6 @@ void retro_init(void)
       rumble_cb = rumble.set_rumble_state;
 
    pl_rearmed_cbs.gpu_peops.dwActFixes = GPU_PEOPS_OLD_FRAME_SKIP;
-
-   SaveFuncs.open = save_open;
-   SaveFuncs.read = save_read;
-   SaveFuncs.write = save_write;
-   SaveFuncs.seek = save_seek;
-   SaveFuncs.close = save_close;
 
    if (environ_cb(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
       libretro_supports_bitmasks = true;

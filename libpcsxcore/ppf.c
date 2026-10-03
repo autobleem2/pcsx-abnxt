@@ -26,6 +26,14 @@
 #include "misc.h"
 #include "cdrom.h"
 
+#ifdef USE_LIBRETRO_VFS
+#include <streams/file_stream_transforms.h>
+#undef fseek
+/* Adapt rfseek's position/-1 result to fseek's status result. */
+#define fseek(stream, offset, origin) \
+	(rfseek(stream, offset, origin) < 0 ? -1 : 0)
+#endif
+
 typedef struct tagPPF_DATA {
 	s32					addr;
 	s32					pos;
@@ -423,7 +431,7 @@ int LoadSBI(const char *fname, int sector_count) {
 
 end:
 	if (!clean_eof)
-		SysPrintf(_("SBI: parse failure at 0x%lx\n"), ftell(sbihandle));
+		SysPrintf(_("SBI: parse failure at 0x%lx\n"), (long)ftell(sbihandle));
 	if (!good_sectors) {
 		free(sbi_sectors);
 		sbi_sectors = NULL;

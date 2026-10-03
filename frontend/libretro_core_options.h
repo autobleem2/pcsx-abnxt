@@ -151,18 +151,35 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled",
    },
    {
-      "pcsx_rearmed_memcard2",
-      "Second Memory Card (Shared)",
+      "pcsx_rearmed_memcard1",
+      "Memory Card 1 Type (Restart)",
       NULL,
-      "Emulate a second memory card in slot 2. This will be shared by all games.",
+      "How to emulate the memory card in slot 1. 'Libretro' passes the card data to the frontend (usually saved as .srm). 'Game Code' saves it to a file named based on the serial, such as SCUS-00001_1.mcd, for compatibility with some other emulators.",
       NULL,
       "system",
       {
-         { "disabled", NULL },
-         { "enabled",  NULL },
+         { "libretro", "Libretro (Default)" },
+         { "serial", "Game Code (Serial)" },
+         { "shared", "Shared Between All Games" },
+         { "none", "No Memory Card" },
          { NULL, NULL },
       },
-      "disabled",
+      "libretro",
+   },
+   {
+      "pcsx_rearmed_memcard2",
+      "Memory Card 2 Type",
+      NULL,
+      "Same as above, but card in slot 2.",
+      NULL,
+      "system",
+      {
+         { "serial", "Game Code (Serial)" },
+         { "shared", "Shared Between All Games" },
+         { "none", "No Memory Card" },
+         { NULL, NULL },
+      },
+      "shared",
    },
 #if defined(HAVE_CDROM) || defined(USE_ASYNC_CDROM)
 #define V(x) { #x, NULL }
@@ -185,7 +202,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
          V(8),  V(9),  V(10), V(11), V(12), V(13), V(14), V(15),
          V(16), V(32), V(64), V(128), V(256), V(512), V(1024),
 #if !defined(_3DS) && !defined(VITA)
-	 V(333000),
+         V(333000),
 #endif
          { NULL, NULL},
       },
@@ -432,6 +449,20 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled",
    },
    {
+      "pcsx_rearmed_display_info",
+      "Display Informational Notifications",
+      NULL,
+      "Shows things like unsafe hack options that are enabled and the BIOS name that is booting.",
+      NULL,
+      "video",
+      {
+         { "disabled", NULL },
+         { "enabled",  NULL },
+         { NULL, NULL },
+      },
+      "enabled",
+   },
+   {
       "pcsx_rearmed_fractional_framerate",
       "Use fractional frame rate",
       NULL,
@@ -562,7 +593,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "video",
       {
          V(-16), V(-15), V(-14), V(-13), V(-12), V(-11), V(-10), V(-9), V(-8), V(-7), V(-6), V(-5), V(-4), V(-3), V(-2), V(-1),
-	 V(0), V(1), V(2), V(3), V(4), V(5), V(6), V(7), V(8), V(9), V(10), V(11), V(12), V(13), V(14), V(15), V(16),
+         V(0), V(1), V(2), V(3), V(4), V(5), V(6), V(7), V(8), V(9), V(10), V(11), V(12), V(13), V(14), V(15), V(16),
          { NULL, NULL },
       },
       "0",
@@ -1719,6 +1750,20 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled",
    },
    {
+      "pcsx_rearmed_nolddelay",
+      "(Hack) Disable Pipeline Delays",
+      "Disable Pipeline Delays",
+      "For compatibility with older emulators and broken romhacks. Not what real console does, normally should be disabled.",
+      NULL,
+      "compat_hack",
+      {
+         { "disabled", NULL },
+         { "enabled",  NULL },
+         { NULL, NULL },
+      },
+      "disabled",
+   },
+   {
       "pcsx_rearmed_nosmccheck",
       "(Speed Hack) Disable SMC Checks",
       "Disable SMC Checks",
@@ -2110,3 +2155,5 @@ error:
 #endif
 
 #endif
+
+// vim:sw=3:ts=3:expandtab

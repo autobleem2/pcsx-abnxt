@@ -45,3 +45,8 @@ psx_gpu_offsets_update
 
 /dist/
 /build_win_rel/
+
+/tests/*.exe
+/tests/*.exe.*
+/tests/testcd.cue
+/tests/testcd.bin

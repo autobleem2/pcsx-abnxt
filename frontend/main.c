@@ -75,6 +75,7 @@ static void StartDebugger() {}
 static void StopDebugger() {}
 
 int ready_to_go, g_emu_want_quit, g_emu_resetting;
+int g_novideo;
 unsigned long gpuDisp;
 char cfgfile_basename[MAXPATHLEN];
 int state_slot;
@@ -208,6 +209,8 @@ void do_emu_action(void)
 		snprintf(hud_msg, sizeof(hud_msg), ret == 0 ? "SAVED" : "FAIL!");
 		break;
 	case SACTION_ENTER_MENU:
+		if (g_novideo)
+			break;
 		toggle_fast_forward(1);
 		menu_loop();
 		return;
@@ -534,7 +537,7 @@ int emu_core_init(void)
 void emu_core_ask_exit(void)
 {
 	psxRegs.stop++;
-	g_emu_want_quit = 1;
+	g_emu_want_quit++;
 }
 
 #ifndef NO_FRONTEND
@@ -653,8 +656,13 @@ int main(int argc, char *argv[])
 	char isofilename[MAXPATHLEN];
 	const char *cdfile = NULL;
 	const char *loadst_f = NULL;
+	const char *save_exe_f = NULL;
 	int psxout = 0;
+	int psxin = 0;
+	int nothread = 0;
+	int nodrc = 0;
 	int loadst = 0;
+	int retval = 0;
 	int i;
 
 #ifdef PSCLASSIC
@@ -665,8 +673,20 @@ int main(int argc, char *argv[])
 
 	// read command line options
 	for (i = 1; i < argc; i++) {
-		     if (!strcmp(argv[i], "-psxout")) psxout = 1;
-		else if (!strcmp(argv[i], "-load")) loadst = atol(argv[++i]);
+		if (!strcmp(argv[i], "-psxout") || !strcmp(argv[i], "-stdout"))
+			psxout = 1;
+		else if (!strcmp(argv[i], "-psxin") || !strcmp(argv[i], "-stdin"))
+			psxin = 1;
+		else if (!strcmp(argv[i], "-novid"))
+			g_novideo = 1;
+		else if (!strcmp(argv[i], "-nothread"))
+			nothread = 1;
+		else if (!strcmp(argv[i], "-nodrc"))
+			nodrc = 1;
+		else if (!strcmp(argv[i], "-load")) {
+			if (i+1 >= argc) break;
+			loadst = atol(argv[++i]);
+		}
 		else if (!strcmp(argv[i], "-cfg")) {
 			if (i+1 >= argc) break;
 			strncpy(cfgfile_basename, argv[++i], MAXPATHLEN-100);	/* TODO buffer overruns */
@@ -676,8 +696,8 @@ int main(int argc, char *argv[])
 			if (i+1 >= argc) break;
 			strncpy(isofilename, argv[++i], MAXPATHLEN);
 			if (!path_is_absolute(isofilename)) {
-				getcwd(path, MAXPATHLEN);
-				if (strlen(path) + strlen(isofilename) + 1 < MAXPATHLEN) {
+				if (getcwd(path, MAXPATHLEN) != NULL &&
+				    strlen(path) + strlen(isofilename) + 1 < MAXPATHLEN) {
 					strcat(path, "/");
 					strcat(path, isofilename);
 					strcpy(isofilename, path);
@@ -691,26 +711,35 @@ int main(int argc, char *argv[])
 			if (i+1 >= argc) break;
 			loadst_f = argv[++i];
 		}
+		else if (!strcmp(argv[i], "-exesave")) {
+			if (i+1 >= argc) break;
+			save_exe_f = argv[++i];
+		}
 		else if (!strcmp(argv[i], "-h") ||
 			 !strcmp(argv[i], "-help") ||
 			 !strcmp(argv[i], "--help")) {
 			 printf("PCSX-ReARMed " REV "\n");
 			 printf("%s\n", _(
-							" pcsx [options] [file]\n"
-							"\toptions:\n"
-							"\t-cdfile FILE\tRuns a CD image file\n"
-							"\t-cfg FILE\tLoads desired configuration file (default: ~/.pcsx/pcsx.cfg)\n"
-							"\t-psxout\t\tEnable PSX output\n"
-							"\t-load STATENUM\tLoads savestate STATENUM (1-9)\n"
-							"\t-loadf FILE\tLoads savestate from FILE\n"
-							"\t-h -help\tDisplay this message\n"
-							"\tfile\t\tLoads a PSX EXE file\n"));
+				" pcsx [options] [file]\n"
+				"\toptions:\n"
+				"\t-cdfile FILE\tRuns a CD image file\n"
+				"\t-cfg FILE\tLoads desired configuration file (default: ~/.pcsx/pcsx.cfg)\n"
+				"\t-psxout,-stdout\tEnable PSX stdout\n"
+				"\t-psxin,-stdin\tConnect host stdin to PSX stdin\n"
+				"\t-novid\t\tNo video output, menu or window\n"
+				"\t-nothread\tDon't use any threads\n"
+				"\t-nodrc\t\tDisable dynamic recompiler\n"
+				"\t-load STATENUM\tLoads savestate STATENUM (1-9)\n"
+				"\t-loadf FILE\tLoads savestate from FILE\n"
+				"\t-exesave FILE\tWrite main game exe fo FILE\n"
+				"\t-h,-help\tDisplay this message\n"
+				"\tfile\t\tLoads a PSX EXE file\n"));
 			 return 0;
 		} else {
 			strncpy(file, argv[i], MAXPATHLEN);
 			if (!path_is_absolute(file)) {
-				getcwd(path, MAXPATHLEN);
-				if (strlen(path) + strlen(file) + 1 < MAXPATHLEN) {
+				if (getcwd(path, MAXPATHLEN) != NULL &&
+				    strlen(path) + strlen(file) + 1 < MAXPATHLEN) {
 					strcat(path, "/");
 					strcat(path, file);
 					strcpy(file, path);
@@ -739,11 +768,24 @@ int main(int argc, char *argv[])
 	plat_init();
 	menu_init(); // loads config
 
+	if (nothread) {
+		ndrc_g.hacks |= NDHACK_THREAD_FORCE;
+		ndrc_g.hacks &= ~NDHACK_THREAD_FORCE_ON;
+		spu_config.iUseThread = 0;
+		pl_rearmed_cbs.thread_rendering = 0;
+		cdra_set_buf_count(0);
+	}
+	if (nodrc)
+		Config.Cpu = 1;
+
+	// starts some threads
 	if (emu_core_init() != 0)
 		return 1;
 
 	if (psxout)
-		Config.PsxOut = 1;
+		Config.PsxStdOut = 1;
+	if (psxin)
+		Config.PsxStdIn = 1;
 
 	if (LoadPlugins() == -1) {
 		// FIXME: this recovery doesn't work, just delete bad config and bail out
@@ -756,7 +798,7 @@ int main(int argc, char *argv[])
 	}
 	pcnt_hook_plugins();
 
-	if (OpenPlugins() == -1) {
+	if (OpenPlugins(1) == -1) {
 		return 1;
 	}
 
@@ -769,7 +811,7 @@ int main(int argc, char *argv[])
 			ready_to_go = 1;
 	} else {
 		if (cdfile)
-			ready_to_go = menu_load_cd_image(cdfile) == 0;
+			ready_to_go = menu_load_cd_image(cdfile, save_exe_f) == 0;
 	}
 
 	if (loadst_f) {
@@ -783,11 +825,16 @@ int main(int argc, char *argv[])
 		menu_prepare_emu();
 
 		// If a state slot has been specified, then load that
-		if (cdfile && loadst) {
+		if (CdromId[0] && loadst) {
 			int ret = emu_load_state(loadst - 1);
 			SysPrintf("%s state slot %d\n",
 				ret ? "failed to load" : "loaded", loadst);
 		}
+	}
+	else if (g_novideo) {
+		// no menu, it would be invisible
+		SysPrintf("-cdfile or exe argument required for -novid\n");
+		g_emu_want_quit = retval = 1;
 	}
 	else
 		menu_loop();
@@ -804,18 +851,23 @@ int main(int argc, char *argv[])
 		psxCpu->Execute(&psxRegs);
 		if (emu_action != SACTION_NONE)
 			do_emu_action();
+		else if (Config.PsxStdOut && Config.PsxStdIn && psxRegs.stop >= 0xf0u) {
+			// debug exit mode
+			psxCpu->Notify(R3000ACPU_NOTIFY_BEFORE_SAVE, NULL);
+			retval = psxRegs.GPR.n.v0;
+			break;
+		}
 	}
 
 #ifdef PSCLASSIC
 	ab_session_exit();
 #endif
-	printf("Exit..\n");
 	ClosePlugins();
 	SysClose();
 	menu_finish();
 	plat_finish();
 
-	return 0;
+	return retval;
 }
 
 static void toggle_fast_forward(int force_off)
@@ -855,9 +907,11 @@ static void toggle_fast_forward(int force_off)
 
 static void SignalExit(int sig) {
 	SysPrintf("got signal %d\n", sig);
-	// only to restore framebuffer/resolution on some devices
-	plat_finish();
-	_exit(1);
+	emu_core_ask_exit();
+	if (g_emu_want_quit >= 2) {
+		SysPrintf("forced exit\n");
+		_exit(1);
+	}
 }
 
 static int get_gameid_filename(char *buf, int size, const char *fmt, int i) {
@@ -1020,6 +1074,7 @@ static int _OpenPlugins(void) {
 #ifndef NO_FRONTEND
 	signal(SIGINT, SignalExit);
 	signal(SIGPIPE, SignalExit);
+	signal(SIGTERM, SignalExit);
 #endif
 
 	ret = cdra_open();
@@ -1035,24 +1090,20 @@ static int _OpenPlugins(void) {
 	return 0;
 }
 
-int OpenPlugins() {
+int OpenPlugins(int load_memcards) {
 	int ret;
 
 	while ((ret = _OpenPlugins()) == -2) {
 		ReleasePlugins();
-		LoadMcds(Config.Mcd1, Config.Mcd2);
 		if (LoadPlugins() == -1) return -1;
 	}
+	if (load_memcards)
+		LoadMcds(Config.Mcd1, Config.Mcd2);
 	return ret;
 }
 
 void ClosePlugins() {
 	int ret;
-
-#ifndef NO_FRONTEND
-	signal(SIGINT, SIG_DFL);
-	signal(SIGPIPE, SIG_DFL);
-#endif
 
 	cdra_close();
 	ret = SPU_close();

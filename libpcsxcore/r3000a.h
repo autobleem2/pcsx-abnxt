@@ -181,6 +181,7 @@ enum R3000Abdt {
 	R3000A_BRANCH_NOT_TAKEN = 2,
 	// none or tells that there was an exception in DS back to doBranch
 	R3000A_BRANCH_NONE_OR_EXCEPTION = 0,
+	R3000A_BRANCH_HLE_RETURN = 1,
 };
 
 typedef struct psxCP2Regs {
@@ -220,7 +221,8 @@ typedef struct psxRegisters {
 	u8  branching;      /* interp. R3000A_BRANCH_TAKEN / not, 0 if not branch */
 	u8  dloadSel;       /* interp. delay load state */
 	u8  dloadReg[2];
-	u8  unused2[2];
+	u8  biosFuncsHooked;
+	u8  unused2;
 	u32 dloadVal[2];
 	u32 biosBranchCheck;
 	u32 cpuInRecursion;
@@ -251,10 +253,10 @@ int  psxInit();
 void psxReset();
 void psxShutdown();
 void psxException(u32 code, enum R3000Abdt bdt, psxCP0Regs *cp0);
-void psxBranchTest();
+void psxBranchTest(psxRegisters *regs);
 void psxExecuteBios();
 int  psxExecuteBiosEnded(void);
-void psxJumpTest();
+void psxBiosJumpTest(psxRegisters *regs);
 
 void irq10Interrupt();
 void psxScheduleIrq10(int irq_count, int x_cycles, int y);

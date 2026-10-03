@@ -1,13 +1,13 @@
 # Makefile for PCSX ReARMed (libretro)
 
 DEBUG ?= 0
-WANT_ZLIB ?= 1
+USE_MINIZ ?= 1
 HAVE_CHD ?= 1
 HAVE_PHYSICAL_CDROM ?= 1
 USE_ASYNC_CDROM ?= 1
 USE_ASYNC_GPU ?= 1
 USE_ASYNC_SPU ?= 1
-USE_LIBRETRO_VFS ?= 0
+USE_LIBRETRO_VFS ?= 1
 NDRC_THREAD ?= 1
 GNU_LINKER ?= 1
 
@@ -116,12 +116,12 @@ DUMMY := $(shell git config --global --add safe.directory /builds/libretro/pcsx_
 endif
 
 TARGET_NAME := pcsx_rearmed
-ARCH_DETECTED := $(shell $(CC) $(CFLAGS) -dumpmachine | awk -F- '{print $$1}')
+ARCH_DETECTED := $(shell $(firstword $(CC)) -dumpmachine $(CFLAGS) | awk -F- '{print $$1}')
 GIT_VERSION := " $(shell git rev-parse --short HEAD || echo unknown)"
 ifneq ($(GIT_VERSION)," unknown")
 	CFLAGS += -DGIT_VERSION=\"$(GIT_VERSION)\"
 endif
-ifneq ($(WANT_ZLIB),1)
+ifneq ($(USE_MINIZ),1)
 LIBZ := -lz
 endif
 LIBPTHREAD := -lpthread
@@ -235,9 +235,9 @@ else
 	BUILTIN_GPU = neon
 	CFLAGS += -marm -mcpu=cortex-a8 -mtune=cortex-a8 -mfpu=neon
 	ASFLAGS += -marm -mcpu=cortex-a8 -mtune=cortex-a8 -mfpu=neon
+	CC_AS = perl ./tools/gas-preprocessor.pl $(CC)
 endif
 	HAVE_PHYSICAL_CDROM = 0
-	CC_AS = perl ./tools/gas-preprocessor.pl $(CC)
 ifeq ($(platform),$(filter $(platform),ios9 ios-arm64))
 	MINVERSION = -miphoneos-version-min=8.0
 else
@@ -265,7 +265,6 @@ endif
 	BUILTIN_GPU = neon
 	DYNAREC = 0
 	HAVE_PHYSICAL_CDROM = 0
-	CC_AS = perl ./tools/gas-preprocessor.pl $(CC)
 	MINVERSION = -mappletvos-version-min=11.0
 	CFLAGS += $(MINVERSION)
 	FSECTIONS_LDFLAGS = -Wl,-dead_strip
@@ -285,7 +284,6 @@ else ifeq ($(platform), libnx)
    NO_POSIX_MEMALIGN := 1
    NO_MMAP := 1 # for psxmem
    LIBPTHREAD :=
-   WANT_ZLIB = 0
    PARTIAL_LINKING = 1
    BUILTIN_GPU = neon
    DYNAREC = ari64
@@ -317,12 +315,14 @@ else ifeq ($(platform), psl1ght)
 	USE_ASYNC_CDROM = 0
 	USE_ASYNC_GPU = 0
 	USE_ASYNC_SPU = 0
+	USE_LIBRETRO_VFS = 0
 
 # PSP
 else ifeq ($(platform), psp1)
 	TARGET := $(TARGET_NAME)_libretro_psp1.a
 	CFLAGS += -DPSP -G0
 	HAVE_PHYSICAL_CDROM = 0
+	USE_LIBRETRO_VFS = 0
 
 # Vita
 else ifeq ($(platform), vita)
@@ -348,6 +348,7 @@ else ifeq ($(platform), vita)
 	NDRC_THREAD := 0 # can't write to tc from thread
 	HAVE_PHYSICAL_CDROM = 0
 	EXTRA_EXTERN_SYMS += _newlib_vm_size_user
+	LIBPTHREAD :=
 
 # CTR(3DS)
 else ifeq ($(platform), ctr)
@@ -377,7 +378,6 @@ else ifeq ($(platform), ctr)
 	DYNAREC = ari64
 	ARCH = arm
 	PARTIAL_LINKING = 1
-	WANT_ZLIB = 0
 	NO_POSIX_MEMALIGN := 1
 	NO_MMAP := 1 # for psxmem
 	HAVE_PHYSICAL_CDROM = 0
@@ -399,7 +399,7 @@ else ifneq (,$(filter $(platform),ngc wii wiiu))
 		NEED_SYSCONF := 1
 	else ifeq ($(platform), wiiu)
 		# -mwup was removed in newer devkitPPC versions
-		CFLAGS += -DHW_WUP
+		CFLAGS += -DHW_WUP -D__wiiu__
 		CFLAGS += -I frontend/wiiu
 		CFLAGS += -DZ7_DECL_Int32_AS_long
 		CFLAGS += -Wno-format
@@ -422,6 +422,7 @@ else ifneq (,$(filter $(platform),ngc wii wiiu))
 	USE_ASYNC_CDROM = 0
 	USE_ASYNC_GPU = 0
 	USE_ASYNC_SPU = 0
+	USE_LIBRETRO_VFS = 0
 
 # QNX
 else ifeq ($(platform), qnx)
@@ -438,6 +439,7 @@ else ifeq ($(platform), qnx)
 	LIBDL :=
 	LIBM :=
 	HAVE_PHYSICAL_CDROM = 0
+	USE_LIBRETRO_VFS = 0
 
 #Raspberry Pi 1
 else ifeq ($(platform), rpi1)
@@ -532,6 +534,7 @@ else ifeq ($(platform), classic_armv7_a7)
 			LDFLAGS += -static-libgcc -static-libstdc++
 		endif
 	endif
+	USE_LIBRETRO_VFS = 0
 
 # (armv8 a35, hard point, neon based) ###
 # PlayStation Classic
@@ -547,6 +550,7 @@ else ifeq ($(platform), classic_armv8_a35)
 	BUILTIN_GPU = neon
 	DYNAREC = ari64
 	LDFLAGS += -static-libgcc -static-libstdc++ -fPIC
+	USE_LIBRETRO_VFS = 0
 
 #######################################
 
@@ -597,12 +601,16 @@ else ifeq ($(platform), emscripten)
    TARGET  := $(TARGET_NAME)_libretro_$(platform).bc
    fpic    := -fPIC
    NO_MMAP = 1
-   # we can use -lz for emscripten's built-in zlib port
-   WANT_ZLIB=0
+   # use emscripten's built-in zlib port instead of miniz, it has to be requested
+   # explicitly with -sUSE_ZLIB=1 (just like RetroArch's Makefile.emscripten does)
+   USE_MINIZ = 0
+   CFLAGS += -sUSE_ZLIB=1
+   EXTRA_LDFLAGS += -sUSE_ZLIB=1
    CFLAGS_OPT = -O2
    CFLAGS += -DNO_DYLIB -DNO_SOCKET
    CFLAGS += -msimd128 -ftree-vectorize
    LIBPTHREAD :=
+   BUILTIN_GPU = neon
    USE_RTHREADS=0
    USE_ASYNC_CDROM=0
    USE_ASYNC_GPU=0
@@ -610,6 +618,8 @@ else ifeq ($(platform), emscripten)
    DYNAREC =
    STATIC_LINKING = 1
    HAVE_PHYSICAL_CDROM = 0
+   USE_LIBRETRO_VFS = 0
+   plugins/gpu_neon/psx_gpu/psx_gpu_simd.o: CFLAGS += -msse4.2
 
 # Windows
 else

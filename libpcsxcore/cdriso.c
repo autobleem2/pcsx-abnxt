@@ -26,7 +26,7 @@
 
 #include <assert.h>
 #include <errno.h>
-#include <zlib.h>
+#include "zlib_wrapper.h"
 #ifdef HAVE_CHD
 #include <libchdr/chd.h>
 #endif
@@ -45,7 +45,9 @@
 #undef ftello
 #undef rewind
 #define ftello rftell
-#define fseeko rfseek
+/* Adapt rfseek's position/-1 result to fseeko's status result. */
+#define fseeko(stream, offset, origin) \
+	(rfseek(stream, offset, origin) < 0 ? -1 : 0)
 #define rewind(f_) rfseek(f_, 0, SEEK_SET)
 #endif
 
@@ -1747,6 +1749,8 @@ int ISOgetStatus(struct CdrStat *stat)
 	
 	// BIOS - boot ID (CD type)
 	stat->Type = ti[1].type;
+	stat->nodisk = cdHandle == NULL;
+	stat->mode1 = cdimg_read_func == cdread_2048;
 	
 	return 0;
 }
