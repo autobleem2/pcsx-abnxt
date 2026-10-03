@@ -179,23 +179,23 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/generated/include)
 # ---------------------------------------------------------------------------------------------------------
 if (PCSXAB_CHD)
     set(_chdr deps/libchdr)
-    set(_lzma ${_chdr}/deps/lzma-24.05)
-    set(_zstd ${_chdr}/deps/zstd-1.5.6/lib)
+    # libchdr since upstream's 2026 bump: the codecs in their own files, the decoder-only LzmaDec.c and zstd's
+    # single-file decoder (zstddeclib.c); zlib stays the system one (CHDR_SYSTEM_ZLIB, not the bundled miniz)
+    set(_lzma ${_chdr}/deps/lzma-26.02)
+    set(_zstd ${_chdr}/deps/zstd-1.5.7)
     add_library(chdr STATIC
         ${_chdr}/src/libchdr_bitstream.c ${_chdr}/src/libchdr_cdrom.c ${_chdr}/src/libchdr_chd.c
+        ${_chdr}/src/libchdr_codec_cdfl.c ${_chdr}/src/libchdr_codec_cdlz.c ${_chdr}/src/libchdr_codec_cdzl.c
+        ${_chdr}/src/libchdr_codec_cdzs.c ${_chdr}/src/libchdr_codec_flac.c ${_chdr}/src/libchdr_codec_huff.c
+        ${_chdr}/src/libchdr_codec_lzma.c ${_chdr}/src/libchdr_codec_zlib.c ${_chdr}/src/libchdr_codec_zstd.c
         ${_chdr}/src/libchdr_flac.c ${_chdr}/src/libchdr_huffman.c
-        ${_lzma}/src/Alloc.c ${_lzma}/src/CpuArch.c ${_lzma}/src/Delta.c ${_lzma}/src/LzFind.c
-        ${_lzma}/src/LzmaDec.c ${_lzma}/src/LzmaEnc.c ${_lzma}/src/Sort.c
-        ${_zstd}/common/entropy_common.c ${_zstd}/common/error_private.c ${_zstd}/common/fse_decompress.c
-        ${_zstd}/common/xxhash.c ${_zstd}/common/zstd_common.c
-        ${_zstd}/decompress/huf_decompress.c ${_zstd}/decompress/huf_decompress_amd64.S
-        ${_zstd}/decompress/zstd_ddict.c ${_zstd}/decompress/zstd_decompress_block.c
-        ${_zstd}/decompress/zstd_decompress.c)
+        ${_lzma}/src/LzmaDec.c
+        ${_zstd}/zstddeclib.c)
     # a directory include, not the target's: deps/libretro-common/include carries libchdr headers of its own
     # (the VFS-flavoured ones), and this one has to come before it in the search order
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/${_chdr}/include)
     target_include_directories(chdr PRIVATE ${_lzma}/include ${_zstd})
-    target_compile_definitions(chdr PRIVATE Z7_ST)
+    target_compile_definitions(chdr PRIVATE Z7_ST CHDR_SYSTEM_ZLIB)
     target_compile_options(chdr PRIVATE -w)     # vendored: not made warning-free
     target_link_libraries(chdr PUBLIC ZLIB::ZLIB)
     set_target_properties(chdr PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -275,11 +275,14 @@ configure_file("${CMAKE_CURRENT_BINARY_DIR}/gte_nf.c.in" "${CMAKE_CURRENT_BINARY
 list(APPEND PCSXAB_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/gte_nf.c")
 
 # architecture code
+# (upstream's GTE asm rework: each asm GTE has a gte_nf_*.S twin, the same file with FLAGLESS defined)
 if (_pcsxab_arch STREQUAL "arm")
-    list(APPEND PCSXAB_SOURCES libpcsxcore/gte_arm.S plugins/dfsound/arm_utils.S)
+    list(APPEND PCSXAB_SOURCES libpcsxcore/gte_arm.S libpcsxcore/gte_nf_arm.S plugins/dfsound/arm_utils.S)
+elseif (_pcsxab_arch STREQUAL "aarch64")
+    list(APPEND PCSXAB_SOURCES libpcsxcore/gte_arm64.S libpcsxcore/gte_nf_arm64.S)
 endif()
 if (PCSXAB_NEON)
-    list(APPEND PCSXAB_SOURCES libpcsxcore/gte_neon.S frontend/cspace_neon.S
+    list(APPEND PCSXAB_SOURCES libpcsxcore/gte_neon.S libpcsxcore/gte_nf_neon.S frontend/cspace_neon.S
         frontend/libpicofe/arm/neon_scale2x.S frontend/libpicofe/arm/neon_eagle2x.S)
     set_source_files_properties(frontend/libpicofe/arm/neon_scale2x.S frontend/libpicofe/arm/neon_eagle2x.S
         PROPERTIES COMPILE_DEFINITIONS DO_BGR_TO_RGB)

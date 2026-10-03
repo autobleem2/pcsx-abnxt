@@ -1855,7 +1855,7 @@ int cdrStateToSony(void *section)
 	c.SubqForwardSectors = ready;		// Readed: the FIFO may be read
 	c.FileChannelSelected = c.CurFile = c.CurChannel = 0;	// the upper bytes of pcsx-ab's int Mode
 	memset(c.LocL, 0, sizeof(c.LocL));	// Reset, RErr, FirstSector
-	c.unused4 = 0;
+	c.LastPauseCycles = 0;		// upstream's unused4 until 2026; pcsx-ab has no such field there
 	c.FifoOffset = c.FifoSize = 0;		// Init
 	c.CmdInProgress &= ~CMD_WHILE_NOT_READY;	// Irq: the same command numbers, + 0x100 for a second response
 	c.Irq1Pending = c.AdpcmActive = 0;	// IrqRepeated, padding
@@ -1889,7 +1889,7 @@ void cdrStateFromSony(void *section)
 	c.sectorsRead = 0;
 	c.FileChannelSelected = c.CurFile = c.CurChannel = 0;	// the next XA sector picks the channel again
 	memset(c.LocL, 0, sizeof(c.LocL));
-	c.unused4 = 0;
+	c.LastPauseCycles = 0;		// upstream's unused4 until 2026; pcsx-ab has no such field there
 	c.Irq1Pending = c.AdpcmActive = 0;
 	c.LastReadSeekCycles = 0;
 	c.RetryDetected = 0;
