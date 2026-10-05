@@ -7,10 +7,12 @@ needs nobody at the machine; a crash is caught as the connection dying, with the
                                  [--exe PATH]          another build than build_win's, e.g. build_win_rel's
                                                        before a release is published
                                        the Windows build (build_win/pcsx-ab.exe) on a game, with
-                                       AB_DEBUG_PORT; waits for the first frame. The BIOS files of
-                                       autobleem-develop are linked into build_win/run/.pcsx/bios unless
-                                       --no-bios (the PCSX menu needs a real BIOS: with HLE there is no
-                                       menu to walk)
+                                       AB_DEBUG_PORT; waits for the first frame. The BIOS files
+                                       (romw.bin, romJP.bin) from $AB_BIOS_DIR, else <repo>/bios, are copied
+                                       into build_win/run/.pcsx/bios unless --no-bios (the PCSX menu needs a
+                                       real BIOS: with HLE there is no menu to walk); none found = an error
+                                       naming AB_BIOS_DIR. The repo holds no BIOS: keep your own in bios/
+                                       (git-ignored) or point AB_BIOS_DIR at them
   python tools/emu_drive.py stop
   python tools/emu_drive.py run "<script>"    commands separated by ';'
   python tools/emu_drive.py <command> ...     one command, e.g. `shot a.png`, `press down`, `status`
@@ -42,7 +44,8 @@ import time
 REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 RUN_DIR = os.path.join(REPO, 'build_win', 'run')
 EXE = os.path.join(REPO, 'build_win', 'pcsx-ab.exe')
-BIOS_SRC = r'E:\Programming\autobleem-develop\bios'
+BIOS_ENV = 'AB_BIOS_DIR'
+BIOS_FILES = ('romw.bin', 'romJP.bin')
 DEFAULT_GAME = 'D:/AB/Games/Crash Bandicoot (U)/SCUS-94900.cue'
 DEFAULT_PORT = 7799
 
@@ -166,15 +169,25 @@ def log_tail(lines=12):
     return ''.join(out)
 
 
+def bios_dir():
+    """where the BIOS files come from: $AB_BIOS_DIR, else <repo>/bios (no machine path is written here)"""
+    return os.environ.get(BIOS_ENV) or os.path.join(REPO, 'bios')
+
+
 def link_bios():
-    """the launcher's BIOS files in the run directory: without one the emulator boots HLE, where a save
-    state cannot be resumed and the PCSX menu has nothing to show"""
+    """a real BIOS in the run directory: without one the emulator boots HLE, where a save state cannot be
+    resumed and the PCSX menu has nothing to show. Fails, naming AB_BIOS_DIR, when there is none"""
     dst = os.path.join(RUN_DIR, '.pcsx', 'bios')
+    src_dir = bios_dir()
+    have = [n for n in BIOS_FILES if os.path.exists(os.path.join(dst, n))]
+    found = [n for n in BIOS_FILES if os.path.exists(os.path.join(src_dir, n))]
+    if not have and not found:
+        sys.exit(f'emu_drive: no BIOS ({" / ".join(BIOS_FILES)}) in {src_dir} - set {BIOS_ENV} to a folder that '
+                 f'has them, or pass --no-bios (HLE: no PCSX menu to walk)')
     os.makedirs(dst, exist_ok=True)
-    for name in ('romw.bin', 'romJP.bin'):
-        src = os.path.join(BIOS_SRC, name)
-        if os.path.exists(src) and not os.path.exists(os.path.join(dst, name)):
-            with open(src, 'rb') as fi, open(os.path.join(dst, name), 'wb') as fo:
+    for name in found:
+        if not os.path.exists(os.path.join(dst, name)):
+            with open(os.path.join(src_dir, name), 'rb') as fi, open(os.path.join(dst, name), 'wb') as fo:
                 fo.write(fi.read())
     cfg = os.path.join(RUN_DIR, '.pcsx', 'pcsx.cfg')
     text = open(cfg, encoding='utf-8').read() if os.path.exists(cfg) else ''
