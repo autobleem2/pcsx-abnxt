@@ -35,6 +35,12 @@ int ab_pad_battery_low(void);
  * leaves the game) */
 int ab_pad_battery_visible(void);
 
+/* the power_supply entry's `status`: a pad that is "Full" is never low (the icon goes at the next poll, whatever
+ * its capacity says); a low pad that is "Charging" keeps the icon, and this says so - 1 while the pad the icon
+ * is about (the lowest) is Charging, so the HUD draws a bolt over the fill; it clears at the reset threshold as
+ * before. "Discharging", "Not charging", "Unknown" or no file: as before. */
+int ab_pad_battery_charging(void);
+
 /* every wireless pad's percent at the last poll (the in-game menu's header), in a stable order; returns
  * how many, 0 when no pad's battery is known (wired pads have none) */
 #define AB_PAD_BATTERY_MAX 4
