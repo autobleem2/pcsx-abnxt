@@ -189,6 +189,58 @@ int main(void)
 		expect(ab_pad_battery_percent() == before, "inside the poll interval: no rescan, same answer");
 	}
 
+	/* 8) the power_supply `status` file: a low pad that is Charging keeps the icon and says it charges; Full
+	 * hides it whatever the capacity says; Discharging is low as before. Real sysfs files end in "\n". */
+	t += AB_PAD_BATTERY_POLL_MS + 1;
+	{
+		char sub[512], path[512];
+		snprintf(sub, sizeof(sub), "%s/status", root);
+		MKDIR(sub);
+		make_pad(sub, "ps-controller-battery-33-44-55-66-77-88", "10\n", NULL, "Charging\n");
+		snprintf(path, sizeof(path), "%s/ps-controller-battery-33-44-55-66-77-88/status", sub);
+#ifdef _WIN32
+		_putenv_s("AB_PAD_BATTERY_DIR", sub);
+#else
+		setenv("AB_PAD_BATTERY_DIR", sub, 1);
+#endif
+		ab_pad_battery_tick(t);
+		expect(ab_pad_battery_visible(), "Charging at 10%: icon still shown");
+		expect(ab_pad_battery_charging(), "Charging at 10%: marked as charging (the bolt)");
+		expect(ab_pad_battery_percent() == 10, "Charging at 10%: the fill shows the real 10%");
+
+		t += AB_PAD_BATTERY_POLL_MS + 1;
+		write_file(path, "Full\n");
+		ab_pad_battery_tick(t);
+		expect(!ab_pad_battery_low(), "Full with a stale capacity of 10: not low");
+		expect(!ab_pad_battery_visible(), "Full: icon hidden at the next poll");
+		expect(!ab_pad_battery_charging(), "Full: not charging");
+
+		t += AB_PAD_BATTERY_POLL_MS + 1;
+		write_file(path, "Discharging\n");
+		ab_pad_battery_tick(t);
+		expect(ab_pad_battery_visible(), "Discharging at 10%: icon shown as before");
+		expect(!ab_pad_battery_charging(), "Discharging: no bolt");
+
+		/* a second pad, Full but reporting 5%, next to a healthy discharging one: the Full one never wins */
+		t += AB_PAD_BATTERY_POLL_MS + 1;
+		write_file(path, "Full\n");
+		make_pad(sub, "sony_controller_battery_44-55-66-77-88-99", "60\n", NULL, "Discharging\n");
+		snprintf(path, sizeof(path), "%s/ps-controller-battery-33-44-55-66-77-88/capacity", sub);
+		write_file(path, "5\n");
+		ab_pad_battery_tick(t);
+		expect(!ab_pad_battery_visible(), "Full pad at 5% + a pad at 60%: icon hidden");
+		expect(ab_pad_battery_percent() == 60, "Full pad at 5% + a pad at 60%: percent is the other pad's");
+
+		/* no status file at all (an older kernel): as before */
+		t += AB_PAD_BATTERY_POLL_MS + 1;
+		snprintf(path, sizeof(path), "%s/ps-controller-battery-33-44-55-66-77-88/status", sub);
+		remove(path);
+		ab_pad_battery_tick(t);
+		expect(ab_pad_battery_visible(), "no status file at 5%: icon shown as before");
+		expect(!ab_pad_battery_charging(), "no status file: no bolt");
+		expect(ab_pad_battery_percent() == 5, "no status file: the lowest pad's 5%");
+	}
+
 	printf(failures == 0 ? "\nAll tests passed.\n" : "\n%d test(s) FAILED.\n", failures);
 	return failures == 0 ? 0 : 1;
 }

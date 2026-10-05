@@ -296,24 +296,90 @@ static int hud_scale(int screen_h)
 #define AB_HUD_ARGB_MED      0xffff6500u  /* amber: <= half */
 #define AB_HUD_ARGB_OK       0xff00ff00u  /* green: a healthy percent (a plain show-request only) */
 
-static void ab_hud_battery_set(Uint32 *px, int x, int y, Uint32 argb)
+#define AB_HUD_ARGB_BOLT      0xff36d9e0u  /* the charging bolt: the launcher ab2 icon's cyan... */
+#define AB_HUD_ARGB_BOLT_EDGE 0xff0e161eu  /* ...and its dark edge */
+#define AB_HUD_MAX_SCALE 6               /* hud_scale()'s ceiling */
+
+/* the icon is built at the screen's pixels (the HUD scale times the 1x design above) and drawn 1:1: the rects
+ * look exactly as the 1x texture scaled up did, and the bolt's slanted edges get the screen's resolution */
+static Uint32 ab_hud_battery_px[AB_HUD_TEX_W * AB_HUD_MAX_SCALE * AB_HUD_TEX_H * AB_HUD_MAX_SCALE];
+
+typedef struct {
+  Uint32 *px;
+  int w, h, s;  /* the buffer's size and the scale of the 1x design */
+} AbHudIcon;
+
+static void ab_hud_battery_set(const AbHudIcon *ic, int x, int y, Uint32 argb)
 {
-  if ((unsigned)x >= (unsigned)AB_HUD_TEX_W || (unsigned)y >= (unsigned)AB_HUD_TEX_H)
+  if ((unsigned)x >= (unsigned)ic->w || (unsigned)y >= (unsigned)ic->h)
     return;
-  px[y * AB_HUD_TEX_W + x] = argb;
+  ic->px[y * ic->w + x] = argb;
 }
 
-static void ab_hud_battery_fill(Uint32 *px, int x0, int y0, int x1, int y1, Uint32 argb)
+/* a rect of the 1x design, at the icon's scale */
+static void ab_hud_battery_fill(const AbHudIcon *ic, int x0, int y0, int x1, int y1, Uint32 argb)
 {
   int x, y;
-  for (y = y0; y < y1; y++)
-    for (x = x0; x < x1; x++)
-      ab_hud_battery_set(px, x, y, argb);
+  for (y = y0 * ic->s; y < y1 * ic->s; y++)
+    for (x = x0 * ic->s; x < x1 * ic->s; x++)
+      ab_hud_battery_set(ic, x, y, argb);
 }
 
-/* fills the AB_HUD_TEX_W x AB_HUD_TEX_H ARGB8888 buffer with the icon for this percent - the same shape
- * plugin_lib.c's old draw_pad_battery_icon drew, one pixel bigger all around for the backing border */
-static void ab_hud_battery_build(Uint32 *px, int percent)
+/* the launcher ab2 icon's bolt (the owner's, 2026-10-05): its points in 2x coordinates of a 58x26 battery */
+static const float ab_hud_bolt[6][2] = {
+  { 30.0f, 4.5f }, { 18.5f, 14.5f }, { 25.0f, 14.5f }, { 22.5f, 21.5f }, { 34.0f, 11.5f }, { 27.5f, 11.5f }
+};
+
+/* squared distance from (x, y) to the segment a-b */
+static float ab_hud_seg_dist2(float x, float y, float ax, float ay, float bx, float by)
+{
+  float dx = bx - ax, dy = by - ay, t = 0.0f, len2 = dx * dx + dy * dy, ex, ey;
+  if (len2 > 0.0f) {
+    t = ((x - ax) * dx + (y - ay) * dy) / len2;
+    t = t < 0.0f ? 0.0f : t > 1.0f ? 1.0f : t;
+  }
+  ex = ax + t * dx - x;
+  ey = ay + t * dy - y;
+  return ex * ex + ey * ey;
+}
+
+/* the bolt over the battery's whole shape (body and nub, design x 1..1+bw+nub, y 1..1+bh): cyan inside, a dark
+ * edge around it so it reads over the fill and the outline alike */
+static void ab_hud_battery_bolt(const AbHudIcon *ic, int bw, int bh)
+{
+  float pts[6][2], edge = ic->s >= 4 ? ic->s * 0.5f : 1.0f;
+  float bx = (float)ic->s, by = (float)ic->s;
+  float sx = (float)((bw + AB_HUD_NUB_W) * ic->s) / 58.0f, sy = (float)(bh * ic->s) / 26.0f;
+  int i, j, x, y;
+
+  for (i = 0; i < 6; i++) {
+    pts[i][0] = bx + ab_hud_bolt[i][0] * sx;
+    pts[i][1] = by + ab_hud_bolt[i][1] * sy;
+  }
+  for (y = 0; y < ic->h; y++) {
+    for (x = 0; x < ic->w; x++) {
+      float cx = x + 0.5f, cy = y + 0.5f, d2 = 1e9f;
+      int inside = 0;
+      for (i = 0, j = 5; i < 6; j = i++) {
+        float d;
+        if ((pts[i][1] > cy) != (pts[j][1] > cy) &&
+            cx < (pts[j][0] - pts[i][0]) * (cy - pts[i][1]) / (pts[j][1] - pts[i][1]) + pts[i][0])
+          inside = !inside;
+        d = ab_hud_seg_dist2(cx, cy, pts[j][0], pts[j][1], pts[i][0], pts[i][1]);
+        if (d < d2)
+          d2 = d;
+      }
+      if (inside)
+        ab_hud_battery_set(ic, x, y, AB_HUD_ARGB_BOLT);
+      else if (d2 <= edge * edge)
+        ab_hud_battery_set(ic, x, y, AB_HUD_ARGB_BOLT_EDGE);
+    }
+  }
+}
+
+/* fills the icon's buffer for this percent - the same shape plugin_lib.c's old draw_pad_battery_icon drew, one
+ * pixel bigger all around for the backing border - and the bolt over it while the pad charges */
+static void ab_hud_battery_build(const AbHudIcon *ic, int percent, int charging)
 {
   int ox = 1, oy = 1, bw = AB_HUD_ICON_W, bh = AB_HUD_ICON_H;
   int nub_x0, nub_y0, nub_y1, fill_w;
@@ -321,28 +387,32 @@ static void ab_hud_battery_build(Uint32 *px, int percent)
                       percent <= 50 ? AB_HUD_ARGB_MED : AB_HUD_ARGB_OK;
 
   /* solid backing so the outline reads over a bright game frame, then the outline itself */
-  ab_hud_battery_fill(px, ox - 1, oy - 1, ox + bw + AB_HUD_NUB_W + 1, oy + bh + 1, AB_HUD_ARGB_BACKING);
-  ab_hud_battery_fill(px, ox, oy, ox + bw, oy + 1, AB_HUD_ARGB_OUTLINE);
-  ab_hud_battery_fill(px, ox, oy + bh - 1, ox + bw, oy + bh, AB_HUD_ARGB_OUTLINE);
-  ab_hud_battery_fill(px, ox, oy, ox + 1, oy + bh, AB_HUD_ARGB_OUTLINE);
-  ab_hud_battery_fill(px, ox + bw - 1, oy, ox + bw, oy + bh, AB_HUD_ARGB_OUTLINE);
+  ab_hud_battery_fill(ic, ox - 1, oy - 1, ox + bw + AB_HUD_NUB_W + 1, oy + bh + 1, AB_HUD_ARGB_BACKING);
+  ab_hud_battery_fill(ic, ox, oy, ox + bw, oy + 1, AB_HUD_ARGB_OUTLINE);
+  ab_hud_battery_fill(ic, ox, oy + bh - 1, ox + bw, oy + bh, AB_HUD_ARGB_OUTLINE);
+  ab_hud_battery_fill(ic, ox, oy, ox + 1, oy + bh, AB_HUD_ARGB_OUTLINE);
+  ab_hud_battery_fill(ic, ox + bw - 1, oy, ox + bw, oy + bh, AB_HUD_ARGB_OUTLINE);
 
   /* the nub on the right, a third of the body's height, centred */
   nub_x0 = ox + bw;
   nub_y0 = oy + bh / 3;
   nub_y1 = oy + bh - bh / 3;
-  ab_hud_battery_fill(px, nub_x0, nub_y0, nub_x0 + AB_HUD_NUB_W, nub_y1, AB_HUD_ARGB_OUTLINE);
+  ab_hud_battery_fill(ic, nub_x0, nub_y0, nub_x0 + AB_HUD_NUB_W, nub_y1, AB_HUD_ARGB_OUTLINE);
 
   /* the fill itself, proportional to the percent, inset one pixel inside the outline */
   fill_w = (bw - 4) * percent / 100;
   if (fill_w > 0)
-    ab_hud_battery_fill(px, ox + 2, oy + 2, ox + 2 + fill_w, oy + bh - 2, fill_color);
+    ab_hud_battery_fill(ic, ox + 2, oy + 2, ox + 2 + fill_w, oy + bh - 2, fill_color);
+
+  if (charging)
+    ab_hud_battery_bolt(ic, bw, bh);
 }
 
 static void ab_hud_battery_draw(int sw, int sh)
 {
   static int icon_percent = -2;  /* not a real percent: forces the first upload */
-  int percent, scale, margin;
+  static int icon_charging = -1, icon_scale = -1;
+  int percent, charging, scale, margin;
   SDL_Rect r;
 
   if (!ab_pad_battery_visible())
@@ -350,16 +420,24 @@ static void ab_hud_battery_draw(int sw, int sh)
   percent = ab_pad_battery_percent();
   if (percent < 0)
     return;
+  charging = ab_pad_battery_charging();
+  scale = hud_scale(sh);
 
-  if (icon_percent != percent) {
-    Uint32 px[AB_HUD_TEX_W * AB_HUD_TEX_H];
-    memset(px, 0, sizeof(px));  /* transparent black */
-    ab_hud_battery_build(px, percent);
-    if (plat_ab_hud_image(HUD_SLOT_BATTERY, px, AB_HUD_TEX_W, AB_HUD_TEX_H) != 0)
+  /* built and uploaded only when what it shows changes - never per frame */
+  if (icon_percent != percent || icon_charging != charging || icon_scale != scale) {
+    AbHudIcon ic;
+    ic.px = ab_hud_battery_px;
+    ic.s = scale;
+    ic.w = AB_HUD_TEX_W * scale;
+    ic.h = AB_HUD_TEX_H * scale;
+    memset(ab_hud_battery_px, 0, sizeof(Uint32) * ic.w * ic.h);  /* transparent black */
+    ab_hud_battery_build(&ic, percent, charging);
+    if (plat_ab_hud_image(HUD_SLOT_BATTERY, ab_hud_battery_px, ic.w, ic.h) != 0)
       return;
     icon_percent = percent;
+    icon_charging = charging;
+    icon_scale = scale;
   }
-  scale = hud_scale(sh);
   margin = 6 * scale / 2;
   r.w = AB_HUD_TEX_W * scale;
   r.h = AB_HUD_TEX_H * scale;

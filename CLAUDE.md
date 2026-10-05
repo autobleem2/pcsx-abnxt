@@ -256,7 +256,13 @@ menu, and Reset there (game loaded) unwinds the menus and `ab_defer_action()` ha
 `ab_console`: the power daemon's `prepare_suspend` and `cpu_temp`/`temp_limit` watchers (inotify threads,
 Linux only, ending at once without the files). `ab_disc`: the disc set (multi-disc PBP, an `.m3u`, or the
 folder's images of the same kind) and the Open button through the core's lid, refused for 22 s after the
-start; one press = the next disc, with a HUD line. `SaveMcd()` fsyncs and tells `ab_memcard`. `ab_menu.c`:
+start; one press = the next disc, with a HUD line. `ab_pad_battery`: the wireless pads' power_supply entries
+(the C port of the launcher's PadBatteryService), the low-battery corner icon on the console (`plat_autobleem.c`,
+PSCLASSIC) and the menu's header; since 2026-10-05 it reads each entry's `status` too - "Full" is never low (the
+icon goes at the next poll whatever `capacity` says), a low pad that is "Charging" keeps the icon with the
+launcher ab2 icon's cyan bolt over the fill (`ab_pad_battery_charging()`; the icon is built at the HUD's scale,
+cached on percent/charging/scale), anything else as before; `frontend/ab/test_pad_battery.c` is its standalone
+test. `SaveMcd()` fsyncs and tells `ab_memcard`. `ab_menu.c`:
 the in-game menu (Resume, Quick save/load = slot 2, Change disc, Filter, Smoothing, Screen, Scanlines,
 the controllers, PCSX menu = upstream's whole menu beneath, Save settings for this game = the game's own
 `pcsx.custom.cfg` - see "A game's config", Exit) on its own screen (see "The menu's look"), `#include`d into `frontend/menu.c` like

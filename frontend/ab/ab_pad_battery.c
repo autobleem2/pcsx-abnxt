@@ -16,6 +16,8 @@
 
 static int low_latched;	/* 1 once a pad was seen at/under LOW_PERCENT, cleared only at/over RESET_PERCENT */
 static int last_percent = -1;	/* the reading low_latched is based on, or the lowest seen this poll */
+static int last_charging;	/* 1 when the pad last_percent belongs to says "Charging" */
+static int poll_lowest_real;	/* that pad's own percent (a Full pad is counted as 100 for the latch only) */
 /* every wireless pad's percent at the last poll, in the order of their sysfs names (the menu's header) */
 static int all_percent[AB_PAD_BATTERY_MAX];
 static char all_name[AB_PAD_BATTERY_MAX][64];
@@ -104,6 +106,8 @@ static int poll_lowest_percent(void)
 	int lowest = -1;
 
 	all_count = 0;
+	last_charging = 0;
+	poll_lowest_real = -1;
 	if (root[0] == 0)
 		return -1;
 	d = opendir(root);
@@ -134,8 +138,23 @@ static int poll_lowest_percent(void)
 			if (read_first_line(path, buf, sizeof(buf)))
 				percent = percent_from_capacity_level(buf);
 		}
-		if (percent >= 0 && (lowest < 0 || percent < lowest))
-			lowest = percent;
+		/* "Charging" / "Full" / "Discharging" / "Not charging" / "Unknown": a pad that is Full is never low (its
+		 * capacity can lag behind on some drivers), a Charging one is still low but the icon says it charges */
+		if (percent >= 0) {
+			int charging = 0, effective = percent;
+			snprintf(path, sizeof(path), "%s/%s/status", root, ent->d_name);
+			if (read_first_line(path, buf, sizeof(buf))) {
+				if (strcmp(buf, "Full") == 0)
+					effective = 100;
+				else if (strcmp(buf, "Charging") == 0)
+					charging = 1;
+			}
+			if (lowest < 0 || effective < lowest) {
+				lowest = effective;
+				poll_lowest_real = percent;
+				last_charging = charging;
+			}
+		}
 		if (percent >= 0 && all_count < AB_PAD_BATTERY_MAX) {
 			/* sorted by name, so the order stays put between polls */
 			int i = all_count++;
@@ -163,8 +182,8 @@ void ab_pad_battery_tick(unsigned int now_ms)
 	polled_once = 1;
 	last_poll_ms = now_ms;
 
-	lowest = poll_lowest_percent();
-	last_percent = lowest;
+	lowest = poll_lowest_percent();	/* a Full pad counts as 100 here */
+	last_percent = lowest < 0 ? -1 : poll_lowest_real;
 
 	if (lowest >= 0 && lowest <= AB_PAD_BATTERY_LOW_PERCENT)
 		low_latched = 1;
@@ -181,6 +200,11 @@ int ab_pad_battery_low(void)
 int ab_pad_battery_visible(void)
 {
 	return low_latched;
+}
+
+int ab_pad_battery_charging(void)
+{
+	return last_charging;
 }
 
 int ab_pad_battery_percent(void)
