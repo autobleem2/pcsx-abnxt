@@ -3,7 +3,7 @@
 socket - the way tools/ab_drive.py drives the launcher. A whole walk through the menus takes seconds and
 needs nobody at the machine; a crash is caught as the connection dying, with the log's tail.
 
-  python tools/emu_drive.py start [--game CUE] [--port N] [--emu-args "..."] [--no-bios] [--fullscreen]
+  python tools/emu_drive.py start [--game CUE | $AB_GAME] [--port N] [--emu-args "..."] [--no-bios] [--fullscreen]
                                  [--exe PATH]          another build than build_win's, e.g. build_win_rel's
                                                        before a release is published
                                        the Windows build (build_win/pcsx-ab.exe) on a game, with
@@ -46,7 +46,7 @@ RUN_DIR = os.path.join(REPO, 'build_win', 'run')
 EXE = os.path.join(REPO, 'build_win', 'pcsx-ab.exe')
 BIOS_ENV = 'AB_BIOS_DIR'
 BIOS_FILES = ('romw.bin', 'romJP.bin')
-DEFAULT_GAME = 'D:/AB/Games/Crash Bandicoot (U)/SCUS-94900.cue'
+GAME_ENV = 'AB_GAME'
 DEFAULT_PORT = 7799
 
 
@@ -281,9 +281,11 @@ def main(argv):
             else:
                 host = value
     if cmd == 'start':
-        game = DEFAULT_GAME
+        game = os.environ.get(GAME_ENV, '')
         if '--game' in args:
             game = args[args.index('--game') + 1]
+        if not game:
+            sys.exit(f'emu_drive: no game - pass --game CUE or set {GAME_ENV}')
         emu_args = args[args.index('--emu-args') + 1].split() if '--emu-args' in args else []
         exe = args[args.index('--exe') + 1] if '--exe' in args else EXE
         start(game, port, emu_args, '--no-bios' not in args, '--fullscreen' in args, exe)
