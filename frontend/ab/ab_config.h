@@ -137,6 +137,10 @@ int ab_layout43(void);
 /* $AB_CRT_MARGIN (abfeatures: crtmargin): the launcher's "CRT margin", 0..20 % on each side (its Options offer 0..10), default 5 - the
  * menu and the HUD keep inside it (overscan); the game's picture does not, games were made for it */
 extern int ab_crt_margin;
+/* $AB_CRT_VSIZE (abfeatures: crtvsize): the launcher's 4:3 "Picture height", -40..+40 (steps of 2) output pixels, default 0 - the
+ * menu's and the HUD's safe rect is that much taller (shorter), centred, and may run past the output (cropped:
+ * a tube's overscan); the game's picture keeps its size. One value for the tube and the VGA modes */
+extern int ab_crt_vsize;
 const char *ab_load_state(void);
 /* order[0]/order[1] = the PS1 port (0-based) SDL pad index 0/1 lands on; {0, 1} (AB_PAD_ORDER unset,
  * malformed, or not a permutation of {0, 1}) is the original, unswapped order. Says nothing about how many

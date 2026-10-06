@@ -15,6 +15,7 @@
 
 int ab_output_mode;
 int ab_crt_margin = 5;
+int ab_crt_vsize;
 
 /* no display, so never a CRT nor a 4:3 output */
 int ab_crt43(void)

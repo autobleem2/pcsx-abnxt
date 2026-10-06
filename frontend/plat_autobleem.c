@@ -329,15 +329,20 @@ static void hud_area(int *sw, int *sh)
   *sw = hud_area_w(*sh);
 }
 
+static void crt_rows(int *top, int *height);
+
 static void ab_hud_put(int slot, const SDL_Rect *r)
 {
   SDL_Rect o = *r;
 
   if (out43_w != 0) {
     int iw = out43_w - 2 * crt_mx, aw = hud_area_w(out43_h - 2 * crt_my);
+    int ih = out43_h - 2 * crt_my, ty0, th;
+    crt_rows(&ty0, &th);
     o.x = crt_mx + r->x * iw / aw;
     o.w = crt_mx + (r->x + r->w) * iw / aw - o.x;
-    o.y = crt_my + r->y;
+    o.y = ty0 + r->y * th / ih;
+    o.h = ty0 + (r->y + r->h) * th / ih - o.y;
   }
   plat_ab_hud_draw(slot, &o);
 }
@@ -675,6 +680,7 @@ static void update_pipeline(void)
 /* the output mode (ab_config.h) */
 int ab_output_mode;
 int ab_crt_margin = 5;
+int ab_crt_vsize;
 
 int ab_crt43(void)
 {
@@ -813,6 +819,11 @@ void plat_init(void)
     long v = m != NULL ? strtol(m, &end, 10) : -1;
     if (m != NULL && *m != 0 && *end == 0 && v >= 0 && v <= 20)
       ab_crt_margin = (int)v;
+    /* the launcher's 4:3 picture height (ab_config.h), the same way */
+    m = getenv("AB_CRT_VSIZE");
+    v = m != NULL ? strtol(m, &end, 10) : 0;
+    if (m != NULL && *m != 0 && *end == 0 && v >= -40 && v <= 40)
+      ab_crt_vsize = (int)v;
   }
   plat_ab_quit_cb = quit_cb;
   plat_ab_resize_cb = resize_cb;
@@ -968,19 +979,34 @@ static unsigned short crt_lerp(unsigned short a, unsigned short b, int f)
   return (unsigned short)(r << 11 | g << 5 | bl);
 }
 
-/* a 4:3 output from the menu's canvas: the canvas stretched (bilinear across, its rows as they are) into the
- * safe rect - on VGA the same width, so a plain copy - then the margin, each side the rows/columns next to it
- * mirrored, at half brightness */
+/* the rows of the output the 4:3 safe rect's picture covers: the safe rect's height plus the launcher's picture
+ * height (ab_crt_vsize), centred - it may start above the output and end below it (cropped there) */
+static void crt_rows(int *top, int *height)
+{
+  int ih = out43_h - 2 * crt_my, th = ih + ab_crt_vsize;
+
+  if (th < 1)
+    th = 1;
+  *top = crt_my - ab_crt_vsize / 2;
+  *height = th;
+}
+
+/* a 4:3 output from the menu's canvas: the canvas stretched (bilinear across, nearest down - its rows as they
+ * are unless the picture height is adjusted) into the safe rect - on VGA the same width, so a plain copy across
+ * - then the margin, each side the rows/columns next to it mirrored, at half brightness */
 #define CRT_COLS_MAX 4096
 static void crt_compose(void)
 {
   static int col_src[CRT_COLS_MAX], col_f[CRT_COLS_MAX], cols = -1, cols_w = -1;
   const unsigned short *src = menu_fb;
-  int ow = out43_w, oh = out43_h, iw = ow - 2 * crt_mx, ih = oh - 2 * crt_my;
-  int x, y, sw = g_menuscreen_w;
+  int ow = out43_w, oh = out43_h, iw = ow - 2 * crt_mx;
+  int x, y, sw = g_menuscreen_w, sh = g_menuscreen_h, ty0, th, top, bot;
 
   if (iw > CRT_COLS_MAX)
     iw = CRT_COLS_MAX;
+  crt_rows(&ty0, &th);
+  top = ty0 < 0 ? 0 : ty0;
+  bot = ty0 + th > oh ? oh : ty0 + th;
 
   if (cols != iw || cols_w != sw) {
     for (x = 0; x < iw; x++) {
@@ -993,9 +1019,13 @@ static void crt_compose(void)
     cols = iw;
     cols_w = sw;
   }
-  for (y = 0; y < ih && y < g_menuscreen_h; y++) {
-    const unsigned short *s = src + (size_t)y * g_menuscreen_pp;
-    unsigned short *d = crt_fb + (size_t)(crt_my + y) * ow;
+  for (y = top; y < bot; y++) {
+    int sy = (int)(((long long)(y - ty0) * sh) / th);
+    const unsigned short *s;
+    unsigned short *d = crt_fb + (size_t)y * ow;
+    if (sy >= sh)
+      sy = sh - 1;
+    s = src + (size_t)sy * g_menuscreen_pp;
     for (x = 0; x < iw; x++) {
       int i = col_src[x];
       d[crt_mx + x] = col_f[x] ? crt_lerp(s[i], s[i + 1], col_f[x]) : s[i];
@@ -1005,13 +1035,20 @@ static void crt_compose(void)
       d[crt_mx + iw + x] = (d[crt_mx + iw - 1 - x] >> 1) & 0x7bef;
     }
   }
-  for (y = 0; y < crt_my; y++) {
-    const unsigned short *t = crt_fb + (size_t)(crt_my + y) * ow, *b = crt_fb + (size_t)(crt_my + ih - 1 - y) * ow;
-    unsigned short *dt = crt_fb + (size_t)(crt_my - 1 - y) * ow, *db = crt_fb + (size_t)(crt_my + ih + y) * ow;
-    for (x = 0; x < ow; x++) {
+  /* above and below the picture: its rows next to the edge, mirrored, at half brightness */
+  for (y = 0; y < top; y++) {
+    int r = 2 * top - 1 - y;
+    const unsigned short *t = crt_fb + (size_t)(r < bot ? r : bot - 1) * ow;
+    unsigned short *dt = crt_fb + (size_t)y * ow;
+    for (x = 0; x < ow; x++)
       dt[x] = (t[x] >> 1) & 0x7bef;
+  }
+  for (y = bot; y < oh; y++) {
+    int r = 2 * bot - 1 - y;
+    const unsigned short *b = crt_fb + (size_t)(r >= top ? r : top) * ow;
+    unsigned short *db = crt_fb + (size_t)y * ow;
+    for (x = 0; x < ow; x++)
       db[x] = (b[x] >> 1) & 0x7bef;
-    }
   }
 }
 

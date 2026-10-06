@@ -365,6 +365,10 @@ launcher reads the **`abfeatures`** file next to the binary (`frontend/ab/abfeat
   `pcsx.custom.cfg` has its own `g_scaler3` keeps that. Unset or out of range: `-ratio` as before.
 - `AB_CRT_MARGIN=0..20` (`crtmargin`, 2026-10-06): the launcher's "CRT margin" in percent per side, default 5 -
   only the CRT 4:3 mode below uses it.
+- `AB_CRT_VSIZE=-40..40` (`crtvsize`, 2026-10-06, the owner's): the launcher's 4:3 "Picture height" in output pixels,
+  one value for the tube and VGA, default 0 - the menu's and the HUD's safe rect gets that much taller (shorter),
+  centred, and may run past the output (cropped: a tube's overscan); `crt_compose()` maps the canvas' rows into
+  it (nearest), `ab_hud_put()` the HUD's. The game's picture keeps its size.
 
 **CRT 4:3** (2026-10-06, the owner's, checked on a real tube behind an HDMI converter): an output of exactly
 720x480 is the launcher's "CRT 4:3" - a 4:3 picture in 720 wide pixels (8:9). `plat_autobleem.c`'s `resize_cb`
