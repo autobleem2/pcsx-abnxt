@@ -138,11 +138,14 @@ static const char * const controller_db_files[] = {
 
 static int psx_w = 256, psx_h = 240;	/* the emulator's output as plat_gvideo_set_mode() was told it */
 static void *shadow_fb;			/* the frame the GPU plugin draws into, RGB565 */
-static void *menu_fb;			/* what the menu draws into, RGB565, the window's size (CRT 4:3: the safe rect's) */
-/* CRT 4:3 (ab_crt43()): the menu draws in square pixels on a 4:3 canvas the size of the safe rect's height, and
- * crt_compose() stretches it 9:8 into the safe rect of crt_fb, the output's size, the margin around it the
- * picture's edges mirrored and dimmed (the launcher's CRT margin, Renderer::mirrorMargin) */
+static void *menu_fb;			/* what the menu draws into, RGB565, the window's size (4:3: the safe rect's) */
+/* A 4:3 output (ab_layout43(): the tube's 720x480 and the VGA modes): the menu draws in square pixels on a canvas
+ * the safe rect's size - on the tube (ab_crt43()) a 4:3 one the safe rect's height, which crt_compose() stretches
+ * 9:8 into the safe rect of crt_fb, on VGA the safe rect itself, copied 1:1 - and the margin around it in crt_fb
+ * (the output's size) is the picture's edges mirrored and dimmed (the launcher's CRT margin,
+ * Renderer::mirrorMargin) */
 static unsigned short *crt_fb;
+static int out43_w, out43_h;		/* the 4:3 output's size, 0 on a wide one */
 static int crt_mx, crt_my;		/* the margin's width and height in output pixels */
 static void *menubg_img;		/* the last frame, the menu's background */
 static int in_menu;
@@ -180,22 +183,29 @@ static void menu_emu_key(int acts)
 /* the window's output size changed: the menu's canvas and the layer the frame is scaled into follow */
 static void resize_cb(int w, int h)
 {
-  /* CRT 4:3: the game's layer is the whole output (pl_crt_out_*), the menu's canvas the safe rect in 4:3 */
+  /* a 4:3 output (width / height <= 1.5, the launcher's OutputMode::is43): the menu's canvas is the safe rect
+   * (on the tube in 4:3 square pixels, stretched 9:8 later); only the tube (720x480, CRT 4:3) also gives the
+   * game's layer the whole output (pl_crt_out_*) - on VGA the game keeps the player's scaler */
   free(crt_fb);
   crt_fb = NULL;
   pl_crt_out_w = pl_crt_out_h = 0;
-  if (w == 720 && h == 480) {
+  out43_w = out43_h = 0;
+  if (w > 0 && h > 0 && w * 2 <= h * 3) {
     crt_fb = calloc(w * h, 2);
     if (crt_fb == NULL) {
       fprintf(stderr, "OOM\n");
       exit(1);
     }
-    pl_crt_out_w = w;
-    pl_crt_out_h = h;
+    out43_w = w;
+    out43_h = h;
+    if (w == 720 && h == 480) {
+      pl_crt_out_w = w;
+      pl_crt_out_h = h;
+    }
     crt_mx = (w * ab_crt_margin + 50) / 100;
     crt_my = (h * ab_crt_margin + 50) / 100;
     h -= 2 * crt_my;
-    w = (h * 4 + 1) / 3;
+    w = pl_crt_out_w != 0 ? (h * 4 + 1) / 3 : w - 2 * crt_mx;
   }
   g_menuscreen_w = w;
   g_menuscreen_h = h;
@@ -303,23 +313,28 @@ static int hud_scale(int screen_h)
   return scale < 2 ? 2 : scale > 6 ? 6 : scale;
 }
 
-/* CRT 4:3: the HUD keeps inside the CRT margin and is drawn for the tube's 4:3 - its parts are laid out on a
- * screen of square pixels the safe rect's height (hud_area()), and ab_hud_put() maps that into the safe rect,
- * 9:8 wide; elsewhere both pass through */
+/* a 4:3 output: the HUD keeps inside the CRT margin - its parts are laid out on a screen of square pixels the
+ * safe rect's size (hud_area(); on the tube 4:3 the safe rect's height), and ab_hud_put() maps that into the
+ * safe rect (on the tube 9:8 wide, on VGA 1:1); on a wide output both pass through */
+static int hud_area_w(int ih)
+{
+  return pl_crt_out_w != 0 ? (ih * 4 + 1) / 3 : out43_w - 2 * crt_mx;
+}
+
 static void hud_area(int *sw, int *sh)
 {
-  if (pl_crt_out_w == 0)
+  if (out43_w == 0)
     return;
-  *sh = pl_crt_out_h - 2 * crt_my;
-  *sw = (*sh * 4 + 1) / 3;
+  *sh = out43_h - 2 * crt_my;
+  *sw = hud_area_w(*sh);
 }
 
 static void ab_hud_put(int slot, const SDL_Rect *r)
 {
   SDL_Rect o = *r;
 
-  if (pl_crt_out_w != 0) {
-    int iw = pl_crt_out_w - 2 * crt_mx, aw = ((pl_crt_out_h - 2 * crt_my) * 4 + 1) / 3;
+  if (out43_w != 0) {
+    int iw = out43_w - 2 * crt_mx, aw = hud_area_w(out43_h - 2 * crt_my);
     o.x = crt_mx + r->x * iw / aw;
     o.w = crt_mx + (r->x + r->w) * iw / aw - o.x;
     o.y = crt_my + r->y;
@@ -666,6 +681,11 @@ int ab_crt43(void)
   return pl_crt_out_w != 0;	/* resize_cb(): the output is 720x480 */
 }
 
+int ab_layout43(void)
+{
+  return out43_w != 0;	/* resize_cb(): any 4:3 output, the tube's included */
+}
+
 int ab_output_mode_parse(const char *s)
 {
   int w, h;
@@ -948,14 +968,19 @@ static unsigned short crt_lerp(unsigned short a, unsigned short b, int f)
   return (unsigned short)(r << 11 | g << 5 | bl);
 }
 
-/* the CRT's output from the menu's canvas: the canvas stretched (bilinear across, its rows as they are) into
- * the safe rect, then the margin - each side the rows/columns next to it mirrored, at half brightness */
+/* a 4:3 output from the menu's canvas: the canvas stretched (bilinear across, its rows as they are) into the
+ * safe rect - on VGA the same width, so a plain copy - then the margin, each side the rows/columns next to it
+ * mirrored, at half brightness */
+#define CRT_COLS_MAX 4096
 static void crt_compose(void)
 {
-  static int col_src[720], col_f[720], cols = -1, cols_w = -1;
+  static int col_src[CRT_COLS_MAX], col_f[CRT_COLS_MAX], cols = -1, cols_w = -1;
   const unsigned short *src = menu_fb;
-  int ow = pl_crt_out_w, oh = pl_crt_out_h, iw = ow - 2 * crt_mx, ih = oh - 2 * crt_my;
+  int ow = out43_w, oh = out43_h, iw = ow - 2 * crt_mx, ih = oh - 2 * crt_my;
   int x, y, sw = g_menuscreen_w;
+
+  if (iw > CRT_COLS_MAX)
+    iw = CRT_COLS_MAX;
 
   if (cols != iw || cols_w != sw) {
     for (x = 0; x < iw; x++) {
@@ -994,7 +1019,7 @@ void plat_video_menu_end(void)
 {
   if (crt_fb != NULL) {
     crt_compose();
-    plat_ab_present(crt_fb, pl_crt_out_w, pl_crt_out_h, pl_crt_out_w, NULL);
+    plat_ab_present(crt_fb, out43_w, out43_h, out43_w, NULL);
   } else
     plat_ab_present(menu_fb, g_menuscreen_w, g_menuscreen_h, g_menuscreen_pp, NULL);
   g_menuscreen_ptr = NULL;

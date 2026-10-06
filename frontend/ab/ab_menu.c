@@ -429,10 +429,17 @@ static struct ab_canvas ab_canvas(void)
  * this much larger - a tube's 480 lines read from a sofa; what sits on the art's bar follows the art */
 #define AB_CRT_BOOST 1.15f
 
-/* the design's scale: the canvas' height over 720, larger on a CRT */
+/* the design's scale: the canvas' height over 720; on a 4:3 output (the tube and VGA, ab_layout43()) larger,
+ * and a canvas narrower than 4:3 (VGA's 5:4 1280x1024) by its width, so the 4:3 layout fits across */
 static float ab_scale(const struct ab_canvas *c)
 {
-	return c->h / 720.0f * (ab_crt43() ? AB_CRT_BOOST : 1.0f);
+	float s = c->h / 720.0f;
+
+	if (!ab_layout43())
+		return s;
+	if (c->w / 960.0f < s)
+		s = c->w / 960.0f;
+	return s * AB_CRT_BOOST;
 }
 
 /* the art's 1280x720 coordinates on the canvas: ab_ui_background() covers the canvas with it, the overhang
@@ -447,7 +454,7 @@ static float ab_art_f(const struct ab_canvas *c)
 static int ab_art_x(const struct ab_canvas *c, int x)
 {
 	float f = ab_art_f(c);
-	return (int)(x * f - (ab_crt43() ? 0 : (1280 * f - c->w) / 2));
+	return (int)(x * f - (ab_layout43() ? 0 : (1280 * f - c->w) / 2));
 }
 
 static int ab_art_y(const struct ab_canvas *c, int y)
@@ -586,8 +593,8 @@ static void ab_hint(struct ab_canvas *c, int *x, int cy, int px, int is_cross, c
 static void ab_footer(struct ab_canvas *c, const char *ok, const char *back)
 {
 	float s = ab_scale(c);
-	int px = (int)(22 * s), x = ab_crt43() ? ab_art_x(c, AB_HINT_X) : (int)(AB_HINT_X * s);
-	int cy = ab_crt43() ? ab_art_y(c, AB_HINT_CY) : (int)(AB_HINT_CY * s);
+	int px = (int)(22 * s), x = ab_layout43() ? ab_art_x(c, AB_HINT_X) : (int)(AB_HINT_X * s);
+	int cy = ab_layout43() ? ab_art_y(c, AB_HINT_CY) : (int)(AB_HINT_CY * s);
 
 	ab_hint(c, &x, cy, px, 1, ok);
 	if (back != NULL)
@@ -876,7 +883,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	/* the rows' panel on the left, the game's name, batteries, picture and help right of it; CRT 4:3 (a
 	 * narrower canvas, larger sizes): the game's name and its line across the top, the panel and the column
 	 * under them */
-	crt = ab_crt43();
+	crt = ab_layout43();
 	panel_w = (int)((crt ? 470 : 540) * s);
 	panel_x = (int)(32 * s);
 	col_x = panel_x + panel_w + (int)((crt ? 28 : 40) * s);
