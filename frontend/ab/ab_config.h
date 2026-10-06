@@ -129,6 +129,11 @@ void ab_output_mode_name(int mode, char *buf, int size);
  * twice, the width a CRT's), the CRT filters and our scanlines are off (the tube draws its own), and the menu
  * and the HUD are laid out for 4:3 inside the CRT margin. */
 int ab_crt43(void);
+/* Any 4:3 output (width / height <= 1.5: the tube's 720x480, the Pi's and the PC's VGA 640x480, 800x600, 1024x768,
+ * 1280x1024): the menu and the HUD are laid out for 4:3 (larger sizes, the art cropped on the right) inside the
+ * CRT margin. Only the tube (ab_crt43()) stretches them 9:8 and gives the game the whole output; on VGA the pixels
+ * are square and the game keeps the player's scaler and filters. */
+int ab_layout43(void);
 /* $AB_CRT_MARGIN (abfeatures: crtmargin): the launcher's "CRT margin", 0..20 % on each side (its Options offer 0..10), default 5 - the
  * menu and the HUD keep inside it (overscan); the game's picture does not, games were made for it */
 extern int ab_crt_margin;

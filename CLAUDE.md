@@ -379,6 +379,15 @@ brightness, as the launcher's `Renderer::mirrorMargin` does. In `ab_menu.c` the 
 the art's bar follows the art (`ab_art_x/y`); the art is cropped from the left (`ab_ui_background`) so its logo
 stays whole. The HUD is laid out on the same 4:3 area and mapped into the safe rect (`ab_hud_put`).
 
+**VGA 4:3** (2026-10-06, the owner's, on the Pi 400's VGA monitor): every other 4:3 output (width / height
+<= 1.5, the launcher's `OutputMode::is43`: 640x480, 800x600, 1024x768, 1280x1024) gets the same menu and HUD
+layout - `ab_layout43()`, while `ab_crt43()` stays the tube alone. The menu's canvas is the safe rect itself
+(square pixels, `crt_compose()` copies it 1:1 and mirrors the margin, which the launcher's "CRT margin" sets;
+the launcher's VGA default is 0), the sizes are the tube's +15 % (the owner's call), and a canvas narrower
+than 4:3 (5:4) scales by its width (`ab_scale`: min(h/720, w/960)). The game keeps the player's scaler,
+filters and scanlines: only the tube fills the output and greys them (`pl_crt_out_*`). Before this the menu
+on 800x600 was the 16:9 design scaled by the height, 1067 px wide on an 800 px screen, its sides cut off.
+
 Only the cards in use are created (no `card2.mcd`, which is "none"). Not yet run on a console.
 
 **Dithering** (2026-09-29): the in-game menu's Picture section has a Dithering row - Off / On / Always,

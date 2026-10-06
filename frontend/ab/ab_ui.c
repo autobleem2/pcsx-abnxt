@@ -842,7 +842,7 @@ int ab_ui_background(unsigned short *dst, int w, int h)
 		step = (iw << 16) / w;
 	/* the overhang evenly off both sides; on a CRT (a 4:3 canvas) all of it off the right, so the art's logo,
 	 * bottom left, stays whole (ab_menu.c's ab_art_x() follows) */
-	sx0 = ab_crt43() ? 0 : ((iw << 16) - step * w) / 2;
+	sx0 = ab_layout43() ? 0 : ((iw << 16) - step * w) / 2;
 	sy0 = ((ih << 16) - step * h) / 2;
 	for (y = 0; y < h; y++) {
 		int sy = sy0 + y * step, iy = sy >> 16, fy = (sy >> 8) & 0xff;
