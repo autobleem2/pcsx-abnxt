@@ -147,6 +147,7 @@ static void *menu_fb;			/* what the menu draws into, RGB565, the window's size (
 static unsigned short *crt_fb;
 static int out43_w, out43_h;		/* the 4:3 output's size, 0 on a wide one */
 static int crt_mx, crt_my;		/* the margin's width and height in output pixels */
+static int layer_h;			/* the game layer's height resize_cb() gave (the canvas' before the picture height) */
 static void *menubg_img;		/* the last frame, the menu's background */
 static int in_menu;
 static int fullscreen_old;
@@ -186,10 +187,13 @@ static void resize_cb(int w, int h)
   /* a 4:3 output (width / height <= 1.5, the launcher's OutputMode::is43): the menu's canvas is the safe rect
    * (on the tube in 4:3 square pixels, stretched 9:8 later); only the tube (720x480, CRT 4:3) also gives the
    * game's layer the whole output (pl_crt_out_*) - on VGA the game keeps the player's scaler */
+  int lh;
+
   free(crt_fb);
   crt_fb = NULL;
   pl_crt_out_w = pl_crt_out_h = 0;
   out43_w = out43_h = 0;
+  lh = h;
   if (w > 0 && h > 0 && w * 2 <= h * 3) {
     crt_fb = calloc(w * h, 2);
     if (crt_fb == NULL) {
@@ -206,6 +210,13 @@ static void resize_cb(int w, int h)
     crt_my = (h * ab_crt_margin + 50) / 100;
     h -= 2 * crt_my;
     w = pl_crt_out_w != 0 ? (h * 4 + 1) / 3 : w - 2 * crt_mx;
+    lh = h;
+    /* the launcher's picture height (crt_rows()): the menu is laid out on a canvas that many rows taller
+     * (shorter) - drawn at the rows it is shown in, never stretched - while its width and the game's layer
+     * keep the safe rect's */
+    h += ab_crt_vsize;
+    if (h < 1)
+      h = 1;
   }
   g_menuscreen_w = w;
   g_menuscreen_h = h;
@@ -216,7 +227,8 @@ static void resize_cb(int w, int h)
     fprintf(stderr, "OOM\n");
     exit(1);
   }
-  pl_update_layer_size(psx_w, psx_h, w, h);
+  layer_h = lh;
+  pl_update_layer_size(psx_w, psx_h, w, lh);
   if (in_menu)
     g_menuscreen_ptr = menu_fb;
   /* libpicofe's background buffers are the canvas' size too (menu_init() made them at the first size;
@@ -321,28 +333,29 @@ static int hud_area_w(int ih)
   return pl_crt_out_w != 0 ? (ih * 4 + 1) / 3 : out43_w - 2 * crt_mx;
 }
 
+static void crt_rows(int *top, int *height);
+
+/* the HUD's screen is the picture height's rows tall (crt_rows()), so its parts keep their pixels */
 static void hud_area(int *sw, int *sh)
 {
+  int ty0;
+
   if (out43_w == 0)
     return;
-  *sh = out43_h - 2 * crt_my;
-  *sw = hud_area_w(*sh);
+  crt_rows(&ty0, sh);
+  *sw = hud_area_w(out43_h - 2 * crt_my);
 }
-
-static void crt_rows(int *top, int *height);
 
 static void ab_hud_put(int slot, const SDL_Rect *r)
 {
   SDL_Rect o = *r;
 
   if (out43_w != 0) {
-    int iw = out43_w - 2 * crt_mx, aw = hud_area_w(out43_h - 2 * crt_my);
-    int ih = out43_h - 2 * crt_my, ty0, th;
+    int iw = out43_w - 2 * crt_mx, aw = hud_area_w(out43_h - 2 * crt_my), ty0, th;
     crt_rows(&ty0, &th);
     o.x = crt_mx + r->x * iw / aw;
     o.w = crt_mx + (r->x + r->w) * iw / aw - o.x;
-    o.y = ty0 + r->y * th / ih;
-    o.h = ty0 + (r->y + r->h) * th / ih - o.y;
+    o.y = ty0 + r->y;
   }
   plat_ab_hud_draw(slot, &o);
 }
@@ -991,8 +1004,8 @@ static void crt_rows(int *top, int *height)
   *height = th;
 }
 
-/* a 4:3 output from the menu's canvas: the canvas stretched (bilinear across, nearest down - its rows as they
- * are unless the picture height is adjusted) into the safe rect - on VGA the same width, so a plain copy across
+/* a 4:3 output from the menu's canvas: the canvas stretched (bilinear across, row for row - resize_cb() made it the
+ * picture height's rows tall) into the safe rect - on VGA the same width, so a plain copy across
  * - then the margin, each side the rows/columns next to it mirrored, at half brightness */
 #define CRT_COLS_MAX 4096
 static void crt_compose(void)
@@ -1068,7 +1081,7 @@ void plat_video_menu_leave(void)
 
   in_menu = 0;
   check_fullscreen();
-  pl_update_layer_size(psx_w, psx_h, g_menuscreen_w, g_menuscreen_h);
+  pl_update_layer_size(psx_w, psx_h, g_menuscreen_w, layer_h);
   plat_ab_clear();
 
   for (d = 0; d < IN_MAX_DEVS; d++)

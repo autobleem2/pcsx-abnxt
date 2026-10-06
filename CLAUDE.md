@@ -366,9 +366,9 @@ launcher reads the **`abfeatures`** file next to the binary (`frontend/ab/abfeat
 - `AB_CRT_MARGIN=0..20` (`crtmargin`, 2026-10-06): the launcher's "CRT margin" in percent per side, default 5 -
   only the CRT 4:3 mode below uses it.
 - `AB_CRT_VSIZE=-40..40` (`crtvsize`, 2026-10-06, the owner's): the launcher's 4:3 "Picture height" in output pixels,
-  one value for the tube and VGA, default 0 - the menu's and the HUD's safe rect gets that much taller (shorter),
-  centred, and may run past the output (cropped: a tube's overscan); `crt_compose()` maps the canvas' rows into
-  it (nearest), `ab_hud_put()` the HUD's. The game's picture keeps its size.
+  one value for the tube and VGA, default 0 - the menu's canvas and the HUD's screen get that many rows more (fewer),
+  laid out at their own rows (never stretched), centred, and may run past the output (cropped: a tube's overscan); `crt_compose()` copies the canvas row for row,
+  `ab_hud_put()` the HUD's. The canvas width and the game's layer (`layer_h`) keep the safe rect's.
 
 **CRT 4:3** (2026-10-06, the owner's, checked on a real tube behind an HDMI converter): an output of exactly
 720x480 is the launcher's "CRT 4:3" - a 4:3 picture in 720 wide pixels (8:9). `plat_autobleem.c`'s `resize_cb`
