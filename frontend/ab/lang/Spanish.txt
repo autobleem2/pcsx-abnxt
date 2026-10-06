@@ -53,6 +53,7 @@ Quick load failed=Falló la carga rápida
 Saved for this game=Guardado para este juego
 Failed to save the settings=No se pudieron guardar los ajustes
 Off while a CRT filter is on=Desactivado con un filtro CRT
+Not used on a CRT (CRT 4:3)=No se usa en un CRT (CRT 4:3)
 A CRT filter draws its own scanlines=Un filtro CRT dibuja sus propias scanlines
 A CRT filter draws its own scanlines; smoothing is off with it=Un filtro CRT dibuja sus propias scanlines; el suavizado se desactiva con él
 Nearest: plain pixels. Linear: smoothed. Sharp: crisp pixels without shimmer. CRT: a TV's look=Más cercano: píxeles puros. Lineal: suavizado. Nítido: píxeles definidos sin parpadeo. CRT: el aspecto de un televisor

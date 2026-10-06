@@ -109,6 +109,7 @@ static const char h_ab_dither[] = "The PlayStation's fine dot pattern that hides
 static const char ab_why_crt[]   = "Off while a CRT filter is on";
 static const char ab_why_1x[]    = "Only with the 2x resolution";
 static const char ab_why_display[] = "The console's resolution is chosen in AutoBleem's settings";
+static const char ab_why_crt43[] = "Not used on a CRT (CRT 4:3)";
 
 /* the sections are label rows (not selectable), drawn as headings */
 static menu_entry e_menu_ab[] =
@@ -207,6 +208,13 @@ static const char *ab_row_blocked(const menu_entry *e)
 		return ab_why_1x;
 	if (e->id == MA_AB_DISPLAY && ab_console_present())
 		return ab_why_display;
+	if (ab_crt43()) {
+		/* a real tube (ab_config.h): its own scanlines, the game on the whole output; a CRT filter in the
+		 * cfg is not used, so it rules nothing out here */
+		if (e->id == MA_OPT_SCANLINES || e->id == MA_OPT_SCANLINE_LEVEL || e->id == MA_AB_SCALER)
+			return ab_why_crt43;
+		return NULL;
+	}
 	if (!ab_filter_is_crt(plat_target.hwfilter))
 		return NULL;
 	if (e->id == MA_OPT_SCANLINES || e->id == MA_OPT_SCANLINE_LEVEL)
@@ -248,6 +256,10 @@ static int ab_scaler_shown, ab_dither_shown;
 static void ab_rows_take(void)
 {
 	ab_scaler_sel = ab_scaler_shown = g_scaler <= SCALE_FULLSCREEN ? g_scaler : SCALE_4_3;
+	/* CRT 4:3: the game fills the tube (pl_crt_fullscreen) - 240 lines twice, 4:3 - shown as "Integer 4:3",
+	 * greyed (ab_row_blocked), and g_scaler is left as it was for the next 16:9 run */
+	if (ab_crt43())
+		ab_scaler_sel = ab_scaler_shown = SCALE_4_3v2;
 	ab_dither_sel = ab_dither_shown = pl_rearmed_cbs.dithering <= 2 ? pl_rearmed_cbs.dithering : 1;
 }
 
@@ -330,6 +342,13 @@ static int ab_menu_handler(int id, int keys)
 			if (plat_target.hwfilters[plat_target.hwfilter] == NULL)
 				plat_target.hwfilter = 0;
 		}
+		/* CRT 4:3 (a real tube): the CRT filters are not offered - the step goes on past them */
+		while (ab_crt43() && ab_filter_is_crt(plat_target.hwfilter)) {
+			if (keys & PBTN_LEFT)
+				plat_target.hwfilter--;
+			else if (plat_target.hwfilters[++plat_target.hwfilter] == NULL)
+				plat_target.hwfilter = 0;
+		}
 		if (ab_filter_is_crt(plat_target.hwfilter))
 			menu_update_msg(ab_console_present() && soft_filter != SOFT_FILTER_NONE ?
 				"A CRT filter draws its own scanlines; smoothing is off with it" :
@@ -346,7 +365,12 @@ static int ab_menu_handler(int id, int keys)
 
 static const char *ab_filter_name(int id, int *offs)
 {
-	return plat_target.hwfilters != NULL ? plat_target.hwfilters[plat_target.hwfilter] : "-";
+	if (plat_target.hwfilters == NULL)
+		return "-";
+	/* CRT 4:3: a CRT filter in the cfg is drawn as Linear (plat_autobleem.c's update_pipeline) - say so */
+	if (ab_crt43() && ab_filter_is_crt(plat_target.hwfilter))
+		return plat_target.hwfilters[AB_FILTER_LINEAR];
+	return plat_target.hwfilters[plat_target.hwfilter];
 }
 
 /* ---- the disc picker (docs/port-plan.md, phase 5) ----
@@ -399,6 +423,37 @@ static struct ab_canvas ab_canvas(void)
 {
 	struct ab_canvas c = { g_menuscreen_ptr, g_menuscreen_w, g_menuscreen_h, g_menuscreen_pp };
 	return c;
+}
+
+/* CRT 4:3 (ab_crt43()): the canvas is the safe rect in 4:3 (plat_autobleem.c) and the design's sizes are drawn
+ * this much larger - a tube's 480 lines read from a sofa; what sits on the art's bar follows the art */
+#define AB_CRT_BOOST 1.15f
+
+/* the design's scale: the canvas' height over 720, larger on a CRT */
+static float ab_scale(const struct ab_canvas *c)
+{
+	return c->h / 720.0f * (ab_crt43() ? AB_CRT_BOOST : 1.0f);
+}
+
+/* the art's 1280x720 coordinates on the canvas: ab_ui_background() covers the canvas with it, the overhang
+ * cropped evenly - but on a CRT, where the 4:3 canvas loses 320 of the art's columns, all of them on the
+ * right, so its logo (bottom left) stays whole */
+static float ab_art_f(const struct ab_canvas *c)
+{
+	float fw = c->w / 1280.0f, fh = c->h / 720.0f;
+	return fw > fh ? fw : fh;
+}
+
+static int ab_art_x(const struct ab_canvas *c, int x)
+{
+	float f = ab_art_f(c);
+	return (int)(x * f - (ab_crt43() ? 0 : (1280 * f - c->w) / 2));
+}
+
+static int ab_art_y(const struct ab_canvas *c, int y)
+{
+	float f = ab_art_f(c);
+	return (int)(y * f - (720 * f - c->h) / 2);
 }
 
 /* a rim's thickness at the canvas' scale, at least a pixel */
@@ -518,7 +573,7 @@ static int ab_battery_icon(struct ab_canvas *c, int x, int y, float s, int perce
  * on cy, left to right from *x, which moves past them */
 static void ab_hint(struct ab_canvas *c, int *x, int cy, int px, int is_cross, const char *text)
 {
-	float s = c->h / 720.0f;
+	float s = ab_scale(c);
 	int r = (int)(AB_HINT_R * s), gap = (int)(10 * s);
 
 	ab_ui_pad_glyph(c, *x + r, cy, r, is_cross, ab_ui_skin()->hint_disc, ab_ui_skin()->hint_rim,
@@ -530,8 +585,9 @@ static void ab_hint(struct ab_canvas *c, int *x, int cy, int px, int is_cross, c
 /* "(x) ok   (o) back" on the art's bar, from its left end; back == NULL for a plain "(x) OK" */
 static void ab_footer(struct ab_canvas *c, const char *ok, const char *back)
 {
-	float s = c->h / 720.0f;
-	int px = (int)(22 * s), x = (int)(AB_HINT_X * s), cy = (int)(AB_HINT_CY * s);
+	float s = ab_scale(c);
+	int px = (int)(22 * s), x = ab_crt43() ? ab_art_x(c, AB_HINT_X) : (int)(AB_HINT_X * s);
+	int cy = ab_crt43() ? ab_art_y(c, AB_HINT_CY) : (int)(AB_HINT_CY * s);
 
 	ab_hint(c, &x, cy, px, 1, ok);
 	if (back != NULL)
@@ -547,7 +603,7 @@ static void ab_draw_disc_picker(int n, int cur, int sel)
 
 	ab_debug_screen("disc");
 	c = ab_screen_begin();
-	s = c.h / 720.0f;
+	s = ab_scale(&c);
 	ab_text_shadow(&c, (int)(40 * s), (int)(40 * s), AB_UI_LEFT, ab_ui_str(AB_STR_CHANGE_DISC), (int)(36 * s), ab_col_text);
 	if (CdromId[0] != 0)
 		ab_text_shadow(&c, (int)(40 * s), (int)(86 * s), AB_UI_LEFT, get_cd_label(), (int)(22 * s), ab_col_dim);
@@ -582,7 +638,7 @@ static void ab_draw_box(const char *msg, const char *ok)
 	int px, w;
 
 	c = ab_screen_begin();
-	s = c.h / 720.0f;
+	s = ab_scale(&c);
 	px = (int)(32 * s);
 	w = ab_text_width(msg, px) + (int)(120 * s);
 	ab_panel(&c, (c.w - w) / 2, (int)(c.h * 0.44f) - (int)(40 * s), w, px + (int)(80 * s), s);
@@ -810,21 +866,25 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	time_t ltime;
 	float s;
 	int n, i, y, x, px, row_h, pad, panel_x, panel_y, panel_w, panel_h, x_name, x_val;
-	int heads, head_h, head_px, avail, left_w, total, view_h, help_bottom;
+	int heads, head_h, head_px, avail, left_w, total, view_h, help_bottom, crt, col_x;
 	const char *blocked;
 
 	ab_debug_screen("menu");
 	c = ab_screen_begin();
-	s = c.h / 720.0f;
+	s = ab_scale(&c);
 
-	/* the rows' panel on the left, the game's name, batteries, picture and help right of it */
-	panel_w = (int)(540 * s);
+	/* the rows' panel on the left, the game's name, batteries, picture and help right of it; CRT 4:3 (a
+	 * narrower canvas, larger sizes): the game's name and its line across the top, the panel and the column
+	 * under them */
+	crt = ab_crt43();
+	panel_w = (int)((crt ? 470 : 540) * s);
 	panel_x = (int)(32 * s);
-	left_w = c.w - (int)(40 * s) - (panel_x + panel_w + (int)(40 * s));
+	col_x = panel_x + panel_w + (int)((crt ? 28 : 40) * s);
+	left_w = c.w - (int)((crt ? 32 : 40) * s) - col_x;
 
-	/* top right: the game */
-	x = panel_x + panel_w + (int)(40 * s);
-	y = (int)(40 * s);
+	/* top right: the game (CRT 4:3: top left) */
+	x = crt ? panel_x + (int)(8 * s) : col_x;
+	y = (int)((crt ? 16 : 40) * s);
 	if (CdromId[0] != 0) {
 		ab_text_shadow(&c, x, y, AB_UI_LEFT, get_cd_label(), (int)(36 * s), ab_col_text);
 		y += (int)(46 * s);
@@ -867,8 +927,15 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	row_h = (int)(38 * s);
 	head_h = (int)(34 * s);
 	pad = (int)(16 * s);
-	avail = (int)((AB_PANEL_BOTTOM - AB_PANEL_TOP) * s);
-	panel_y = (int)(AB_PANEL_TOP * s);
+	if (crt) {
+		/* under the game's two lines, down to above the build's lines (which sit over the panel's
+		 * columns on a canvas this narrow) */
+		panel_y = (int)(100 * s);
+		avail = ab_art_y(&c, AB_BUILD_Y - 10) - panel_y;
+	} else {
+		avail = (int)((AB_PANEL_BOTTOM - AB_PANEL_TOP) * s);
+		panel_y = (int)(AB_PANEL_TOP * s);
+	}
 	if (ab_crumb_n > 0) {
 		/* a page one level down or more: where it is, over the panel ("PCSX menu > Options > Display") */
 		int k, cx = panel_x + (int)(8 * s);
@@ -1055,8 +1122,8 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 
 	/* right of the panel, under the game's name: the pads' batteries, the game's last frame, then the
 	 * message of the moment or the selected row's help (left_w is that column's width) */
-	x = panel_x + panel_w + (int)(40 * s);
-	y = (int)(40 * s) + (CdromId[0] != 0 ? (int)(84 * s) : (int)(50 * s));
+	x = col_x;
+	y = crt ? panel_y : (int)(40 * s) + (CdromId[0] != 0 ? (int)(84 * s) : (int)(50 * s));
 	{
 		int pct[AB_PAD_BATTERY_MAX], np = ab_pad_battery_all(pct, AB_PAD_BATTERY_MAX), k, bx;
 		if (np > 0) {
@@ -1092,7 +1159,7 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 	}
 	blocked = ent_sel != NULL ? ab_row_blocked(ent_sel) : NULL;
 	/* the column ends above the build lines */
-	help_bottom = (int)((AB_BUILD_Y - 8) * s);
+	help_bottom = crt ? ab_art_y(&c, AB_BUILD_Y - 8) : (int)((AB_BUILD_Y - 8) * s);
 	if (menu_error_msg[0] != 0) {
 		ab_text_wrap(&c, x, y, ab_ui_tr(menu_error_msg), (int)(22 * s), left_w,
 			     ab_lines_fit(y, help_bottom, (int)(22 * s), 3), ab_col_accent);
@@ -1121,8 +1188,14 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 
 	/* the bar: only the hints; the build right-aligned just above it */
 	ab_footer(&c, ab_ui_tr("Select"), ab_ui_tr(ab_crumb_n > 0 || !ready_to_go ? "Back" : "Resume"));
-	px = (int)(17 * s);
-	x = (int)(AB_BUILD_X * s);
+	/* CRT 4:3: the build at the art's size (not the larger rows'), against the canvas' right */
+	{
+		float bs = crt ? ab_art_f(&c) : s;
+		px = (int)(17 * bs);
+		x = crt ? c.w - (int)(32 * s) : (int)(AB_BUILD_X * s);
+		y = crt ? ab_art_y(&c, AB_BUILD_Y) : (int)(AB_BUILD_Y * s);
+		row_h = (int)(22 * bs);
+	}
 	/* the package's version (AB_VERSION, exported by the launcher) - what every program on the stick shows;
 	   the emulator's own git describe only when it was started without the launcher */
 	{
@@ -1132,9 +1205,9 @@ static void ab_menu_draw(const menu_entry *menu, int sel)
 		else
 			snprintf(buf, sizeof(buf), "pcsx-abnxt %s", REV[0] != 0 ? REV : "(no version)");
 	}
-	ab_text_shadow(&c, x, (int)(AB_BUILD_Y * s), AB_UI_RIGHT, buf, px, ab_col_dim);
+	ab_text_shadow(&c, x, y, AB_UI_RIGHT, buf, px, ab_col_dim);
 	snprintf(buf, sizeof(buf), "PCSX-ReARMed  \xc2\xb7  %s  \xc2\xb7  %s  \xc2\xb7  built %s", ab_cpu_name(), ab_gpu_name(), __DATE__);
-	ab_text_shadow(&c, x, (int)((AB_BUILD_Y + 22) * s), AB_UI_RIGHT, buf, px, ab_col_dim);
+	ab_text_shadow(&c, x, crt ? y + row_h : (int)((AB_BUILD_Y + 22) * s), AB_UI_RIGHT, buf, px, ab_col_dim);
 
 	menu_draw_end();
 }
@@ -1541,8 +1614,11 @@ static void ab_menu_loop_d(void)
 			/* the console: Weston's mode is set at boot (the launcher's setting, boot.sh), so the row
 			 * only shows the output's resolution */
 			static char cur[16];
-			/* the menu's canvas is the output's size (plat_autobleem.c's resize_cb) */
-			if (g_menuscreen_h == 1080 || g_menuscreen_h == 720)
+			/* the menu's canvas is the output's size (plat_autobleem.c's resize_cb), but on a CRT,
+			 * where it is the safe rect */
+			if (ab_crt43())
+				snprintf(cur, sizeof(cur), "CRT 4:3");
+			else if (g_menuscreen_h == 1080 || g_menuscreen_h == 720)
 				snprintf(cur, sizeof(cur), "%dp", g_menuscreen_h);
 			else
 				snprintf(cur, sizeof(cur), "%dx%d", g_menuscreen_w, g_menuscreen_h);

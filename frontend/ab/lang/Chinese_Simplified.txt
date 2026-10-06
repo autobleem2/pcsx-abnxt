@@ -72,6 +72,7 @@ The console's resolution is chosen in AutoBleem's settings=主机的分辨率在
 Saved for this game=已为此游戏保存
 Failed to save the settings=设置保存失败
 Off while a CRT filter is on=开启 CRT 滤镜时关闭
+Not used on a CRT (CRT 4:3)=在 CRT 显像管上不使用（CRT 4:3）
 A CRT filter draws its own scanlines=CRT 滤镜会绘制自己的扫描线
 A CRT filter draws its own scanlines; smoothing is off with it=CRT 滤镜会绘制自己的扫描线；开启它时平滑会关闭
 Nearest: plain pixels. Linear: smoothed. Sharp: crisp pixels without shimmer. CRT: a TV's look=最近邻：原始像素。线性：平滑处理。锐利：清晰像素无闪烁。CRT：电视机的效果

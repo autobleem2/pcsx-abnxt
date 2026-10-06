@@ -27,6 +27,7 @@
 #include "../../libpcsxcore/system.h"
 #include "../main.h"
 #include "ab_ui.h"
+#include "ab_config.h"
 
 /* the keys as the launcher's English.txt has them - what lang/<Name>.txt translates */
 static const char *english[AB_STR_COUNT] = {
@@ -839,7 +840,9 @@ int ab_ui_background(unsigned short *dst, int w, int h)
 		step = (ih << 16) / h;
 	else
 		step = (iw << 16) / w;
-	sx0 = ((iw << 16) - step * w) / 2;
+	/* the overhang evenly off both sides; on a CRT (a 4:3 canvas) all of it off the right, so the art's logo,
+	 * bottom left, stays whole (ab_menu.c's ab_art_x() follows) */
+	sx0 = ab_crt43() ? 0 : ((iw << 16) - step * w) / 2;
 	sy0 = ((ih << 16) - step * h) / 2;
 	for (y = 0; y < h; y++) {
 		int sy = sy0 + y * step, iy = sy >> 16, fy = (sy >> 8) & 0xff;

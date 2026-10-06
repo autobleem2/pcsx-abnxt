@@ -53,6 +53,7 @@ Quick load failed=Snel laden mislukt
 Saved for this game=Opgeslagen voor dit spel
 Failed to save the settings=De instellingen konden niet worden opgeslagen
 Off while a CRT filter is on=Uit zolang een CRT-filter aan staat
+Not used on a CRT (CRT 4:3)=Niet gebruikt op een CRT (CRT 4:3)
 A CRT filter draws its own scanlines=Een CRT-filter tekent eigen scanlines
 A CRT filter draws its own scanlines; smoothing is off with it=Een CRT-filter tekent eigen scanlines; verzachten staat daarbij uit
 Nearest: plain pixels. Linear: smoothed. Sharp: crisp pixels without shimmer. CRT: a TV's look=Dichtstbijzijnd: pure pixels. Lineair: verzacht. Scherp: strakke pixels zonder flikkering. CRT: de look van een tv

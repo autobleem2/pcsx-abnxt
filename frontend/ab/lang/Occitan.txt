@@ -72,6 +72,7 @@ The console's resolution is chosen in AutoBleem's settings=La definicion de la c
 Saved for this game=Enregistrat per aqueste jòc
 Failed to save the settings=L'enregistrament dels paramètres a fracassat
 Off while a CRT filter is on=Atudat pendent qu'un filtre CRT es activat
+Not used on a CRT (CRT 4:3)=Pas utilizat sus un CRT (CRT 4:3)
 A CRT filter draws its own scanlines=Un filtre CRT dessenha sas pròprias scanlines
 A CRT filter draws its own scanlines; smoothing is off with it=Un filtre CRT dessenha sas pròprias scanlines ; la doçor es atudada amb el
 Nearest: plain pixels. Linear: smoothed. Sharp: crisp pixels without shimmer. CRT: a TV's look=Lo mai pròche : pixèls bruts. Lineari : doç. Net : pixèls precises sens tremolament. CRT : l'aparéncia d'una television

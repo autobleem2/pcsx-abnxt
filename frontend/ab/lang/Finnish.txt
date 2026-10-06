@@ -53,6 +53,7 @@ Quick load failed=Pikalataus epäonnistui
 Saved for this game=Tallennettu tälle pelille
 Failed to save the settings=Asetuksia ei voitu tallentaa
 Off while a CRT filter is on=Pois, kun CRT-suodatin on käytössä
+Not used on a CRT (CRT 4:3)=Ei käytössä CRT-näytöllä (CRT 4:3)
 A CRT filter draws its own scanlines=CRT-suodatin piirtää omat scanlinensa
 A CRT filter draws its own scanlines; smoothing is off with it=CRT-suodatin piirtää omat scanlinensa; pehmennys on sen kanssa pois
 Nearest: plain pixels. Linear: smoothed. Sharp: crisp pixels without shimmer. CRT: a TV's look=Lähin: pelkät pikselit. Lineaarinen: pehmennetty. Terävä: terävät pikselit ilman väreilyä. CRT: television ilme

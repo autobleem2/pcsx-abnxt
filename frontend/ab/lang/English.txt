@@ -71,6 +71,7 @@ The console's resolution is chosen in AutoBleem's settings=The console's resolut
 Saved for this game=Saved for this game
 Failed to save the settings=Failed to save the settings
 Off while a CRT filter is on=Off while a CRT filter is on
+Not used on a CRT (CRT 4:3)=Not used on a CRT (CRT 4:3)
 A CRT filter draws its own scanlines=A CRT filter draws its own scanlines
 A CRT filter draws its own scanlines; smoothing is off with it=A CRT filter draws its own scanlines; smoothing is off with it
 Nearest: plain pixels. Linear: smoothed. Sharp: crisp pixels without shimmer. CRT: a TV's look=Nearest: plain pixels. Linear: smoothed. Sharp: crisp pixels without shimmer. CRT: a TV's look

@@ -53,6 +53,7 @@ Quick load failed=Încărcarea rapidă a eșuat
 Saved for this game=Salvat pentru acest joc
 Failed to save the settings=Setările nu au putut fi salvate
 Off while a CRT filter is on=Oprit cât timp e activ un filtru CRT
+Not used on a CRT (CRT 4:3)=Nefolosit pe un CRT (CRT 4:3)
 A CRT filter draws its own scanlines=Un filtru CRT își desenează propriile scanlines
 A CRT filter draws its own scanlines; smoothing is off with it=Un filtru CRT își desenează propriile scanlines; netezirea e oprită cu el
 Nearest: plain pixels. Linear: smoothed. Sharp: crisp pixels without shimmer. CRT: a TV's look=Cel mai apropiat: pixeli simpli. Liniar: netezit. Clar: pixeli clari fără pâlpâire. CRT: aspectul unui televizor
