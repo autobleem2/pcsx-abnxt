@@ -109,6 +109,7 @@ static const char h_ab_dither[] = "The PlayStation's fine dot pattern that hides
 static const char ab_why_crt[]   = "Off while a CRT filter is on";
 static const char ab_why_1x[]    = "Only with the 2x resolution";
 static const char ab_why_display[] = "The console's resolution is chosen in AutoBleem's settings";
+static const char ab_why_crt43[] = "Not used on a CRT (CRT 4:3)";
 
 /* the sections are label rows (not selectable), drawn as headings */
 static menu_entry e_menu_ab[] =
@@ -207,6 +208,13 @@ static const char *ab_row_blocked(const menu_entry *e)
 		return ab_why_1x;
 	if (e->id == MA_AB_DISPLAY && ab_console_present())
 		return ab_why_display;
+	if (ab_crt43()) {
+		/* a real tube (ab_config.h): its own scanlines, the game on the whole output; a CRT filter in the
+		 * cfg is not used, so it rules nothing out here */
+		if (e->id == MA_OPT_SCANLINES || e->id == MA_OPT_SCANLINE_LEVEL || e->id == MA_AB_SCALER)
+			return ab_why_crt43;
+		return NULL;
+	}
 	if (!ab_filter_is_crt(plat_target.hwfilter))
 		return NULL;
 	if (e->id == MA_OPT_SCANLINES || e->id == MA_OPT_SCANLINE_LEVEL)
@@ -248,6 +256,10 @@ static int ab_scaler_shown, ab_dither_shown;
 static void ab_rows_take(void)
 {
 	ab_scaler_sel = ab_scaler_shown = g_scaler <= SCALE_FULLSCREEN ? g_scaler : SCALE_4_3;
+	/* CRT 4:3: the game fills the tube (pl_crt_fullscreen) - 240 lines twice, 4:3 - shown as "Integer 4:3",
+	 * greyed (ab_row_blocked), and g_scaler is left as it was for the next 16:9 run */
+	if (ab_crt43())
+		ab_scaler_sel = ab_scaler_shown = SCALE_4_3v2;
 	ab_dither_sel = ab_dither_shown = pl_rearmed_cbs.dithering <= 2 ? pl_rearmed_cbs.dithering : 1;
 }
 
@@ -330,6 +342,13 @@ static int ab_menu_handler(int id, int keys)
 			if (plat_target.hwfilters[plat_target.hwfilter] == NULL)
 				plat_target.hwfilter = 0;
 		}
+		/* CRT 4:3 (a real tube): the CRT filters are not offered - the step goes on past them */
+		while (ab_crt43() && ab_filter_is_crt(plat_target.hwfilter)) {
+			if (keys & PBTN_LEFT)
+				plat_target.hwfilter--;
+			else if (plat_target.hwfilters[++plat_target.hwfilter] == NULL)
+				plat_target.hwfilter = 0;
+		}
 		if (ab_filter_is_crt(plat_target.hwfilter))
 			menu_update_msg(ab_console_present() && soft_filter != SOFT_FILTER_NONE ?
 				"A CRT filter draws its own scanlines; smoothing is off with it" :
@@ -346,7 +365,12 @@ static int ab_menu_handler(int id, int keys)
 
 static const char *ab_filter_name(int id, int *offs)
 {
-	return plat_target.hwfilters != NULL ? plat_target.hwfilters[plat_target.hwfilter] : "-";
+	if (plat_target.hwfilters == NULL)
+		return "-";
+	/* CRT 4:3: a CRT filter in the cfg is drawn as Linear (plat_autobleem.c's update_pipeline) - say so */
+	if (ab_crt43() && ab_filter_is_crt(plat_target.hwfilter))
+		return plat_target.hwfilters[AB_FILTER_LINEAR];
+	return plat_target.hwfilters[plat_target.hwfilter];
 }
 
 /* ---- the disc picker (docs/port-plan.md, phase 5) ----
@@ -1544,6 +1568,8 @@ static void ab_menu_loop_d(void)
 			/* the menu's canvas is the output's size (plat_autobleem.c's resize_cb) */
 			if (g_menuscreen_h == 1080 || g_menuscreen_h == 720)
 				snprintf(cur, sizeof(cur), "%dp", g_menuscreen_h);
+			else if (ab_crt43())
+				snprintf(cur, sizeof(cur), "CRT 4:3");
 			else
 				snprintf(cur, sizeof(cur), "%dx%d", g_menuscreen_w, g_menuscreen_h);
 			men_ab_display[0] = cur;

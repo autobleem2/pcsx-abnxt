@@ -177,6 +177,10 @@ int ab_hud_active_chans(unsigned short *out, int max);
 // unaffected.
 extern int pl_hud_by_plat;
 
+// a platform whose output is a CRT's (plat_autobleem.c's CRT 4:3: 720x480 shown 4:3) sets this: the layer is
+// then the whole output whatever g_scaler says (the tube's 4:3 is the output's width), g_scaler itself untouched
+extern int pl_crt_fullscreen;
+
 // a platform that smooths the frame on the GPU (plat_autobleem.c) sets this: for a soft_filter it answers 1
 // to, plugin_lib keeps the frame at 1x and leaves the smoothing to the platform. NULL: the CPU does it all.
 extern int (*pl_plat_smooths)(int soft_filter);

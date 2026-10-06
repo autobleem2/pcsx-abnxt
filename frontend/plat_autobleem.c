@@ -178,6 +178,7 @@ static void resize_cb(int w, int h)
   g_menuscreen_w = w;
   g_menuscreen_h = h;
   g_menuscreen_pp = w;
+  pl_crt_fullscreen = ab_crt43();
   free(menu_fb);
   menu_fb = calloc(w * h, 2);
   if (menu_fb == NULL) {
@@ -596,18 +597,28 @@ static void update_pipeline(void)
   if (console < 0)
     console = ab_console_present();
   crt = ab_filter_is_crt(filter);
+  if (crt && ab_crt43()) {
+    filter = AB_FILTER_LINEAR;	/* a real tube: no CRT filter, whatever the cfg or the launcher passed */
+    crt = 0;
+  }
   if (console && soft_filter > SOFT_FILTER_EAGLE2X)
     soft_filter = SOFT_FILTER_NONE;	/* hq2x/hq3x are not offered on the console (a cfg from before) */
   smooth = ab_smooth_shader(soft_filter);
   if (console && crt)
     smooth = NULL;
   plat_ab_set_pipeline(smooth, ab_filter_shader(filter));
-  level = crt ? 0 : scanlines < 0 ? 0 : scanlines > 3 ? 3 : scanlines;
+  level = crt || ab_crt43() ? 0 : scanlines < 0 ? 0 : scanlines > 3 ? 3 : scanlines;
   plat_ab_set_scanlines(pattern[level][0], pattern[level][1], (100 - scanline_level) * 255 / 100);
 }
 
 /* the output mode (ab_config.h) */
 int ab_output_mode;
+int ab_crt_margin = 5;
+
+int ab_crt43(void)
+{
+  return g_menuscreen_w == 720 && g_menuscreen_h == 480;
+}
 
 int ab_output_mode_parse(const char *s)
 {
@@ -649,6 +660,8 @@ void ab_output_mode_name(int mode, char *buf, int size)
 
   if (mode == AB_OUTPUT_AUTO)
     snprintf(buf, size, "Auto");
+  else if (w == 720 && h == 480)
+    snprintf(buf, size, "CRT 4:3");
   else if (w * 9 == h * 16)
     snprintf(buf, size, "%dp", h);
   else
@@ -778,6 +791,13 @@ void plat_init(void)
   ab_output_mode = ab_output_mode_parse(getenv("AB_OUTPUT_MODE"));
   if (ab_output_mode != AB_OUTPUT_AUTO)
     ab_output_mode_apply(ab_output_mode, 0);
+  {
+    const char *m = getenv("AB_CRT_MARGIN");
+    char *end;
+    long v = m != NULL ? strtol(m, &end, 10) : -1;
+    if (m != NULL && *m != 0 && *end == 0 && v >= 0 && v <= 10)
+      ab_crt_margin = (int)v;
+  }
 
   in_sdl2_init(&in_sdl2_platform_data, sdl_event_handler);
   in_sdl2gc_init(&in_sdl2gc_platform_data, controller_db_files, pads_changed);

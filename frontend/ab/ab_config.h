@@ -122,8 +122,16 @@ int ab_output_mode_apply(int mode, int tell_launcher);
 /* auto, then the display's modes at 50 Hz or more, one per size: the TV (16:9) ones, then the rest (VESA), each
  * from the smallest; returns how many */
 int ab_output_modes(int *modes, int max);
-/* "Auto", "1080p", "2160p", "1280x1024" */
+/* "Auto", "1080p", "2160p", "1280x1024", "CRT 4:3" (720x480) */
 void ab_output_mode_name(int mode, char *buf, int size);
+/* The launcher's CRT 4:3 mode (its Options -> Display "CRT 4:3": 480p for a CRT behind an HDMI converter) is an
+ * output of exactly 720x480: a 4:3 picture in 720 wide pixels (8:9). In it the game fills the output (240 lines
+ * twice, the width a CRT's), the CRT filters and our scanlines are off (the tube draws its own), and the menu
+ * and the HUD are laid out for 4:3 inside the CRT margin. */
+int ab_crt43(void);
+/* $AB_CRT_MARGIN (abfeatures: crtmargin): the launcher's "CRT margin", 0..10 % on each side, default 5 - the
+ * menu and the HUD keep inside it (overscan); the game's picture does not, games were made for it */
+extern int ab_crt_margin;
 const char *ab_load_state(void);
 /* order[0]/order[1] = the PS1 port (0-based) SDL pad index 0/1 lands on; {0, 1} (AB_PAD_ORDER unset,
  * malformed, or not a permutation of {0, 1}) is the original, unswapped order. Says nothing about how many

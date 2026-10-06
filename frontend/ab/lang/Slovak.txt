@@ -53,6 +53,7 @@ Quick load failed=Rýchle načítanie zlyhalo
 Saved for this game=Uložené pre túto hru
 Failed to save the settings=Nastavenia sa nepodarilo uložiť
 Off while a CRT filter is on=Vypnuté pri filtri CRT
+Not used on a CRT (CRT 4:3)=Na CRT sa nepoužíva (CRT 4:3)
 A CRT filter draws its own scanlines=Filter CRT kreslí vlastné scanlines
 A CRT filter draws its own scanlines; smoothing is off with it=Filter CRT kreslí vlastné scanlines; vyhladzovanie je s ním vypnuté
 Nearest: plain pixels. Linear: smoothed. Sharp: crisp pixels without shimmer. CRT: a TV's look=Najbližší: čisté pixely. Lineárny: vyhladený. Ostrý: ostré pixely bez mihotania. CRT: vzhľad televízora

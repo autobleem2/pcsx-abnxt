@@ -53,6 +53,7 @@ Quick load failed=Snabbladdningen misslyckades
 Saved for this game=Sparat för det här spelet
 Failed to save the settings=Det gick inte att spara inställningarna
 Off while a CRT filter is on=Av medan ett CRT-filter är på
+Not used on a CRT (CRT 4:3)=Används inte på en CRT (CRT 4:3)
 A CRT filter draws its own scanlines=Ett CRT-filter ritar sina egna scanlines
 A CRT filter draws its own scanlines; smoothing is off with it=Ett CRT-filter ritar sina egna scanlines; utjämningen är av med det
 Nearest: plain pixels. Linear: smoothed. Sharp: crisp pixels without shimmer. CRT: a TV's look=Närmaste: rena pixlar. Linjär: utjämnad. Skarp: skarpa pixlar utan flimmer. CRT: utseendet hos en tv
