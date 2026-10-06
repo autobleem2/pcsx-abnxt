@@ -76,7 +76,7 @@ int pl_scanlines_by_plat;
 // print_hud() below then draws none of them into pl_vout_buf. Default 0: unset on any platform that never
 // touches it (plat_sdl.c, plat_dummy), which keeps drawing them the old way.
 int pl_hud_by_plat;
-int pl_crt_fullscreen;
+int pl_crt_out_w, pl_crt_out_h;
 int (*pl_plat_smooths)(int soft_filter);
 static int psx_w, psx_h, psx_bpp;
 static int vsync_cnt;
@@ -261,7 +261,14 @@ void pl_update_layer_size(int w, int h, int fw, int fh)
 	float mult;
 	int imult;
 
-	switch (pl_crt_fullscreen ? SCALE_FULLSCREEN : g_scaler) {
+	if (pl_crt_out_w > 0) {
+		/* a CRT's output (plugin_lib.h): all of it, whatever canvas the caller measured against */
+		g_layer_x = g_layer_y = 0;
+		g_layer_w = pl_crt_out_w;
+		g_layer_h = pl_crt_out_h;
+		return;
+	}
+	switch (g_scaler) {
 	case SCALE_1_1:
 		g_layer_w = w; g_layer_h = h;
 		break;

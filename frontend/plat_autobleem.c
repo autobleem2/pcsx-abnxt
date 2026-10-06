@@ -138,7 +138,12 @@ static const char * const controller_db_files[] = {
 
 static int psx_w = 256, psx_h = 240;	/* the emulator's output as plat_gvideo_set_mode() was told it */
 static void *shadow_fb;			/* the frame the GPU plugin draws into, RGB565 */
-static void *menu_fb;			/* what the menu draws into, RGB565, the window's size */
+static void *menu_fb;			/* what the menu draws into, RGB565, the window's size (CRT 4:3: the safe rect's) */
+/* CRT 4:3 (ab_crt43()): the menu draws in square pixels on a 4:3 canvas the size of the safe rect's height, and
+ * crt_compose() stretches it 9:8 into the safe rect of crt_fb, the output's size, the margin around it the
+ * picture's edges mirrored and dimmed (the launcher's CRT margin, Renderer::mirrorMargin) */
+static unsigned short *crt_fb;
+static int crt_mx, crt_my;		/* the margin's width and height in output pixels */
 static void *menubg_img;		/* the last frame, the menu's background */
 static int in_menu;
 static int fullscreen_old;
@@ -175,10 +180,26 @@ static void menu_emu_key(int acts)
 /* the window's output size changed: the menu's canvas and the layer the frame is scaled into follow */
 static void resize_cb(int w, int h)
 {
+  /* CRT 4:3: the game's layer is the whole output (pl_crt_out_*), the menu's canvas the safe rect in 4:3 */
+  free(crt_fb);
+  crt_fb = NULL;
+  pl_crt_out_w = pl_crt_out_h = 0;
+  if (w == 720 && h == 480) {
+    crt_fb = calloc(w * h, 2);
+    if (crt_fb == NULL) {
+      fprintf(stderr, "OOM\n");
+      exit(1);
+    }
+    pl_crt_out_w = w;
+    pl_crt_out_h = h;
+    crt_mx = (w * ab_crt_margin + 50) / 100;
+    crt_my = (h * ab_crt_margin + 50) / 100;
+    h -= 2 * crt_my;
+    w = (h * 4 + 1) / 3;
+  }
   g_menuscreen_w = w;
   g_menuscreen_h = h;
   g_menuscreen_pp = w;
-  pl_crt_fullscreen = ab_crt43();
   free(menu_fb);
   menu_fb = calloc(w * h, 2);
   if (menu_fb == NULL) {
@@ -280,6 +301,30 @@ static int hud_scale(int screen_h)
 {
   int scale = screen_h / 240;
   return scale < 2 ? 2 : scale > 6 ? 6 : scale;
+}
+
+/* CRT 4:3: the HUD keeps inside the CRT margin and is drawn for the tube's 4:3 - its parts are laid out on a
+ * screen of square pixels the safe rect's height (hud_area()), and ab_hud_put() maps that into the safe rect,
+ * 9:8 wide; elsewhere both pass through */
+static void hud_area(int *sw, int *sh)
+{
+  if (pl_crt_out_w == 0)
+    return;
+  *sh = pl_crt_out_h - 2 * crt_my;
+  *sw = (*sh * 4 + 1) / 3;
+}
+
+static void ab_hud_put(int slot, const SDL_Rect *r)
+{
+  SDL_Rect o = *r;
+
+  if (pl_crt_out_w != 0) {
+    int iw = pl_crt_out_w - 2 * crt_mx, aw = ((pl_crt_out_h - 2 * crt_my) * 4 + 1) / 3;
+    o.x = crt_mx + r->x * iw / aw;
+    o.w = crt_mx + (r->x + r->w) * iw / aw - o.x;
+    o.y = crt_my + r->y;
+  }
+  plat_ab_hud_draw(slot, &o);
 }
 
 #ifdef PSCLASSIC
@@ -444,7 +489,7 @@ static void ab_hud_battery_draw(int sw, int sh)
   r.h = AB_HUD_TEX_H * scale;
   r.x = sw - r.w - margin;
   r.y = margin;
-  plat_ab_hud_draw(HUD_SLOT_BATTERY, &r);
+  ab_hud_put(HUD_SLOT_BATTERY, &r);
 }
 #endif
 
@@ -532,14 +577,14 @@ static void ab_hud_notices_draw(int sw, int sh)
     r.h = msg_line.h;
     r.x = margin;
     r.y = sh - r.h - margin;
-    plat_ab_hud_draw(HUD_SLOT_MSG, &r);
+    ab_hud_put(HUD_SLOT_MSG, &r);
   }
   if (ab_hud_line_update(&cpu_line, ab_hud_cpu_line(), sh)) {
     r.w = cpu_line.w;
     r.h = cpu_line.h;
     r.x = sw - r.w - margin;
     r.y = sh - r.h - margin;
-    plat_ab_hud_draw(HUD_SLOT_CPU, &r);
+    ab_hud_put(HUD_SLOT_CPU, &r);
   }
 
   n = ab_hud_active_chans(colors, AB_HUD_CHANS_N);
@@ -565,12 +610,13 @@ static void ab_hud_notices_draw(int sw, int sh)
   r.h = AB_HUD_GLYPH_H * scale;
   r.x = sw / 2 - r.w / 2;
   r.y = sh - r.h - margin;
-  plat_ab_hud_draw(HUD_SLOT_CHANS, &r);
+  ab_hud_put(HUD_SLOT_CHANS, &r);
 }
 
 /* the HUD callback: the battery icon (PSCLASSIC only, as it always was) plus the notices (every platform) */
 static void ab_hud_draw(int sw, int sh)
 {
+  hud_area(&sw, &sh);
 #ifdef PSCLASSIC
   ab_hud_battery_draw(sw, sh);
 #endif
@@ -617,7 +663,7 @@ int ab_crt_margin = 5;
 
 int ab_crt43(void)
 {
-  return g_menuscreen_w == 720 && g_menuscreen_h == 480;
+  return pl_crt_out_w != 0;	/* resize_cb(): the output is 720x480 */
 }
 
 int ab_output_mode_parse(const char *s)
@@ -740,6 +786,14 @@ void plat_init(void)
 {
   int fullscreen, ret, headless;
 
+  {
+    /* the CRT margin (ab_config.h) before the first resize_cb(), which lays the CRT's menu out by it */
+    const char *m = getenv("AB_CRT_MARGIN");
+    char *end;
+    long v = m != NULL ? strtol(m, &end, 10) : -1;
+    if (m != NULL && *m != 0 && *end == 0 && v >= 0 && v <= 20)
+      ab_crt_margin = (int)v;
+  }
   plat_ab_quit_cb = quit_cb;
   plat_ab_resize_cb = resize_cb;
   pl_scanlines_by_plat = 1;
@@ -791,13 +845,6 @@ void plat_init(void)
   ab_output_mode = ab_output_mode_parse(getenv("AB_OUTPUT_MODE"));
   if (ab_output_mode != AB_OUTPUT_AUTO)
     ab_output_mode_apply(ab_output_mode, 0);
-  {
-    const char *m = getenv("AB_CRT_MARGIN");
-    char *end;
-    long v = m != NULL ? strtol(m, &end, 10) : -1;
-    if (m != NULL && *m != 0 && *end == 0 && v >= 0 && v <= 10)
-      ab_crt_margin = (int)v;
-  }
 
   in_sdl2_init(&in_sdl2_platform_data, sdl_event_handler);
   in_sdl2gc_init(&in_sdl2gc_platform_data, controller_db_files, pads_changed);
@@ -820,6 +867,8 @@ void plat_finish(void)
   menubg_img = NULL;
   free(menu_fb);
   menu_fb = NULL;
+  free(crt_fb);
+  crt_fb = NULL;
   plat_ab_finish();
   SDL_Quit();
 }
@@ -890,9 +939,64 @@ void plat_video_menu_begin(void)
   g_menuscreen_ptr = menu_fb;
 }
 
+/* RGB565 a..b at f/256 */
+static unsigned short crt_lerp(unsigned short a, unsigned short b, int f)
+{
+  int r = (a >> 11) + ((((b >> 11) - (a >> 11)) * f) >> 8);
+  int g = ((a >> 5) & 63) + (((((b >> 5) & 63) - ((a >> 5) & 63)) * f) >> 8);
+  int bl = (a & 31) + ((((b & 31) - (a & 31)) * f) >> 8);
+  return (unsigned short)(r << 11 | g << 5 | bl);
+}
+
+/* the CRT's output from the menu's canvas: the canvas stretched (bilinear across, its rows as they are) into
+ * the safe rect, then the margin - each side the rows/columns next to it mirrored, at half brightness */
+static void crt_compose(void)
+{
+  static int col_src[720], col_f[720], cols = -1, cols_w = -1;
+  const unsigned short *src = menu_fb;
+  int ow = pl_crt_out_w, oh = pl_crt_out_h, iw = ow - 2 * crt_mx, ih = oh - 2 * crt_my;
+  int x, y, sw = g_menuscreen_w;
+
+  if (cols != iw || cols_w != sw) {
+    for (x = 0; x < iw; x++) {
+      int fx = (int)(((2LL * x + 1) * sw * 256) / (2 * iw)) - 128;	/* the column's centre, 24.8 */
+      if (fx < 0)
+        fx = 0;
+      col_src[x] = fx >> 8;
+      col_f[x] = col_src[x] + 1 < sw ? fx & 255 : 0;
+    }
+    cols = iw;
+    cols_w = sw;
+  }
+  for (y = 0; y < ih && y < g_menuscreen_h; y++) {
+    const unsigned short *s = src + (size_t)y * g_menuscreen_pp;
+    unsigned short *d = crt_fb + (size_t)(crt_my + y) * ow;
+    for (x = 0; x < iw; x++) {
+      int i = col_src[x];
+      d[crt_mx + x] = col_f[x] ? crt_lerp(s[i], s[i + 1], col_f[x]) : s[i];
+    }
+    for (x = 0; x < crt_mx; x++) {
+      d[crt_mx - 1 - x] = (d[crt_mx + x] >> 1) & 0x7bef;
+      d[crt_mx + iw + x] = (d[crt_mx + iw - 1 - x] >> 1) & 0x7bef;
+    }
+  }
+  for (y = 0; y < crt_my; y++) {
+    const unsigned short *t = crt_fb + (size_t)(crt_my + y) * ow, *b = crt_fb + (size_t)(crt_my + ih - 1 - y) * ow;
+    unsigned short *dt = crt_fb + (size_t)(crt_my - 1 - y) * ow, *db = crt_fb + (size_t)(crt_my + ih + y) * ow;
+    for (x = 0; x < ow; x++) {
+      dt[x] = (t[x] >> 1) & 0x7bef;
+      db[x] = (b[x] >> 1) & 0x7bef;
+    }
+  }
+}
+
 void plat_video_menu_end(void)
 {
-  plat_ab_present(menu_fb, g_menuscreen_w, g_menuscreen_h, g_menuscreen_pp, NULL);
+  if (crt_fb != NULL) {
+    crt_compose();
+    plat_ab_present(crt_fb, pl_crt_out_w, pl_crt_out_h, pl_crt_out_w, NULL);
+  } else
+    plat_ab_present(menu_fb, g_menuscreen_w, g_menuscreen_h, g_menuscreen_pp, NULL);
   g_menuscreen_ptr = NULL;
 }
 

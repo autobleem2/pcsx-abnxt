@@ -14,6 +14,13 @@
 #include "ab_debug.h"
 
 int ab_output_mode;
+int ab_crt_margin = 5;
+
+/* no display, so never a CRT */
+int ab_crt43(void)
+{
+	return 0;
+}
 
 void ab_debug_screen(const char *name)
 {

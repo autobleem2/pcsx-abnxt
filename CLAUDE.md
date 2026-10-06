@@ -363,6 +363,21 @@ launcher reads the **`abfeatures`** file next to the binary (`frontend/ab/abfeat
 - `AB_SCALER=0..4` (`scaler`, 2026-09-29): the launcher's Options -> "Emulator screen scaling" as `g_scaler`
   (SCALE_1_1, 2_2, 4_3, 4_3v2, FULLSCREEN), set in `ab_config_loaded` ahead of `-ratio`; a game whose
   `pcsx.custom.cfg` has its own `g_scaler3` keeps that. Unset or out of range: `-ratio` as before.
+- `AB_CRT_MARGIN=0..20` (`crtmargin`, 2026-10-06): the launcher's "CRT margin" in percent per side, default 5 -
+  only the CRT 4:3 mode below uses it.
+
+**CRT 4:3** (2026-10-06, the owner's, checked on a real tube behind an HDMI converter): an output of exactly
+720x480 is the launcher's "CRT 4:3" - a 4:3 picture in 720 wide pixels (8:9). `plat_autobleem.c`'s `resize_cb`
+sets `pl_crt_out_w/h`, so the game's layer is the whole output whatever `g_scaler` says (`pl_update_layer_size`
+in `plugin_lib.c`); the game's picture ignores the margin (games were made for overscan). CRT filters fall
+back to Linear and our scanlines are off (`update_pipeline`); the menu greys Scanlines, Scanline brightness and
+Scaling with "Not used on a CRT (CRT 4:3)", skips the CRT filters and its Display row says "CRT 4:3". The menu
+draws on a 4:3 canvas the safe rect's height in square pixels; `crt_compose()` stretches it 9:8 (bilinear
+across) into the safe rect of a 720x480 buffer and fills the margin with the picture's edges mirrored at half
+brightness, as the launcher's `Renderer::mirrorMargin` does. In `ab_menu.c` the sizes are 15 % larger
+(`ab_scale`), the game's lines run across the top with the panel and the column under them, and what sits on
+the art's bar follows the art (`ab_art_x/y`); the art is cropped from the left (`ab_ui_background`) so its logo
+stays whole. The HUD is laid out on the same 4:3 area and mapped into the safe rect (`ab_hud_put`).
 
 Only the cards in use are created (no `card2.mcd`, which is "none"). Not yet run on a console.
 

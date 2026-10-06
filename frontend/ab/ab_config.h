@@ -129,7 +129,7 @@ void ab_output_mode_name(int mode, char *buf, int size);
  * twice, the width a CRT's), the CRT filters and our scanlines are off (the tube draws its own), and the menu
  * and the HUD are laid out for 4:3 inside the CRT margin. */
 int ab_crt43(void);
-/* $AB_CRT_MARGIN (abfeatures: crtmargin): the launcher's "CRT margin", 0..10 % on each side, default 5 - the
+/* $AB_CRT_MARGIN (abfeatures: crtmargin): the launcher's "CRT margin", 0..20 % on each side (its Options offer 0..10), default 5 - the
  * menu and the HUD keep inside it (overscan); the game's picture does not, games were made for it */
 extern int ab_crt_margin;
 const char *ab_load_state(void);
