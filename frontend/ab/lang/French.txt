@@ -268,3 +268,10 @@ rescan complete.=Analyse terminée.
 defaults restored=Configuration par défaut restaurée
 failed to load cheats=Échec du chargement des codes
 Please wait...=Veuillez patienter...
+# CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
+CRT mask=Masque CRT
+Aperture=Grille
+Slot=Fentes
+Delta=Delta
+The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots=Le motif de luminophores du tube sur l'image : Grille, les bandes d'un Trinitron ; Fentes et Delta, les points d'autres tubes
+Only with the CRT (raster) filter=Seulement avec le filtre CRT (raster)

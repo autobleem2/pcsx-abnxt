@@ -27,6 +27,7 @@
 static int bios_auto;	/* the BIOS came from "SET_BY_PCSX" and nobody chose another since */
 
 int ab_screen_halo;
+int ab_crt_mask;	/* AB_CRT_MASK_APERTURE */
 
 struct ab_options ab_opts = {
 	.filter = 0,
@@ -287,11 +288,11 @@ void ab_config_loaded(int is_game)
 		g_opts |= OPT_SHOWFPS | OPT_SHOWCPU;
 	}
 	fprintf(stderr, "autobleem: %s config: filter=%s ratio=%s scaler=%d boot logo=%s scanlines=%d dithering=%d"
-		" halo=%d\n",
+		" halo=%d crt_mask=%d\n",
 		is_game ? "game" : "global",
 		plat_target.hwfilters != NULL ? plat_target.hwfilters[plat_target.hwfilter] : "-",
 		g_scaler == SCALE_FULLSCREEN ? "16:9" : "4:3", g_scaler, Config.SlowBoot ? "shown" : "skipped", scanlines,
-		pl_rearmed_cbs.dithering, ab_screen_halo);
+		pl_rearmed_cbs.dithering, ab_screen_halo, ab_crt_mask);
 	if (is_game)
 		ab_hacks_apply();	/* -sonyhacks: Sony's overrides for this serial, over the file (ab_hacks.h) */
 }

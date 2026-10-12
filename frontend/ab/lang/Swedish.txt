@@ -268,3 +268,10 @@ rescan complete.=Sökningen slutförd.
 defaults restored=Standardinställningar återställda
 failed to load cheats=Det gick inte att läsa in fusk
 Please wait...=Vänta...
+# CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
+CRT mask=CRT-mask
+Aperture=Apertur
+Slot=Slits
+Delta=Delta
+The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots=Bildrörets fosformönster över bilden: Apertur är en Trinitrons ränder, Slits och Delta andra bildrörs punkter
+Only with the CRT (raster) filter=Bara med filtret CRT (raster)

@@ -268,3 +268,10 @@ rescan complete.=Análisis completado.
 defaults restored=Configuración predeterminada restaurada
 failed to load cheats=No se pudieron cargar los trucos
 Please wait...=Espera, por favor...
+# CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
+CRT mask=Máscara CRT
+Aperture=Apertura
+Slot=Ranura
+Delta=Delta
+The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots=El patrón de fósforo del tubo sobre la imagen: Apertura son las franjas de un Trinitron, Ranura y Delta los puntos de otros tubos
+Only with the CRT (raster) filter=Solo con el filtro CRT (raster)

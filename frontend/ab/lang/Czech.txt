@@ -268,3 +268,10 @@ rescan complete.=Nový sken dokončen.
 defaults restored=Obnoveno výchozí nastavení
 failed to load cheats=Načtení cheatů se nezdařilo
 Please wait...=Čekejte prosím...
+# CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
+CRT mask=Maska CRT
+Aperture=Apertura
+Slot=Štěrbinová
+Delta=Delta
+The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots=Vzor luminoforu obrazovky přes obraz: Apertura jsou pruhy Trinitronu, Štěrbinová a Delta body jiných obrazovek
+Only with the CRT (raster) filter=Jen s filtrem CRT (raster)

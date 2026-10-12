@@ -265,3 +265,10 @@ rescan complete.=扫描完成。
 defaults restored=已恢复默认设置
 failed to load cheats=金手指加载失败
 Please wait...=请稍候...
+# CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
+CRT mask=CRT 荧光罩
+Aperture=栅条
+Slot=槽孔
+Delta=三角
+The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots=显像管荧光粉图案叠加在画面上：栅条是特丽珑的条纹，槽孔和三角是其他显像管的点
+Only with the CRT (raster) filter=仅在 CRT (raster) 滤镜下可用

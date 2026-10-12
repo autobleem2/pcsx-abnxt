@@ -8,6 +8,7 @@
  */
 
 #include <stddef.h>
+#include <stdio.h>
 
 #include "../libpicofe/plat_autobleem.h"
 #include "../menu.h"
@@ -32,11 +33,36 @@ static const char copy_src[] =
 	"#endif\n";
 
 const char *ab_filter_names[AB_FILTER_COUNT + 1] = {
-	"Nearest", "Linear", "Sharp", "Sharp (simple)", "Quilez", "CRT (fast)", "CRT-Pi", NULL
+	"Nearest", "Linear", "Sharp", "Sharp (simple)", "Quilez", "CRT (fast)", "CRT-Pi", "CRT (raster)", NULL
 };
 
-/* name, source, scale (0: onto the screen), samples its input bilinearly */
-static const struct plat_ab_shader filters[AB_FILTER_COUNT] = {
+const char *ab_crt_mask_names[AB_CRT_MASK_COUNT + 1] = { "Aperture", "Slot", "Delta", "Off", NULL };
+
+/* crt-raster.glsl once per mask (its CRT_MASK), made the first time it is asked for: a program per mask,
+ * so the mask costs no branch per pixel */
+static char raster_src[AB_CRT_MASK_COUNT][sizeof(ab_glsl_crt_raster) + 32];
+static struct plat_ab_shader raster[AB_CRT_MASK_COUNT];
+
+static const struct plat_ab_shader *raster_shader(int mask)
+{
+	static const char *names[AB_CRT_MASK_COUNT] = {
+		"crt-raster (aperture)", "crt-raster (slot)", "crt-raster (delta)", "crt-raster (no mask)"
+	};
+	if (mask < 0 || mask >= AB_CRT_MASK_COUNT)
+		mask = AB_CRT_MASK_APERTURE;
+	if (raster[mask].src == NULL) {
+		snprintf(raster_src[mask], sizeof(raster_src[mask]), "#define CRT_MASK %d\n%s", mask,
+			ab_glsl_crt_raster);
+		raster[mask].name = names[mask];
+		raster[mask].src = raster_src[mask];
+		raster[mask].scale = 0;
+		raster[mask].linear = 1;
+	}
+	return &raster[mask];
+}
+
+/* name, source, scale (0: onto the screen), samples its input bilinearly; CRT (raster) is raster_shader's */
+static const struct plat_ab_shader filters[AB_FILTER_CRT_RASTER] = {
 	{ "nearest",               copy_src,                     0, 0 },
 	{ "linear",                copy_src,                     0, 1 },
 	{ "sharp-bilinear",        ab_glsl_sharp_bilinear,        0, 1 },
@@ -49,10 +75,12 @@ static const struct plat_ab_shader filters[AB_FILTER_COUNT] = {
 static const struct plat_ab_shader smooth_scale2x = { "scale2x", ab_glsl_scale2x, 2, 0 };
 static const struct plat_ab_shader smooth_eagle2x = { "eagle2x", ab_glsl_eagle2x, 2, 0 };
 
-const struct plat_ab_shader *ab_filter_shader(int filter)
+const struct plat_ab_shader *ab_filter_shader(int filter, int crt_mask)
 {
 	if (filter < 0 || filter >= AB_FILTER_COUNT)
 		filter = AB_FILTER_LINEAR;
+	if (filter == AB_FILTER_CRT_RASTER)
+		return raster_shader(crt_mask);
 	return &filters[filter];
 }
 

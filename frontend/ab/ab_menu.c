@@ -46,6 +46,7 @@ enum {
 	MA_AB_NOSEAMS,
 	MA_AB_DITHER,
 	MA_AB_HALO,
+	MA_AB_CRT_MASK,
 };
 
 #define AB_QUICK_SLOT 2		/* slot 0 is the resume point, 1 the launcher's copy of it */
@@ -61,7 +62,10 @@ static const char h_ab_filter[] = "Nearest: plain pixels. Linear: smoothed. Shar
                                   " shimmer. CRT: a TV's look";
 static const char h_ab_crtpi_1080[] = "CRT-Pi is too heavy for the console at 1080p: choose 720p in AutoBleem's"
                                       " settings to play with it";
-static const char h_ab_pcsx[]   = "PCSX-ReARMed's own menu: options, controls, cheats...";
+/* CRT (raster)'s phosphor mask (ab_config.h), the names ab_shaders.c's */
+static const char h_ab_crt_mask[] = "The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes,"
+                                    " Slot and Delta other tubes' dots";
+static const char h_ab_pcsx[]   ="PCSX-ReARMed's own menu: options, controls, cheats...";
 static const char h_ab_savecfg[] = "Keeps these settings for this game; AutoBleem shows its own locked until"
                                    " you unlock them in the game's settings";
 static const char h_ab_scanlines[] = "Dark lines over the screen: 1 is every 2nd row, 2 every 3rd, 3 two of"
@@ -113,6 +117,7 @@ static const char ab_why_crt[]   = "Off while a CRT filter is on";
 static const char ab_why_1x[]    = "Only with the 2x resolution";
 static const char ab_why_display[] = "The console's resolution is chosen in AutoBleem's settings";
 static const char ab_why_crt43[] = "Not used on a CRT (CRT 4:3)";
+static const char ab_why_raster[] = "Only with the CRT (raster) filter";
 
 /* the sections are label rows (not selectable), drawn as headings */
 static menu_entry e_menu_ab[] =
@@ -135,6 +140,7 @@ static menu_entry e_menu_ab[] =
 	mee_onoff_h   ("Screen halo",              MA_AB_HALO,          ab_screen_halo, 1, h_ab_halo),
 	mee_enum_h    ("Smoothing",                MA_OPT_SWFILTER,     soft_filter, men_ab_smooth, h_ab_smooth),
 	mee_cust_h    ("Filter",                   MA_AB_FILTER,        ab_menu_handler, ab_filter_name, h_ab_filter),
+	mee_enum_h    ("CRT mask",                 MA_AB_CRT_MASK,      ab_crt_mask, ab_crt_mask_names, h_ab_crt_mask),
 	mee_enum_h    ("Scanlines",                MA_OPT_SCANLINES,    scanlines, men_ab_scanlines, h_ab_scanlines),
 	mee_range_h   ("Scanline brightness",      MA_OPT_SCANLINE_LEVEL, scanline_level, 0, 100, h_ab_scanline_l),
 	mee_label     ("Controllers"),
@@ -216,10 +222,12 @@ static const char *ab_row_blocked(const menu_entry *e)
 		/* a real tube (ab_config.h): its own scanlines, the game on the whole output; a CRT filter in the
 		 * cfg is not used, so it rules nothing out here */
 		if (e->id == MA_OPT_SCANLINES || e->id == MA_OPT_SCANLINE_LEVEL || e->id == MA_AB_SCALER ||
-		    e->id == MA_AB_HALO)
+		    e->id == MA_AB_HALO || e->id == MA_AB_CRT_MASK)
 			return ab_why_crt43;
 		return NULL;
 	}
+	if (e->id == MA_AB_CRT_MASK && plat_target.hwfilter != AB_FILTER_CRT_RASTER)
+		return ab_why_raster;
 	if (!ab_filter_is_crt(plat_target.hwfilter))
 		return NULL;
 	if (e->id == MA_OPT_SCANLINES || e->id == MA_OPT_SCANLINE_LEVEL)

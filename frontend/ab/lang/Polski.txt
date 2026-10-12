@@ -267,3 +267,10 @@ defaults restored=Przywrócono ustawienia domyślne.
 failed to load cheats=Nie udało się wczytać kodów.
 # the way out (Reset, power-off, Exit): shown while the resume point is written
 Please wait...=Proszę czekać...
+# CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
+CRT mask=Maska CRT
+Aperture=Apertura
+Slot=Szczelinowa
+Delta=Delta
+The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots=Wzór luminoforu kineskopu na obrazie: Apertura to paski Trinitronu, Szczelinowa i Delta to kropki innych kineskopów
+Only with the CRT (raster) filter=Tylko z filtrem CRT (raster)

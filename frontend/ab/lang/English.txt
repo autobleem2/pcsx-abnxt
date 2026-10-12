@@ -269,3 +269,10 @@ defaults restored=defaults restored
 failed to load cheats=failed to load cheats
 # the way out (Reset, power-off, Exit): shown while the resume point is written
 Please wait...=Please wait...
+# CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
+CRT mask=CRT mask
+Aperture=Aperture
+Slot=Slot
+Delta=Delta
+The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots=The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots
+Only with the CRT (raster) filter=Only with the CRT (raster) filter
