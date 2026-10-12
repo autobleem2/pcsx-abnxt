@@ -1313,8 +1313,8 @@ static int key_config_loop_wrap(int id, int keys)
 	return 0;
 }
 
-static const char h_nubmode[] = "Maps nub-like analog controls to PSX ones better\n"
-				"Might cause problems with real analog sticks";
+static const char h_nubmode[] = "Maps nub-like analog controls to PSX ones better.\n"
+				"Might cause problems with real analog sticks.";
 static const char *adevnames[IN_MAX_DEVS + 2];
 static int stick_sel[2];
 
@@ -1503,8 +1503,8 @@ static const char *men_soft_filter[] = { "None",
 static const char *men_dummy[] = { NULL };
 static const char *men_centering[] = { "Auto", "Ingame", "Borderless", "Force", NULL };
 static const char *men_overscan[] = { "OFF", "Auto", "Hack", NULL };
-static const char h_scaler[]    = "int. 2x  - scales w. or h. 2x if it fits on screen\n"
-				  "int. 4:3 - uses integer if possible, else fractional";
+static const char h_scaler[]    = "int. 2x  - scales w. or h. 2x if it fits on screen.\n"
+				  "int. 4:3 - uses integer if possible, else fractional.";
 static const char h_cscaler[]   = "Displays the scaler layer, you can resize it\n"
 				  "using d-pad or move it using R+d-pad";
 static const char h_soft_filter[] = "Works only if game uses low resolution modes";
@@ -1672,7 +1672,7 @@ static const char h_gpu_3[]            = "Compatibility mode";
 static const char h_gpu_6[]            = "Pandemonium 2";
 //static const char h_gpu_7[]            = "Skip every second frame";
 static const char h_gpu_8[]            = "Needed by Dark Forces";
-static const char h_gpu_9[]            = "better g-colors, worse textures";
+static const char h_gpu_9[]            = "Better Gouraud colors, worse textures";
 static const char h_gpu_10[]           = "Toggle busy flags after drawing";
 
 static menu_entry e_menu_plugin_gpu_peops[] =
@@ -1721,8 +1721,8 @@ static menu_entry e_menu_plugin_gpu_peopsgl[] =
 
 static const char *men_spu_interp[] = { "None", "Simple", "Gaussian", "Cubic", NULL };
 static const char h_spu_volboost[]  = "Large values cause distortion";
-static const char h_spu_tempo[]     = "Slows down audio if emu is too slow\n"
-				      "This is inaccurate and breaks games";
+static const char h_spu_tempo[]     = "Slows down audio if emu is too slow.\n"
+				      "This is inaccurate and breaks games.";
 
 static menu_entry e_menu_plugin_spu[] =
 {
@@ -1901,16 +1901,16 @@ static const char h_cfg_xa[]     = "Disables XA sound, which can sometimes impro
 static const char h_cfg_cdda[]   = "Disable CD Audio for a performance boost\n"
 				   "(proper .cue/.bin dump is needed otherwise)";
 #ifndef DRC_DISABLE
-static const char h_cfg_nodrc[]  = "Disable dynamic recompiler and use interpreter\n"
-				   "Might be useful to overcome some dynarec bugs";
+static const char h_cfg_nodrc[]  = "Disable dynamic recompiler and use interpreter.\n"
+				   "Might be useful to overcome some dynarec bugs.";
 #endif
 static const char h_cfg_shacks[] = "Breaks games but may give better performance";
 static const char h_cfg_icache[] = "Support F1 games (only when dynarec is off)";
 static const char h_cfg_exc[]    = "Emulate some PSX's debug hw like breakpoints\n"
 				   "and exceptions (slow, interpreter only, keep off)";
-static const char h_cfg_gpul[]   = "Try enabling this if the game misses some graphics\n"
-				   "causes a performance hit";
-static const char h_cfg_ffps[]   = "Instead of 50/60fps for PAL/NTSC use ~49.75/59.81\n"
+static const char h_cfg_gpul[]   = "Try enabling this if the game misses some graphics.\n"
+				   "Causes a performance hit.";
+static const char h_cfg_ffps[]   = "Instead of 50/60fps for PAL/NTSC use ~49.75/59.81.\n"
 				   "Closer to real hw but doesn't match modern displays.";
 static const char h_cfg_tcd[]    = "Greatly reduce CD load times. Breaks some games.";
 static const char h_cfg_psxclk[]  = "Over/under-clock the PSX, default is " DEFAULT_PSX_CLOCK_S "\n"
@@ -1932,7 +1932,7 @@ static menu_entry e_menu_adv_options[] =
 	mee_onoff_h   ("Disable CD Audio",       0, menu_iopts[AMO_CDDA], 1, h_cfg_cdda),
 	mee_onoff_h   ("ICache emulation",       0, menu_iopts[AMO_IC],   1, h_cfg_icache),
 	mee_onoff_h   ("BP exception emulation", 0, menu_iopts[AMO_BP],   1, h_cfg_exc),
-	mee_enum_h    ("GPU l-list slow walking",0, menu_iopts[AMO_GPUL], men_autooo, h_cfg_gpul),
+	mee_enum_h    ("GPU linked-list slow walking",0, menu_iopts[AMO_GPUL], men_autooo, h_cfg_gpul),
 	mee_enum_h    ("Fractional framerate",   0, menu_iopts[AMO_FFPS], men_autooo, h_cfg_ffps),
 	mee_enum      ("Framebuffer readout",    0, menu_iopts[AMO_AFLIP], men_aflip),
 	mee_onoff_h   ("Turbo CD-ROM ",          0, menu_iopts[AMO_TCD], 1, h_cfg_tcd),
@@ -2687,11 +2687,11 @@ static int main_menu_handler(int id, int keys)
 static menu_entry e_menu_main2[] =
 {
 	mee_handler_id("Change CD image",    MA_MAIN_SWAP_CD,       main_menu_handler),
-	mee_handler_id("Next multidisk CD",  MA_MAIN_SWAP_CD_MULTI, main_menu_handler),
+	mee_handler_id("Next multidisc CD",  MA_MAIN_SWAP_CD_MULTI, main_menu_handler),
 	mee_handler_id("Run BIOS",           MA_MAIN_RUN_BIOS,      main_menu_handler),
 	mee_handler_id("Run EXE",            MA_MAIN_RUN_EXE,       main_menu_handler),
-	mee_handler   ("Memcard manager",    menu_loop_memcards),
-	mee_handler_id("Load PCSX cheats..", MA_MAIN_LOAD_CHEATS,   main_menu_handler),
+	mee_handler   ("Memory card manager",    menu_loop_memcards),
+	mee_handler_id("Load PCSX cheats...", MA_MAIN_LOAD_CHEATS,   main_menu_handler),
 	mee_end,
 };
 
@@ -2711,7 +2711,7 @@ static int main_menu2_handler(int id, int keys)
 #endif
 }
 
-static const char h_extra[] = "Change CD, manage memcards..\n";
+static const char h_extra[] = "Change CD, manage memcards...\n";
 
 /* (the labels are ab_menu.c's section headings; a "[name]" row opens a page) */
 static menu_entry e_menu_main[] =
@@ -2724,7 +2724,7 @@ static menu_entry e_menu_main[] =
 	 * Extra stuff went - its disc swap is ours, Run BIOS/EXE are for developers, the memory cards are the
 	 * launcher's; only its cheat file loading stayed, here next to the cheats */
 	mee_handler_id("Cheats",             MA_MAIN_CHEATS,      main_menu_handler),
-	mee_handler_id("Load PCSX cheats..", MA_MAIN_LOAD_CHEATS, main_menu_handler),
+	mee_handler_id("Load PCSX cheats...", MA_MAIN_LOAD_CHEATS, main_menu_handler),
 	mee_label     ("Settings"),
 	mee_handler   ("[Options]",          menu_loop_options),
 	mee_handler   ("[Controls]",         menu_loop_keyconfig),
