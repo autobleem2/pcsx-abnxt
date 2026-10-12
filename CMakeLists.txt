@@ -55,6 +55,7 @@ set(PCSXAB_DYNAREC "auto" CACHE STRING "CPU recompiler: auto, ari64 (ARM/AArch64
 set_property(CACHE PCSXAB_DYNAREC PROPERTY STRINGS auto ari64 lightrec none)
 option(PCSXAB_NEON        "ARM NEON assembly (GTE, GPU, scalers). 32-bit ARMv7+ only; AArch64 uses the C SIMD code" ${_pcsxab_neon_default})
 option(PCSXAB_THREADS     "The multithreaded features: asynchronous CD-ROM, GPU and SPU, and the dynarec's compile thread" ON)
+option(PCSXAB_PHYSICAL_CDROM "A real disc in a drive (-cdfile cdrom://drive1.cue, as upstream's libretro build); needs PCSXAB_THREADS" ON)
 option(PCSXAB_PLUGINS     "Also build the loadable plugins (gpu_peops, gpu_unai [, gpu_neon, gpu_gles], spunull)" ON)
 option(PCSXAB_GLES        "OpenGL ES output in the SDL frontend (libpicofe's gl.c, EGL loaded at run time)" OFF)
 option(PCSXAB_LINK_MAP    "Write pcsx-ab.map next to the executable" ON)
@@ -340,6 +341,21 @@ if (PCSXAB_THREADS)
     # reach the same files and nothing else looks at them. Not on the source files: gpulib's are shared
     # with the plugins' gpulib_pic, which upstream builds without the async code.
     set(_pcsxab_thread_defs HAVE_RTHREADS USE_ASYNC_CDROM USE_ASYNC_GPU USE_ASYNC_SPU)
+    # a real disc (the Makefile's HAVE_PHYSICAL_CDROM): libretro-common's VFS opens cdrom://driveN.cue - the
+    # Nth drive, /dev/sr<N-1> on Linux - and frontend/libretro-cdrom.c reads it raw, 2352 bytes a sector, with
+    # SCSI READ CD through SG_IO (Linux) or DeviceIoControl (Windows); cdrom-async.c runs it on its thread
+    if (PCSXAB_PHYSICAL_CDROM)
+        set(_pcsxab_cdrom_sources
+            frontend/libretro-cdrom.c
+            deps/libretro-common/compat/compat_strl.c deps/libretro-common/file/file_path.c
+            deps/libretro-common/file/file_path_io.c deps/libretro-common/string/stdstring.c
+            deps/libretro-common/string/rstrtod.c deps/libretro-common/vfs/vfs_implementation.c
+            deps/libretro-common/lists/string_list.c deps/libretro-common/memmap/memalign.c
+            deps/libretro-common/vfs/vfs_implementation_cdrom.c)
+        list(APPEND PCSXAB_SOURCES ${_pcsxab_cdrom_sources})
+        set_source_files_properties(${_pcsxab_cdrom_sources} PROPERTIES COMPILE_OPTIONS -w)  # vendored
+        list(APPEND _pcsxab_thread_defs HAVE_CDROM)
+    endif()
 endif()
 
 # built-in gpu
