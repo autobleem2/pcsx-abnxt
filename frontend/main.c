@@ -93,6 +93,9 @@ static int path_is_absolute(const char *p)
 	if (p[0] == '\\')
 		return 1;
 #endif
+	/* a drive, not a file (cdrom://drive1.cue, HAVE_CDROM): the cwd must not be put in front of it */
+	if (!strncmp(p, "cdrom://", 8))
+		return 1;
 	return p[0] == '/';
 }
 
