@@ -71,6 +71,7 @@ int g_layer_x, g_layer_y, g_layer_w, g_layer_h;
 static int pl_vout_w, pl_vout_h, pl_vout_bpp; /* output display/layer */
 static int pl_vout_scale_w, pl_vout_scale_h;
 int pl_scanlines_by_plat;
+int pl_psx_pic_w, pl_psx_pic_h;
 // EMU-15 part 2: like pl_scanlines_by_plat - 1 when a platform draws hud_msg/FPS/CPU load/the SPU channel
 // bar itself, after its own scanline overlay (plat_autobleem.c sets this where it registers its HUD callback);
 // print_hud() below then draws none of them into pl_vout_buf. Default 0: unset on any platform that never
@@ -360,6 +361,8 @@ static void pl_vout_set_mode(int w, int h, int raw_w, int raw_h, int bpp)
 	psx_w = raw_w;
 	psx_h = raw_h;
 	psx_bpp = bpp;
+	pl_psx_pic_w = raw_w;
+	pl_psx_pic_h = raw_h;
 	fprintf(stderr, "video mode: %dx%d (psx %dx%d) %d bpp\n", w, h, raw_w, raw_h, bpp);
 	vout_w = w;
 	vout_h = h;

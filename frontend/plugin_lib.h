@@ -22,6 +22,9 @@ enum {
 extern int in_type[8];
 // a platform that draws the scanlines itself (over the scaled picture) sets this; the rows above stay
 extern int pl_scanlines_by_plat;
+// the PlayStation's own picture size (the display mode's, before the 2x enhancement or a soft filter makes
+// the frame larger), set with each video mode - for a platform filter that draws per-line effects (a CRT)
+extern int pl_psx_pic_w, pl_psx_pic_h;
 // the largest frame the platform's buffer takes: a 512x240 frame at hq3x, or 640x480 doubled (the
 // 2x enhancement, scale2x) - the platform allocates its frame buffers to this
 #define PL_VOUT_MAX_W 1600

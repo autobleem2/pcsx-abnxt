@@ -663,7 +663,8 @@ static int plat_smooths(int soft_filter)
 }
 
 /* the pipeline for this frame from the menus' settings: the filter, the smoothing (not with a CRT on the
- * console - its GPU cannot do both), and our scanlines (not with a CRT, which draws its own) */
+ * console - its GPU cannot do both), our scanlines (not with a CRT, which draws its own) and the halo (not
+ * on a tube, where the game fills the output) */
 static void update_pipeline(void)
 {
   static const int pattern[4][2] = { { 0, 1 }, { 1, 1 }, { 1, 2 }, { 2, 1 } };  /* dark, bright rows */
@@ -686,8 +687,11 @@ static void update_pipeline(void)
   if (console && crt)
     smooth = NULL;
   plat_ab_set_pipeline(smooth, ab_filter_shader(filter));
+  /* a CRT draws the PlayStation's lines - 240, not the 480 of a 2x or smoothed frame */
+  plat_ab_set_filter_picture(crt ? pl_psx_pic_w : 0, crt ? pl_psx_pic_h : 0);
   level = crt || ab_crt43() ? 0 : scanlines < 0 ? 0 : scanlines > 3 ? 3 : scanlines;
   plat_ab_set_scanlines(pattern[level][0], pattern[level][1], (100 - scanline_level) * 255 / 100);
+  plat_ab_set_halo(ab_screen_halo && !ab_crt43());
 }
 
 /* the output mode (ab_config.h) */

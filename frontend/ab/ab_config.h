@@ -141,6 +141,11 @@ extern int ab_crt_margin;
  * menu's and the HUD's safe rect is that much taller (shorter), centred, and may run past the output (cropped:
  * a tube's overscan); the game's picture keeps its size. One value for the tube and the VGA modes */
 extern int ab_crt_vsize;
+/* The screen halo (the menu's Picture -> "Screen halo", pcsx.cfg "screen_halo", $AB_SCREEN_HALO - abfeatures:
+ * screenhalo - the launcher's, which beats pcsx.cfg but not the game's own config): the bands beside or above and
+ * below the picture are filled with the picture as presented - after the filter - mirrored at its edges, at half
+ * brightness (libpicofe's plat_ab_set_halo); 0 = black bands. Not on a CRT (the game fills the tube). */
+extern int ab_screen_halo;
 const char *ab_load_state(void);
 /* order[0]/order[1] = the PS1 port (0-based) SDL pad index 0/1 lands on; {0, 1} (AB_PAD_ORDER unset,
  * malformed, or not a permutation of {0, 1}) is the original, unswapped order. Says nothing about how many

@@ -45,6 +45,7 @@ enum {
 	MA_AB_ENHANCE,
 	MA_AB_NOSEAMS,
 	MA_AB_DITHER,
+	MA_AB_HALO,
 };
 
 #define AB_QUICK_SLOT 2		/* slot 0 is the resume point, 1 the launcher's copy of it */
@@ -77,6 +78,8 @@ static const char *men_ab_scaler[] = { "1x1", "Integer 2x", "4:3", "Integer 4:3"
 static const char h_ab_scaler[]  = "1x1: the PlayStation's pixels as they are. Integer: whole multiples"
                                    " only (sharpest). 4:3: as the PlayStation drew it. Fullscreen: the whole"
                                    " screen";
+/* the screen halo (ab_config.h) */
+static const char h_ab_halo[]    = "Fills the bands beside the picture with its own edges, mirrored and dimmed";
 static const char *men_ab_scanlines[] = { "Off", "1", "2", "3", NULL };
 static const char h_ab_scanline_l[] = "How much of the picture shows through the dark lines, 0-100%";
 static const char h_ab_pad[]     = "Standard (digital), analog (DualShock), a gun or nothing;"
@@ -129,6 +132,7 @@ static menu_entry e_menu_ab[] =
 	mee_onoff_h   ("Remove seams",             MA_AB_NOSEAMS,       pl_rearmed_cbs.gpu_neon.enhancement_no_seams, 1, h_ab_noseams),
 	mee_enum_h    ("Dithering",                MA_AB_DITHER,        ab_dither_sel, men_ab_dither, h_ab_dither),
 	mee_enum_h    ("Scaling",                MA_AB_SCALER,        ab_scaler_sel, men_ab_scaler, h_ab_scaler),
+	mee_onoff_h   ("Screen halo",              MA_AB_HALO,          ab_screen_halo, 1, h_ab_halo),
 	mee_enum_h    ("Smoothing",                MA_OPT_SWFILTER,     soft_filter, men_ab_smooth, h_ab_smooth),
 	mee_cust_h    ("Filter",                   MA_AB_FILTER,        ab_menu_handler, ab_filter_name, h_ab_filter),
 	mee_enum_h    ("Scanlines",                MA_OPT_SCANLINES,    scanlines, men_ab_scanlines, h_ab_scanlines),
@@ -211,7 +215,8 @@ static const char *ab_row_blocked(const menu_entry *e)
 	if (ab_crt43()) {
 		/* a real tube (ab_config.h): its own scanlines, the game on the whole output; a CRT filter in the
 		 * cfg is not used, so it rules nothing out here */
-		if (e->id == MA_OPT_SCANLINES || e->id == MA_OPT_SCANLINE_LEVEL || e->id == MA_AB_SCALER)
+		if (e->id == MA_OPT_SCANLINES || e->id == MA_OPT_SCANLINE_LEVEL || e->id == MA_AB_SCALER ||
+		    e->id == MA_AB_HALO)
 			return ab_why_crt43;
 		return NULL;
 	}

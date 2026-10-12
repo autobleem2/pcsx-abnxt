@@ -92,6 +92,7 @@ varying vec2 screenScale;
 #endif
 varying vec2 TEX0;
 varying float filterWidth;
+varying float soft;
 
 #if defined(VERTEX)
 uniform mat4 MVPMatrix;
@@ -106,6 +107,11 @@ void main()
 	screenScale = TextureSize / InputSize;
 #endif
 	filterWidth = (InputSize.y / OutputSize.y) / 3.0;
+	// AutoBleem: how far a line's height on the screen is from a whole number of pixels - 0 at 720p (3 px)
+	// or 4K (9 px), 1 at 1080p (4.5 px); where it is above 0 the gaps are lighter and the beam wider, so
+	// lines of 4 and 5 pixels do not show as a pattern (dark gaps make moire likelier, as said above); a
+	// whole scale draws as before
+	soft = 1.0 - abs(2.0 * fract(OutputSize.y / InputSize.y) - 1.0);
 	TEX0 = TexCoord;
 	gl_Position = MVPMatrix * VertexCoord;
 }
@@ -138,7 +144,7 @@ vec2 Distort(vec2 coord)
 
 float CalcScanLineWeight(float dist)
 {
-	return max(1.0-dist*dist*SCANLINE_WEIGHT, SCANLINE_GAP_BRIGHTNESS);
+	return max(1.0-dist*dist*SCANLINE_WEIGHT*(1.0 - 0.35*soft), mix(SCANLINE_GAP_BRIGHTNESS, 0.30, soft));
 }
 
 float CalcScanLine(float dy)

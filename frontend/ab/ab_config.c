@@ -26,6 +26,8 @@
 
 static int bios_auto;	/* the BIOS came from "SET_BY_PCSX" and nobody chose another since */
 
+int ab_screen_halo;
+
 struct ab_options ab_opts = {
 	.filter = 0,
 	.ratio = 0,
@@ -272,17 +274,24 @@ void ab_config_loaded(int is_game)
 		else
 			g_scaler = ab_opts.ratio ? SCALE_FULLSCREEN : SCALE_4_3;
 	}
+	if (!(is_game && custom_has_key("screen_halo"))) {
+		/* $AB_SCREEN_HALO (abfeatures: screenhalo): the launcher's "Screen halo", 0 or 1; unset = the file's */
+		const char *s = ab_env("AB_SCREEN_HALO");
+		if (s != NULL && (strcmp(s, "0") == 0 || strcmp(s, "1") == 0))
+			ab_screen_halo = s[0] - '0';
+	}
 	/* $AB_PERF_OVERLAY (abfeatures: perfoverlay): the launcher's performance overlay is on - the HUD's FPS and
 	 * CPU too, over whatever the files say, without being saved (ab_perf_forced_opts) */
 	if (ab_env("AB_PERF_OVERLAY") != NULL && strcmp(ab_env("AB_PERF_OVERLAY"), "1") == 0) {
 		perf_forced |= (OPT_SHOWFPS | OPT_SHOWCPU) & ~g_opts;
 		g_opts |= OPT_SHOWFPS | OPT_SHOWCPU;
 	}
-	fprintf(stderr, "autobleem: %s config: filter=%s ratio=%s scaler=%d boot logo=%s scanlines=%d dithering=%d\n",
+	fprintf(stderr, "autobleem: %s config: filter=%s ratio=%s scaler=%d boot logo=%s scanlines=%d dithering=%d"
+		" halo=%d\n",
 		is_game ? "game" : "global",
 		plat_target.hwfilters != NULL ? plat_target.hwfilters[plat_target.hwfilter] : "-",
 		g_scaler == SCALE_FULLSCREEN ? "16:9" : "4:3", g_scaler, Config.SlowBoot ? "shown" : "skipped", scanlines,
-		pl_rearmed_cbs.dithering);
+		pl_rearmed_cbs.dithering, ab_screen_halo);
 	if (is_game)
 		ab_hacks_apply();	/* -sonyhacks: Sony's overrides for this serial, over the file (ab_hacks.h) */
 }

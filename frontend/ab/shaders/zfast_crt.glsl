@@ -68,8 +68,9 @@ COMPAT_VARYING vec4 COL0;
 COMPAT_VARYING vec4 TEX0;
 COMPAT_VARYING float maskFade;
 COMPAT_VARYING vec2 invDims;
+COMPAT_VARYING vec2 lineAA;
 
-vec4 _oPosition1; 
+vec4 _oPosition1;
 uniform mat4 MVPMatrix;
 uniform COMPAT_PRECISION int FrameDirection;
 uniform COMPAT_PRECISION int FrameCount;
@@ -108,6 +109,12 @@ void main()
 	TEX0.xy = TexCoord.xy*1.0001;
 	maskFade = 0.3333*MASK_FADE;
 	invDims = 1.0/TextureSize.xy;
+	// AutoBleem: x = how far a line's height on the screen is from a whole number of pixels - 0 at 720p
+	// (3 px) or 4K (9 px), 1 at 1080p (4.5 px); y = a third of a screen pixel in lines. Where x > 0 the
+	// scanline is averaged over the pixel (three samples, as crt-pi's MULTISAMPLE) and drawn a little
+	// softer, so lines of 4 and 5 pixels do not show as a pattern; a whole scale draws as before.
+	lineAA.x = 1.0 - abs(2.0 * fract(OutputSize.y / InputSize.y) - 1.0);
+	lineAA.y = (InputSize.y / OutputSize.y) / 3.0;
 }
 
 #elif defined(FRAGMENT)
@@ -146,6 +153,7 @@ uniform sampler2D Texture;
 COMPAT_VARYING vec4 TEX0;
 COMPAT_VARYING float maskFade;
 COMPAT_VARYING vec2 invDims;
+COMPAT_VARYING vec2 lineAA;
 
 // compatibility #defines
 #define Source Texture
@@ -182,8 +190,6 @@ void main()
 	COMPAT_PRECISION vec2 f = p - i;
 	p = (i + 4.0*f*f*f)*invDims;
 	p.x = mix( p.x , vTexCoord.x, BLURSCALEX);
-	COMPAT_PRECISION float Y = f.y*f.y;
-	COMPAT_PRECISION float YY = Y*Y;
 #define ratio SourceSize.x/InputSize.x	
 #if defined(FINEMASK) 
 	COMPAT_PRECISION float whichmask = floor(vTexCoord.x*OutputSize.x*ratio)*-0.5;
@@ -194,8 +200,19 @@ void main()
 #endif
 	COMPAT_PRECISION vec3 colour = COMPAT_TEXTURE(Source, p).rgb;
 	
-	COMPAT_PRECISION float scanLineWeight = (BRIGHTBOOST - LOWLUMSCAN*(Y - 2.05*YY));
-	COMPAT_PRECISION float scanLineWeightB = 1.0 - HILUMSCAN*(YY-2.8*YY*Y);	
+	// AutoBleem: the scanline at three points of the pixel (all three at f.y on a whole scale: as before)
+	COMPAT_PRECISION float soften = 1.0 - 0.25 * lineAA.x;
+	COMPAT_PRECISION float scanLineWeight = 0.0;
+	COMPAT_PRECISION float scanLineWeightB = 0.0;
+	for (int k = -1; k <= 1; k++) {
+		COMPAT_PRECISION float fy = fract(f.y + 0.5 + float(k) * lineAA.y * lineAA.x) - 0.5;
+		COMPAT_PRECISION float Y = fy*fy;
+		COMPAT_PRECISION float YY = Y*Y;
+		scanLineWeight += (BRIGHTBOOST - LOWLUMSCAN*soften*(Y - 2.05*YY));
+		scanLineWeightB += 1.0 - HILUMSCAN*soften*(YY-2.8*YY*Y);
+	}
+	scanLineWeight *= 0.3333333;
+	scanLineWeightB *= 0.3333333;
 	
 #if defined(BLACK_OUT_BORDER)
 	colour.rgb*=float(tc.x > 0.0)*float(tc.y > 0.0); //why doesn't the driver do the right thing?
