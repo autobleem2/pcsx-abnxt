@@ -308,6 +308,8 @@ void sioWrite8(unsigned char value) {
 			set_event(PSXINT_SIO, SIO_CYCLES);
 			return;
 		default:
+			if (value != 0)
+				MCD_TRACE("port %d first byte %02x: no such device", port, value);
 		no_device:
 			StatReg |= SWAPu16(RX_RDY);
 			buf[0] = 0xff;
