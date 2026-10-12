@@ -156,7 +156,7 @@ Player 2=Jugador 2
 Emulator/Gun controls=Controles del emulador/pistola
 Port 1 device=Dispositivo del puerto 1
 Port 2 device=Dispositivo del puerto 2
-Nubs as buttons=Gatillos analógicos como botones
+Nubs as buttons=Sticks analógicos como botones
 Vibration=Vibración
 Analog deadzone=Zona muerta analógica
 No TS Gun trigger=Sin gatillo de pistola en pantalla táctil
@@ -166,7 +166,7 @@ Right stick (R3)=Stick derecho (R3)
 BIOS logo (slow boot)=Logo del BIOS (arranque lento)
 GPU plugin=Plugin de GPU
 GPU multithreading=GPU multihilo
-GPU dithering=Dithering de GPU
+GPU dithering=Tramado de GPU
 SPU plugin=Plugin de SPU
 SPU multithreading=SPU multihilo
 Volume boost=Aumento de volumen
@@ -210,7 +210,7 @@ CRT-Pi is too heavy for the console at 1080p: choose 720p in AutoBleem's setting
 
 # the PCSX menu pages' help texts and messages (upstream's, drawn by our menu screen)
 Maps nub-like analog controls to PSX ones better Might cause problems with real analog sticks=Adapta mejor los controles analógicos tipo joystick a los de la PSX. Puede causar problemas con sticks analógicos reales.
-Experimental, keep this OFF if unsure. Select rescan after change.=Experimental; deja esto DESACTIVADO si tienes dudas. Elige volver a analizar después del cambio.
+Experimental, keep this OFF if unsure. Select rescan after change.=Experimental; deja esto DESACTIVADO si tienes dudas. Elige volver a detectar dispositivos después del cambio.
 Don't trigger (shoot) when touching screen in gun games.=No dispara al tocar la pantalla en los juegos de pistola.
 Must select analog above and enable this ingame too.=Debes seleccionar «analógico» arriba y activarlo también dentro del juego.
 int. 2x - scales w. or h. 2x if it fits on screen int. 4:3 - uses integer if possible, else fractional=Entero 2x: escala el ancho o el alto x2 si cabe en la pantalla. Entero 4:3: usa un múltiplo entero si es posible, si no, fraccional.
@@ -264,12 +264,12 @@ Change CD, manage memcards..=Cambiar de CD, gestionar tarjetas de memoria...
 saved for this game=Guardado para este juego
 config saved=Configuración guardada
 failed to write config=No se pudo escribir la configuración
-rescan complete.=Análisis completado.
+rescan complete.=Detección completada.
 defaults restored=Configuración predeterminada restaurada
 failed to load cheats=No se pudieron cargar los trucos
 Please wait...=Espera, por favor...
 # a real disc: shown while the drive is read, before the BIOS
-Loading the disc - please wait=Cargando el disco - espere, por favor
+Loading the disc - please wait=Cargando el disco - espera, por favor
 # CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
 CRT mask=Máscara CRT
 Aperture=Apertura
