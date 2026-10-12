@@ -55,7 +55,14 @@ set(PCSXAB_DYNAREC "auto" CACHE STRING "CPU recompiler: auto, ari64 (ARM/AArch64
 set_property(CACHE PCSXAB_DYNAREC PROPERTY STRINGS auto ari64 lightrec none)
 option(PCSXAB_NEON        "ARM NEON assembly (GTE, GPU, scalers). 32-bit ARMv7+ only; AArch64 uses the C SIMD code" ${_pcsxab_neon_default})
 option(PCSXAB_THREADS     "The multithreaded features: asynchronous CD-ROM, GPU and SPU, and the dynarec's compile thread" ON)
-option(PCSXAB_PHYSICAL_CDROM "A real disc in a drive (-cdfile cdrom://drive1.cue, as upstream's libretro build); needs PCSXAB_THREADS" ON)
+# Linux only: Windows does not get a disc in a drive (the owner, 2026-10-12), and libretro-common's Windows
+# side would need its UTF-16, time and file-stream sources as well
+if (WIN32)
+    set(_pcsxab_cdrom_default OFF)
+else()
+    set(_pcsxab_cdrom_default ON)
+endif()
+option(PCSXAB_PHYSICAL_CDROM "A real disc in a drive (-cdfile cdrom://drive1.cue, as upstream's libretro build); needs PCSXAB_THREADS; Linux" ${_pcsxab_cdrom_default})
 option(PCSXAB_PLUGINS     "Also build the loadable plugins (gpu_peops, gpu_unai [, gpu_neon, gpu_gles], spunull)" ON)
 option(PCSXAB_GLES        "OpenGL ES output in the SDL frontend (libpicofe's gl.c, EGL loaded at run time)" OFF)
 option(PCSXAB_LINK_MAP    "Write pcsx-ab.map next to the executable" ON)
