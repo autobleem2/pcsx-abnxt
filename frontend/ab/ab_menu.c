@@ -71,10 +71,9 @@ static const char h_ab_savecfg[] = "Keeps these settings for this game; AutoBlee
                                    " you unlock them in the game's settings";
 static const char h_ab_scanlines[] = "Dark lines over the screen: 1 is every 2nd row, 2 every 3rd, 3 two of"
                                      " every 3; brightness is how dark (off with a CRT filter)";
-/* upstream's soft_filter (the PCSX menu's "Software Filter"): scale2x/eagle2x on the GPU everywhere, our
- * hq2x/hq3x on the CPU (ab_scaler.c) - not offered on the console (ab_menu_loop_d picks the list) */
+/* upstream's soft_filter (the PCSX menu's "Software Filter"): all four on the GPU (ab_shaders.c's smoothing
+ * passes), so the console has them all too; ab_scaler.c is the CPU's way for a platform without them */
 static const char *men_ab_smooth[] = { "None", "Scale2x", "Eagle2x", "HQ2x", "HQ3x", NULL };
-static const char *men_ab_smooth_psc[] = { "None", "Scale2x", "Eagle2x", NULL };
 static const char h_ab_smooth[]  = "Smooths 2D games' pixels before scaling";
 /* the scaler, as upstream's g_scaler (the PCSX menu's "Scaler" without "custom", which is left alone
  * unless this row is moved) */
@@ -233,8 +232,6 @@ static const char *ab_row_blocked(const menu_entry *e)
 		return NULL;
 	if (e->id == MA_OPT_SCANLINES || e->id == MA_OPT_SCANLINE_LEVEL)
 		return ab_why_crt;
-	if (e->id == MA_OPT_SWFILTER && ab_console_present())
-		return ab_why_crt;
 	return NULL;
 }
 
@@ -364,9 +361,7 @@ static int ab_menu_handler(int id, int keys)
 				plat_target.hwfilter = 0;
 		}
 		if (ab_filter_is_crt(plat_target.hwfilter))
-			menu_update_msg(ab_console_present() && soft_filter != SOFT_FILTER_NONE ?
-				"A CRT filter draws its own scanlines; smoothing is off with it" :
-				"A CRT filter draws its own scanlines");
+			menu_update_msg("A CRT filter draws its own scanlines");
 		break;
 	case MA_AB_CRT_MASK:
 		/* a value row like Filter, stepping past a mask this machine does not draw (the console's Slot) */
@@ -1716,12 +1711,6 @@ static void ab_menu_loop_d(void)
 			me_enable(e_menu_ab, MA_AB_DISPLAY, 1);
 		}
 	}
-	if (ab_console_present()) {
-		e_menu_ab[me_id2offset(e_menu_ab, MA_OPT_SWFILTER)].data = men_ab_smooth_psc;
-		if (soft_filter > SOFT_FILTER_EAGLE2X)
-			soft_filter = SOFT_FILTER_NONE;
-	}
-
 	ab_ui_load(ab_opts.language);
 	{
 		/* the console at 1080p: CRT-Pi stays, with a word that it is too heavy there (the owner, 2026-09-28);

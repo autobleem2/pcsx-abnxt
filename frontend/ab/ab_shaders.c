@@ -17,6 +17,7 @@
 #include "ab_console.h"
 #include "ab_shaders.h"
 #include "ab_shaders_src.h"
+#include "ab_hqx_lut.h"
 
 /* one read per pixel: the input's own filter makes it nearest or bilinear */
 static const char copy_src[] =
@@ -91,9 +92,9 @@ static struct plat_ab_shader raster[AB_CRT_MASK_COUNT];
  * the slot mask's two staggered columns of triads, delta's rows of dots and the slot's 4 or 8 rows): the
  * shader's CRT_FAST_GAMMA mask maths for pixel (x, y), y counted from the bottom as gl_FragCoord is, stored
  * halved (the lit stripes go above 1) */
-static int crt_mask_pattern(const struct plat_ab_shader *sh, int out_w, int out_h, unsigned char *rgb, int *pw,
-	int *ph)
+static int crt_mask_pattern(const struct plat_ab_shader *sh, int out_w, int out_h, struct plat_ab_aux *a)
 {
+	static unsigned char rgba[12 * 16 * 4];
 	int mask = (int)(sh - raster);
 	int p = out_h >= 1600 ? 6 : out_h >= 900 ? 3 : 2;
 	int w = 2 * p, h = 16, x, y, c;
@@ -131,12 +132,15 @@ static int crt_mask_pattern(const struct plat_ab_shader *sh, int out_w, int out_
 			}
 			for (c = 0; c < 3; c++) {
 				float v = m[c] * 0.5f * 255.0f + 0.5f;
-				rgb[(y * w + x) * 3 + c] = (unsigned char)(v > 255.0f ? 255.0f : v);
+				rgba[(y * w + x) * 4 + c] = (unsigned char)(v > 255.0f ? 255.0f : v);
 			}
+			rgba[(y * w + x) * 4 + 3] = 255;
 		}
 	}
-	*pw = w;
-	*ph = h;
+	a->rgba = rgba;
+	a->w = w;
+	a->h = h;
+	a->repeat = 1;
 	return 1;
 }
 
@@ -175,6 +179,41 @@ static const struct plat_ab_shader filters[AB_FILTER_CRT_RASTER] = {
 static const struct plat_ab_shader smooth_scale2x = { "scale2x", ab_glsl_scale2x, 2, 0 };
 static const struct plat_ab_shader smooth_eagle2x = { "eagle2x", ab_glsl_eagle2x, 2, 0 };
 
+/* HQ2x/HQ3x: hqx.glsl with its HQX_SCALE, its lookup table the aux input */
+static char hqx_src[2][sizeof(ab_glsl_hqx) + 32];
+static struct plat_ab_shader smooth_hqx[2];
+
+static int hqx_lut(const struct plat_ab_shader *sh, int out_w, int out_h, struct plat_ab_aux *a)
+{
+	(void)out_w;
+	(void)out_h;
+	if (sh == &smooth_hqx[0]) {
+		a->rgba = ab_hqx2_lut;
+		a->w = AB_HQX2_LUT_W;
+		a->h = AB_HQX2_LUT_H;
+	} else {
+		a->rgba = ab_hqx3_lut;
+		a->w = AB_HQX3_LUT_W;
+		a->h = AB_HQX3_LUT_H;
+	}
+	a->repeat = 0;
+	return 1;
+}
+
+static const struct plat_ab_shader *hqx_shader(int scale)
+{
+	struct plat_ab_shader *sh = &smooth_hqx[scale - 2];
+	if (sh->src == NULL) {
+		snprintf(hqx_src[scale - 2], sizeof(hqx_src[scale - 2]), "#define HQX_SCALE %d\n%s", scale, ab_glsl_hqx);
+		sh->name = scale == 2 ? "hq2x" : "hq3x";
+		sh->src = hqx_src[scale - 2];
+		sh->scale = scale;
+		sh->linear = 0;
+		sh->aux = hqx_lut;
+	}
+	return sh;
+}
+
 const struct plat_ab_shader *ab_filter_shader(int filter, int crt_mask)
 {
 	if (filter < 0 || filter >= AB_FILTER_COUNT)
@@ -189,6 +228,8 @@ const struct plat_ab_shader *ab_smooth_shader(int soft_filter)
 	switch (soft_filter) {
 	case SOFT_FILTER_SCALE2X: return &smooth_scale2x;
 	case SOFT_FILTER_EAGLE2X: return &smooth_eagle2x;
+	case SOFT_FILTER_HQ2X: return hqx_shader(2);
+	case SOFT_FILTER_HQ3X: return hqx_shader(3);
 	default: return NULL;
 	}
 }

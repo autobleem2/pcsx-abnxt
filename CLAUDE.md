@@ -179,11 +179,18 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   `AB_GL_PBO=0` turns it off) and a frame wider than its picture (pitch > w) goes up in one call
   (`GL_UNPACK_ROW_LENGTH`) instead of a call per row. CRT (raster)'s mask becomes a texture: a pass may
   have an `aux` callback (`struct plat_ab_shader`), which draws a small pattern for the pass's output size
-  - libpicofe puts it on texture unit 1 (`MaskTexture`, `MaskSize`, nearest, repeated: a repeated texture 3
+  - libpicofe puts it on texture unit 1 (`AuxTexture`, `AuxSize`; each pass its own, nearest, repeated: a repeated texture 3
   or 6 texels wide needs GLES 3), made again only when the output size changes. `ab_shaders.c`
   `crt_mask_pattern` draws the `CRT_FAST_GAMMA` mask maths into 2p x 16 texels (every mask repeats in that),
-  halved into RGB8, and the shader (`CRT_MASK_TEXTURE`) reads one texel a pixel - every mask the same cost,
+  halved into RGBA8, and the shader (`CRT_MASK_TEXTURE`) reads one texel a pixel - every mask the same cost,
   so the console offers Slot again. GLES 2 keeps the per-pixel mask maths and the lite build's no-Slot rule.
+- **Smoothing on the GPU** (2026-10-12, the owner's test on the console): all four are libpicofe's smoothing
+  pass (`ab_smooth_shader`, `plat_smooths` - the frame stays 1x): `scale2x.glsl`, `eagle2x.glsl` and
+  `hqx.glsl` (HQX_SCALE 2/3: libretro's single-pass hqx rewritten - 9 neighbours to a pattern and a crossing,
+  the weights from a lookup table, `frontend/ab/hqx/hq{2,3}x.png` -> `ab_hqx_lut.h` by `hqx/lut_embed.py`,
+  given to the pass as its aux input, clamped). The same picture as the CPU's hqx to under one RGB565 step.
+  The console offers all four, and smoothing stays on with a CRT filter. The paragraph below is the CPU way,
+  `ab_scaler.c`, kept for a platform without the passes.
 - **Smoothing** (the menu row under Filter; upstream's `soft_filter`, `pcsx.cfg` 0-4, also the PCSX menu's
   "Software Filter"): None / Scale2x / Eagle2x / HQ2x / HQ3x, `frontend/ab/ab_scaler.c` hooked into
   `plugin_lib.c`'s blit - the BGR555 frame converted to RGB565 (NEON on 32-bit ARM) into a scratch buffer,

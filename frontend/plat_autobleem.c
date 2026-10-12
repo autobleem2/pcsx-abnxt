@@ -656,36 +656,29 @@ static void ab_hud_draw(int sw, int sh)
   ab_hud_notices_draw(sw, sh);
 }
 
-/* soft_filter values the GPU smooths (plugin_lib then keeps the frame 1x) */
+/* soft_filter values the GPU smooths (plugin_lib then keeps the frame 1x): all four */
 static int plat_smooths(int soft_filter)
 {
   return ab_smooth_shader(soft_filter) != NULL;
 }
 
-/* the pipeline for this frame from the menus' settings: the filter, the smoothing (not with a CRT on the
- * console - its GPU cannot do both), our scanlines (not with a CRT, which draws its own) and the halo (not
- * on a tube, where the game fills the output) */
+/* the pipeline for this frame from the menus' settings: the filter, the smoothing (with a CRT too, on the
+ * console as well since GLES 3 - the owner's test, 2026-10-12), our scanlines (not with a CRT, which draws
+ * its own) and the halo (not on a tube, where the game fills the output) */
 static void update_pipeline(void)
 {
   static const int pattern[4][2] = { { 0, 1 }, { 1, 1 }, { 1, 2 }, { 2, 1 } };  /* dark, bright rows */
   int filter = plat_target.hwfilter, crt, level;
   const struct plat_ab_shader *smooth;
-  static int console = -1;
 
   if (filter < 0 || filter >= AB_FILTER_COUNT)
     filter = AB_FILTER_LINEAR;
-  if (console < 0)
-    console = ab_console_present();
   crt = ab_filter_is_crt(filter);
   if (crt && ab_crt43()) {
     filter = AB_FILTER_LINEAR;	/* a real tube: no CRT filter, whatever the cfg or the launcher passed */
     crt = 0;
   }
-  if (console && soft_filter > SOFT_FILTER_EAGLE2X)
-    soft_filter = SOFT_FILTER_NONE;	/* hq2x/hq3x are not offered on the console (a cfg from before) */
   smooth = ab_smooth_shader(soft_filter);
-  if (console && crt)
-    smooth = NULL;
   plat_ab_set_pipeline(smooth, ab_filter_shader(filter, ab_crt_mask));
   /* a CRT draws the PlayStation's lines - 240, not the 480 of a 2x or smoothed frame */
   plat_ab_set_filter_picture(crt ? pl_psx_pic_w : 0, crt ? pl_psx_pic_h : 0);

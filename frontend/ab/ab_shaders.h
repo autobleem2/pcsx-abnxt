@@ -42,13 +42,14 @@ int ab_crt_mask_offered(int mask);
 
 /* the filter pass; crt_mask only matters to CRT (raster) */
 const struct plat_ab_shader *ab_filter_shader(int filter, int crt_mask);
-/* a CRT filter draws its own scanlines: ours are off with it, and on the PSC so is the smoothing (inline:
- * the menu, built on every platform, asks too) */
+/* a CRT filter draws its own scanlines: ours are off with it (inline: the menu, built on every platform,
+ * asks too) */
 static inline int ab_filter_is_crt(int filter)
 {
 	return filter == AB_FILTER_CRT_FAST || filter == AB_FILTER_CRT_PI || filter == AB_FILTER_CRT_RASTER;
 }
-/* the GPU pass for a soft_filter (SOFT_FILTER_*), NULL for none or one the CPU does (hq2x/hq3x) */
+/* the GPU pass for a soft_filter (SOFT_FILTER_*: scale2x, eagle2x, hq2x - hq3x with their lookup table as
+ * the aux input), NULL for none */
 const struct plat_ab_shader *ab_smooth_shader(int soft_filter);
 
 #endif
