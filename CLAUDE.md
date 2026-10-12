@@ -314,6 +314,9 @@ players; `pl_scanlines_by_plat`; `pl_psx_pic_w/h`, the picture's own size for th
 `pl_scanlines_by_plat`, `PL_VOUT_MAX_W/H`), `frontend/menu.c` also `#include`s `ab/ab_menu.c` and
 runs `ab_menu_loop_d()` - and no "you have no BIOS" screen (`menu_bios_warn` is gone, 2026-09-24, the
 owner's call: the menu's header line says HLE or BIOS), `libpcsxcore/sio.c` (`ab_memcard_written()` + fsync in `SaveMcd`),
+`libpcsxcore/new_dynarec/pcsxmem.c` (the byte writes to SIO and the CD-ROM go through wrappers that keep the
+register's low byte - mapped directly, `sioWrite8(unsigned char)` got OpenBIOS's `0xffffff81` as -127, no card
+answered and every game reported no memory card, 2026-10-12; a fix for everyone, a PR candidate),
 `libpcsxcore/misc.c` (`SaveState`/`LoadState` renamed `SaveStateNative`/`LoadStateNative`, `state_mark()`
 between the sections - see "The save-state layout"), `libpcsxcore/cdrom.c` and `psxcounters.c` (a block
 of ours at the end of each), `CMakeLists.txt`/`Makefile` (`state_sony.c`), `.gitignore` (`/tools/*` so a file of ours under it can be tracked). Everything

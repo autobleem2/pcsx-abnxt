@@ -91,6 +91,20 @@ static void io_write_sio16(u32 value)
 	sioWrite8(value);
 }
 
+/* A byte store (sb) hands these the whole 32-bit register; the hardware takes its low byte. The handlers below
+ * take an unsigned char, and a callee does not narrow what the caller passed: mapped directly, a register with
+ * the high bits set (0xffffff81, which a newer compiler is free to leave for an sb of 0x81 - OpenBIOS's card
+ * driver does) reached sioWrite8 as -127, no card answered, and every game said there was no memory card. */
+static void io_write_sio8(u32 value)
+{
+	sioWrite8(value & 0xff);
+}
+
+static void io_write_cdr0(u32 value) { cdrWrite0(value & 0xff); }
+static void io_write_cdr1(u32 value) { cdrWrite1(value & 0xff); }
+static void io_write_cdr2(u32 value) { cdrWrite2(value & 0xff); }
+static void io_write_cdr3(u32 value) { cdrWrite3(value & 0xff); }
+
 #if !defined(DRC_DBG) && defined(__arm__)
 
 static void map_rcnt_rcount0(u32 mode)
@@ -502,7 +516,7 @@ void new_dyna_pcsx_mem_init(void)
 	map_item(&mem_iowtab[IOMEM16(0x1124)], io_rcnt_write_mode2, 1);
 	map_item(&mem_iowtab[IOMEM16(0x1128)], io_rcnt_write_target2, 1);
 
-	map_item(&mem_iowtab[IOMEM8(0x1040)], sioWrite8, 1);
+	map_item(&mem_iowtab[IOMEM8(0x1040)], io_write_sio8, 1);
 	map_item(&mem_iowtab[IOMEM8(0x1044)], write_mem_ro, 1);
 	map_item(&mem_iowtab[IOMEM8(0x1045)], write_mem_ro, 1);
 	map_item(&mem_iowtab[IOMEM8(0x1046)], write_mem_ro, 1);
@@ -511,10 +525,10 @@ void new_dyna_pcsx_mem_init(void)
 	map_item(&mem_iowtab[IOMEM8(0x1055)], write_mem_ro, 1);
 	map_item(&mem_iowtab[IOMEM8(0x1056)], write_mem_ro, 1);
 	map_item(&mem_iowtab[IOMEM8(0x1057)], write_mem_ro, 1);
-	map_item(&mem_iowtab[IOMEM8(0x1800)], cdrWrite0, 1);
-	map_item(&mem_iowtab[IOMEM8(0x1801)], cdrWrite1, 1);
-	map_item(&mem_iowtab[IOMEM8(0x1802)], cdrWrite2, 1);
-	map_item(&mem_iowtab[IOMEM8(0x1803)], cdrWrite3, 1);
+	map_item(&mem_iowtab[IOMEM8(0x1800)], io_write_cdr0, 1);
+	map_item(&mem_iowtab[IOMEM8(0x1801)], io_write_cdr1, 1);
+	map_item(&mem_iowtab[IOMEM8(0x1802)], io_write_cdr2, 1);
+	map_item(&mem_iowtab[IOMEM8(0x1803)], io_write_cdr3, 1);
 
 	for (i = 0x1c00; i < 0x2000; i += 2) {
 		map_item(&mem_iowtab[IOMEM8(i)], io_spu_write8_even, 1);
