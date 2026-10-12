@@ -108,6 +108,34 @@ static unsigned int mcdst, rdwr;
 static unsigned char adrH, adrL;
 static unsigned int padst;
 
+#ifdef PSCLASSIC
+/* AB_SIO_TRACE: the last SIO events, dumped when a card start (0x81) is swallowed by a pad transfer still in
+ * progress - W byte written, R byte read, C ctrl written 16-bit, B ctrl written 8-bit (104a/104b), L 32-bit write
+ * at 1048 (mode + ctrl) */
+static struct { u32 cyc; char kind; u32 v; unsigned char padst, mcdst, parp; } sio_ring[24];
+static unsigned int sio_ring_pos;
+void sioTraceNote(char kind, u32 v)
+{
+	unsigned int i = sio_ring_pos++ % 24;
+	sio_ring[i].cyc = psxRegs.cycle; sio_ring[i].kind = kind; sio_ring[i].v = v;
+	sio_ring[i].padst = padst; sio_ring[i].mcdst = mcdst; sio_ring[i].parp = parp;
+}
+static void sio_ring_dump(const char *why)
+{
+	unsigned int n;
+	MCD_TRACE("%s - the last SIO events:", why);
+	for (n = 0; n < 24; n++) {
+		unsigned int i = (sio_ring_pos + n) % 24;
+		if (sio_ring[i].kind)
+			MCD_TRACE("  ring %c %08x pad %d mcd %d byte %d cyc %u", sio_ring[i].kind, sio_ring[i].v,
+				sio_ring[i].padst, sio_ring[i].mcdst, sio_ring[i].parp, sio_ring[i].cyc);
+	}
+}
+#define SIO_NOTE(k, v) sioTraceNote(k, v)
+#else
+#define SIO_NOTE(k, v) do { } while (0)
+#endif
+
 char Mcd1Data[MCD_SIZE], Mcd2Data[MCD_SIZE];
 
 unsigned char McdDisable[2];
@@ -125,6 +153,11 @@ void sioWrite8(unsigned char value) {
 	s32 framec = psxRegs.cycle - rcnts[3].cycleStart;
 	printf("%d:%03d sio write8    %04x %02x st=%d,%d\n", frame_counter,
 		(s32)(framec / (PSXCLK / 60 / 263.0f)), ctrl, value, padst, mcdst);
+#endif
+	SIO_NOTE('W', value | (ctrl << 16));
+#ifdef PSCLASSIC
+	if (value == 0x81 && padst != 0 && mcdst == 0)
+		sio_ring_dump("card start 0x81 swallowed by a pad transfer");
 #endif
 	switch (padst) {
 		case 1:
@@ -294,6 +327,7 @@ void sioWriteCtrl16(unsigned short value) {
 	printf("%d:%03d sio ctrl      %04x->%04x\n", frame_counter,
 		(s32)(framec / (PSXCLK / 60 / 263.0f)), CtrlReg, value);
 #endif
+	SIO_NOTE('C', value);
 	if (value & CTRL_ACK) StatReg &= SWAPu16(~IRQ);
 	if ((value & CTRL_RESET) || !(value & CTRL_SEL)) {
 		if (mcdst != 0)
@@ -347,6 +381,7 @@ unsigned char sioRead8() {
 	printf("%d:%03d sio read8  %2d %04x %02x\n", frame_counter,
 		(s32)((float)framec / (PSXCLK / 60 / 263.0f)), parp, ctrl, ret);
 #endif
+	SIO_NOTE('R', ret);
 	return ret;
 }
 

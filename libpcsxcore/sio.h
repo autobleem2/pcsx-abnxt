@@ -41,6 +41,9 @@ extern unsigned char McdFlag[2];
 void sioWrite8(unsigned char value);
 void sioWriteMode16(unsigned short value);
 void sioWriteCtrl16(unsigned short value);
+#ifdef PSCLASSIC
+void sioTraceNote(char kind, u32 v);
+#endif
 
 unsigned char sioRead8();
 unsigned short sioReadStat16(); // debug

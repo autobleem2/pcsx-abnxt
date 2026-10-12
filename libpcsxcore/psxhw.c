@@ -316,6 +316,9 @@ void psxHwWrite8(psxRegisters *regs, u32 add, u32 value) {
 	u32 ofs = add & 0xffff;
 	switch (ofs) {
 	case 0x1040: sioWrite8(value); return;
+#ifdef PSCLASSIC
+	case 0x104a: case 0x104b: sioTraceNote('B', value | (ofs << 16)); break;
+#endif
 	case 0x10f6:
 		// nocash documents it as forced w32, but still games use this?
 		break;
@@ -427,6 +430,9 @@ void psxHwWrite32(psxRegisters *regs, u32 add, u32 value) {
 	switch (ofs) {
 	case 0x1040: sioWrite8(value); return;
 	case 0x1048: log_unhandled("w32 %08x %08x @%08x\n", add, value, regs->pc);
+#ifdef PSCLASSIC
+	             sioTraceNote('L', value);
+#endif
 	             sioWriteMode16(value); return;  // and not to 104a?
 	case 0x1070: psxHwWriteIstat(value); return;
 	case 0x1074: psxHwWriteImask(value); return;
