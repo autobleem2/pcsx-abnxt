@@ -206,7 +206,7 @@ No cheats in this file=此文件中没有金手指
 Cheats loaded:=已加载金手指：
 CRT-Pi is too heavy for the console at 1080p: choose 720p in AutoBleem's settings to play with it=CRT-Pi 在 1080p 下对主机负担过重：如需使用，请在 AutoBleem 设置中选择 720p
 # the PCSX menu pages' help texts and messages (upstream's, drawn by our menu screen)
-Maps nub-like analog controls to PSX ones better Might cause problems with real analog sticks=更好地把类摇钮式模拟控制映射到 PSX 控制上，可能会给真实的模拟摇杆带来问题。
+Maps nub-like analog controls to PSX ones better Might cause problems with real analog sticks=更好地把类摇杆式模拟控制映射到 PSX 控制上，可能会给真实的模拟摇杆带来问题。
 Experimental, keep this OFF if unsure. Select rescan after change.=实验性功能，不确定时请保持关闭。更改后请选择重新扫描。
 Don't trigger (shoot) when touching screen in gun games.=光枪游戏中触摸屏幕时不触发（射击）。
 Must select analog above and enable this ingame too.=需要先选择上方的模拟摇杆，并在游戏内也启用此项。
@@ -225,7 +225,7 @@ Capcom fighting games=Capcom 格斗游戏。
 Black screens in Lunar=Lunar 中的黑屏问题。
 Compatibility mode=兼容模式。
 Pandemonium 2=Pandemonium 2。
-Skip every second frame=每隔一帧跳过一帧。
+Skip every second frame=每两帧跳过一帧。
 Needed by Dark Forces=Dark Forces 需要开启。
 better g-colors, worse textures=渐变色更好，但贴图更差
 Toggle busy flags after drawing=在绘制后切换忙碌标志。
