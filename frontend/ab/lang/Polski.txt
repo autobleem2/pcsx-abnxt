@@ -12,6 +12,7 @@ You can't change discs now=Teraz nie można zmienić płyty
 OK=OK
 Select=Wybierz
 Back=Wróć
+Open the drive's tray and put in the next disc=Otwórz tackę napędu i włóż następną płytę
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Game=Gra
@@ -89,6 +90,8 @@ Back to AutoBleem - holding the menu button for 2 seconds in the game does the s
 HOLD TO EXIT=PRZYTRZYMAJ, ABY WYJŚĆ
 SAVING...=ZAPISYWANIE...
 DISC CHANGE FAILED=ZMIANA PŁYTY NIE UDAŁA SIĘ
+TRAY OPEN=TACKA OTWARTA
+DISC INSERTED=PŁYTA WŁOŻONA
 
 # the PCSX menu's pages (upstream's rows, drawn by our menu screen) - sections, pages, rows, values
 ON=WŁ.

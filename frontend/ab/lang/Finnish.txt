@@ -12,6 +12,7 @@ You can't change discs now=Levyä ei voi vaihtaa nyt
 OK=OK
 Select=Valitse
 Back=Takaisin
+Open the drive's tray and put in the next disc=Avaa aseman levykelkka ja aseta seuraava levy
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Game=Peli
@@ -68,6 +69,8 @@ Back to AutoBleem - holding the menu button for 2 seconds in the game does the s
 HOLD TO EXIT=PIDÄ POHJASSA LOPETTAAKSESI
 SAVING...=TALLENNETAAN...
 DISC CHANGE FAILED=LEVYN VAIHTO EPÄONNISTUI
+TRAY OPEN=KELKKA AUKI
+DISC INSERTED=LEVY ASETETTU
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Load autosave=Lataa automaattitallennus

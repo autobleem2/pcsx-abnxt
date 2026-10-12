@@ -30,6 +30,7 @@ int  cdra_readSub(const unsigned char *time, void *buffer);
 int  cdra_prefetch(unsigned char m, unsigned char s, unsigned char f, int is_cdda);
 
 int  cdra_is_physical(void);
+void cdra_drop_subchannel(void);
 int  cdra_check_eject(int *inserted);
 void cdra_stop_thread(void);
 void cdra_set_buf_count(int count);

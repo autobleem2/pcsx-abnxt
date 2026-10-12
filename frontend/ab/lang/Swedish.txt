@@ -12,6 +12,7 @@ You can't change discs now=Du kan inte byta skiva nu
 OK=OK
 Select=Välj
 Back=Tillbaka
+Open the drive's tray and put in the next disc=Öppna enhetens lucka och lägg i nästa skiva
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Game=Spel
@@ -68,6 +69,8 @@ Back to AutoBleem - holding the menu button for 2 seconds in the game does the s
 HOLD TO EXIT=HÅLL FÖR ATT AVSLUTA
 SAVING...=SPARAR...
 DISC CHANGE FAILED=SKIVBYTET MISSLYCKADES
+TRAY OPEN=LUCKAN ÖPPEN
+DISC INSERTED=SKIVA ILAGD
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Load autosave=Läs in autosparning

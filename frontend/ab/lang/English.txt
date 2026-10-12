@@ -12,6 +12,7 @@ You can't change discs now=You can't change discs now
 OK=OK
 Select=Select
 Back=Back
+Open the drive's tray and put in the next disc=Open the drive's tray and put in the next disc
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Game=Game
@@ -88,6 +89,8 @@ Back to AutoBleem - holding the menu button for 2 seconds in the game does the s
 HOLD TO EXIT=HOLD TO EXIT
 SAVING...=SAVING...
 DISC CHANGE FAILED=DISC CHANGE FAILED
+TRAY OPEN=TRAY OPEN
+DISC INSERTED=DISC INSERTED
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Starts the game over from the beginning, as the console's Reset did=Starts the game over from the beginning, as the console's Reset did

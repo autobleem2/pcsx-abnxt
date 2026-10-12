@@ -12,6 +12,7 @@ You can't change discs now=Die Disc kann jetzt nicht gewechselt werden
 OK=OK
 Select=Auswählen
 Back=Zurück
+Open the drive's tray and put in the next disc=Laufwerksschublade öffnen und die nächste Disc einlegen
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Game=Spiel
@@ -68,6 +69,8 @@ Back to AutoBleem - holding the menu button for 2 seconds in the game does the s
 HOLD TO EXIT=HALTEN ZUM BEENDEN
 SAVING...=SPEICHERN...
 DISC CHANGE FAILED=DISC-WECHSEL FEHLGESCHLAGEN
+TRAY OPEN=SCHUBLADE OFFEN
+DISC INSERTED=DISC EINGELEGT
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Load autosave=Autospeicherstand laden

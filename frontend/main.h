@@ -100,6 +100,7 @@ enum sched_action {
 	SACTION_AB_RESET,
 	SACTION_AB_POWER_OFF,
 	SACTION_AB_AUTOSAVE,
+	SACTION_AB_TRAY,	/* a real disc's drive: its tray opened or closed (ab_disc.c) */
 #endif
 };
 

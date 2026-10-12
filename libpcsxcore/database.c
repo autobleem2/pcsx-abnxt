@@ -348,12 +348,10 @@ static const u16 libcrypt_sectors[16] = {
 	15242, 15312, 15378, 15628, 15919, 16031, 16101, 16167
 };
 
-int check_unsatisfied_libcrypt(void)
+static int is_libcrypt_game(void)
 {
 	const char *p = CdromId + 4;
-	u8 buf_sub[SUB_FRAMESIZE];
-	u16 id, key = 0;
-	u8 msf[3];
+	u16 id;
 	size_t i;
 
 	if (strncmp(CdromId, "SCE", 3) && strncmp(CdromId, "SLE", 3))
@@ -363,8 +361,61 @@ int check_unsatisfied_libcrypt(void)
 	id = (u16)atoi(p);
 	for (i = 0; i < ARRAY_SIZE(libcrypt_ids); i++)
 		if (id == libcrypt_ids[i])
-			break;
-	if (i == ARRAY_SIZE(libcrypt_ids))
+			return 1;
+	return 0;
+}
+
+// the Q of one sector from the drive: 1 = its CRC is bad (a LibCrypt mark, or a scratch), 0 = good or unreadable
+static int drive_q_bad(int lba)
+{
+	u8 sub[SUB_FRAMESIZE], msf[3];
+
+	lba2msf(lba + 150, &msf[0], &msf[1], &msf[2]);
+	if (cdra_readSub(msf, sub) != 0)
+		return 0;
+	return calcCrc(sub + 12, 10) != (u16)(sub[22] << 8 | sub[23]);
+}
+
+/* A disc in a real drive: the LibCrypt marks are read once, from the 16 places LibCrypt uses, and kept like an .sbi;
+ * the drive's subchannel is then not read during play. A drive's raw Q has bad CRCs of its own (scratches; ~4% of the
+ * sectors of a Spyro: Year of the Dragon PAL disc on an LG GP20N, the same on every read, two of them on LibCrypt's
+ * places - the game took the wrong key and looped a cutscene, 2026-10-12). A real mark is a pair, the sector and the
+ * one 5 after, both bad - a lone bad Q is a scratch. Not a LibCrypt game: no subchannel at all. */
+void libcrypt_from_drive(void)
+{
+	int i, n, marks = 0, last = libcrypt_sectors[ARRAY_SIZE(libcrypt_sectors) - 1] - 2*75 + 5;
+	u16 key = 0;
+
+	if (!cdra_is_physical())
+		return;
+	UnloadSBI();
+	if (is_libcrypt_game()) {
+		sbi_len = (last + 8) / 8;
+		sbi_sectors = calloc(1, sbi_len);
+		for (i = 0; sbi_sectors != NULL && i < 16; i++) {
+			n = libcrypt_sectors[i] - 2*75;
+			if (drive_q_bad(n) && drive_q_bad(n + 5)) {
+				sbi_sectors[n >> 3] |= 1 << (n & 7);
+				sbi_sectors[(n + 5) >> 3] |= 1 << ((n + 5) & 7);
+				key |= 1u << (15 - i);
+				marks++;
+			}
+		}
+		if (marks == 0)
+			UnloadSBI();
+		SysPrintf("LibCrypt from the drive: %d of 16 marks, key %04X\n", marks, key);
+	}
+	cdra_drop_subchannel();
+}
+
+int check_unsatisfied_libcrypt(void)
+{
+	u8 buf_sub[SUB_FRAMESIZE];
+	u16 key = 0;
+	u8 msf[3];
+	size_t i;
+
+	if (!is_libcrypt_game())
 		return 0;
 
 	// detected a protected game

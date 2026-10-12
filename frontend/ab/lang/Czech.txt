@@ -12,6 +12,7 @@ You can't change discs now=Disk teď nelze vyměnit
 OK=OK
 Select=Vybrat
 Back=Zpět
+Open the drive's tray and put in the next disc=Otevřete mechaniku a vložte další disk
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Game=Hra
@@ -68,6 +69,8 @@ Back to AutoBleem - holding the menu button for 2 seconds in the game does the s
 HOLD TO EXIT=PODRŽTE PRO UKONČENÍ
 SAVING...=UKLÁDÁNÍ...
 DISC CHANGE FAILED=VÝMĚNA DISKU SELHALA
+TRAY OPEN=MECHANIKA OTEVŘENA
+DISC INSERTED=DISK VLOŽEN
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Load autosave=Nahrát autozáznam

@@ -12,6 +12,7 @@ You can't change discs now=Şu anda disk değiştirilemez
 OK=Tamam
 Select=Seç
 Back=Geri
+Open the drive's tray and put in the next disc=Sürücünün tepsisini açın ve sonraki diski takın
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Game=Oyun
@@ -68,6 +69,8 @@ Back to AutoBleem - holding the menu button for 2 seconds in the game does the s
 HOLD TO EXIT=ÇIKMAK İÇİN BASILI TUT
 SAVING...=KAYDEDİLİYOR...
 DISC CHANGE FAILED=DİSK DEĞİŞTİRME BAŞARISIZ
+TRAY OPEN=TEPSİ AÇIK
+DISC INSERTED=DİSK TAKILDI
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Load autosave=Otomatik kaydı yükle
 No autosave yet=Henüz otomatik kayıt yok

@@ -440,8 +440,22 @@ discs play without an `.sbi`. `probe_subchannel` at open tries sub-only, then se
 sectors 16-19, three tries each (a drive spinning up fails the first reads), and keeps the way whose Q
 carries ADR 1 and an address within 2 of the sector - drives may hand a neighbour's Q (`sub_shift`; the
 LG GP20N: sub-only gives garbage, sector + sub is one ahead). A drive with no raw P-W, or one that
-recomputes the Q's CRC, cannot show LibCrypt's marks: those discs still need the `.sbi`. With sector + sub
-every sector is read twice. `path_is_absolute` takes `cdrom://` as absolute, or the
+recomputes the Q's CRC, cannot show LibCrypt's marks: those discs still need the `.sbi`. The subchannel is read
+only once per disc (`libcrypt_from_drive`, database.c, run by `CheckCdrom`): for a LibCrypt game the 16 places'
+pairs (n, n+5) - a pair with both Qs bad is a mark, kept as an in-memory `.sbi` - then `cdra_drop_subchannel()`
+and the Q is made from the address during play. A drive's raw Q has bad CRCs of its own, the same on every read
+(scratches - the subchannel has no error correction): ~4% of a Spyro: Year of the Dragon PAL disc's sectors on the
+LG GP20N, two of them on LibCrypt's places, so the game took the wrong key and looped a cutscene (2026-10-12; the
+drive's marks matched redump's `.sbi` byte for byte). **The drive's tray is the lid** (`ab_disc.c`, 2026-10-12): `ab_disc_tick()` asks
+the drive now and then (`cdra_check_eject`, every ~100 frames, 1-2 ms, as upstream's libretro core does) and a
+change asks for `SACTION_AB_TRAY`, handled between CPU slices by `ab_disc_tray()`: open = the prefetch thread
+stops and the core's lid stays open; closed = the drive is opened again (the TOC, the subchannel probe - perhaps
+another disc) and the lid closes, whose own `CheckCdrom()` reads the new disc. HUD: "TRAY OPEN" / "DISC
+INSERTED". The Open button and "Change disc" show "Open the drive's tray and put in the next disc" instead of
+the picker (`AB_STR_DRIVE`). On a Linux with udev the system must not probe the disc: blkid's 2048-byte reads
+of a Mode 2 disc time out after 30 s each and our READ CD waits behind them (the game stood ~2 minutes after the
+tray closed, Pi 400, 2026-10-12) - autobleem-appliance's `autobleem-session.sh` turns it off for `sr*`
+(`cd_drive_quiet`). `path_is_absolute` takes `cdrom://` as absolute, or the
 cwd was put in front of it. Verified on the Pi 400 (an LG GP20N slim behind a powered hub, SLES-02698:
 picture, sound, loading; SCES-02835, LibCrypt, from its subchannel); the kernel's own 2048-byte probes of the Mode 2 disc fail in dmesg (ASC 0x64) and
 do not matter. The console's stock 4.4.22 kernel has no `sr_mod`/`sg`/`cdrom`. The launcher has no entry

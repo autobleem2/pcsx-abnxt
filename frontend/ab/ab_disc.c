@@ -21,7 +21,10 @@
 #include "../../libpcsxcore/cdrom-async.h"
 #include "../libpicofe/plat.h"
 #include "../main.h"
+#include "ab_buttons.h"
 #include "ab_disc.h"
+
+extern enum sched_action emu_action;
 
 enum disc_kind { DISCS_NONE, DISCS_SINGLE, DISCS_PBP, DISCS_FILES };
 
@@ -29,6 +32,9 @@ static enum disc_kind kind = DISCS_NONE;
 static char discs[AB_DISC_MAX][MAXPATHLEN];
 static int disc_count, disc_current;
 static unsigned int start_ms;
+/* a real disc in a drive: the core's lid as the drive's tray last told us, and the tray as it is now,
+ * waiting for SACTION_AB_TRAY */
+static int tray_open, tray_now, tray_pending;
 
 static void hud(const char *msg)
 {
@@ -165,6 +171,52 @@ void ab_disc_tick(void)
 		start_ms = plat_get_ticks_ms() ? plat_get_ticks_ms() : 1;
 	if (kind == DISCS_NONE && CdromId[0] != 0)
 		learn_set();
+
+	/* the drive's tray, asked every ~100 calls by cdra_check_eject itself (1-2 ms each, not while a read
+	 * is under way); a change is acted on between two CPU slices, never from here - inside a slice */
+	if (cdra_is_physical() && !tray_pending) {
+		int inserted;
+		if (cdra_check_eject(&inserted) > 0 && (!inserted) != tray_open &&
+		    emu_action == SACTION_NONE) {
+			tray_now = !inserted;
+			tray_pending = 1;
+			ab_request_action(SACTION_AB_TRAY);
+		}
+	}
+}
+
+int ab_disc_in_drive(void)
+{
+	return cdra_is_physical();
+}
+
+void ab_disc_tray(void)
+{
+	tray_pending = 0;
+	if (tray_now == tray_open)
+		return;
+	if (!tray_now) {
+		/* closed, perhaps on another disc: the drive is opened again for it (its TOC, the subchannel
+		 * probe) before the lid closes - the close's own CheckCdrom() then reads the new disc's id */
+		CdromId[0] = 0;
+		CdromLabel[0] = 0;
+		cdra_close();
+		if (cdra_open() < 0) {
+			hud("DISC CHANGE FAILED");
+			SysPrintf("autobleem: the drive's tray closed, the drive did not open again\n");
+		} else
+			hud("DISC INSERTED");
+		SetCdOpenCaseTime(time(NULL) + 2);
+	} else {
+		/* open: the prefetch thread stops (it would read an empty drive); the lid stays open (-1) until
+		 * the tray closes */
+		cdra_stop_thread();
+		SetCdOpenCaseTime(-1);
+		hud("TRAY OPEN");
+	}
+	LidInterrupt();
+	tray_open = tray_now;
+	SysPrintf("autobleem: the drive's tray is %s\n", tray_open ? "open" : "closed");
 }
 
 int ab_disc_count(void)

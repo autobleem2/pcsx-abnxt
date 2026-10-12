@@ -12,6 +12,7 @@ You can't change discs now=Du kan ikke skifte disk nu
 OK=OK
 Select=Vælg
 Back=Tilbage
+Open the drive's tray and put in the next disc=Åbn drevets skuffe, og læg den næste disk i
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Game=Spil
@@ -68,6 +69,8 @@ Back to AutoBleem - holding the menu button for 2 seconds in the game does the s
 HOLD TO EXIT=HOLD FOR AT AFSLUTTE
 SAVING...=GEMMER...
 DISC CHANGE FAILED=DISKSKIFT MISLYKKEDES
+TRAY OPEN=SKUFFEN ER ÅBEN
+DISC INSERTED=DISK ISAT
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Load autosave=Indlæs autogem

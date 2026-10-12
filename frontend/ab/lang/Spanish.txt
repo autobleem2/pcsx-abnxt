@@ -12,6 +12,7 @@ You can't change discs now=Ahora no se puede cambiar de disco
 OK=Aceptar
 Select=Elegir
 Back=Atrás
+Open the drive's tray and put in the next disc=Abre la bandeja de la unidad e inserta el siguiente disco
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Game=Juego
@@ -68,6 +69,8 @@ Back to AutoBleem - holding the menu button for 2 seconds in the game does the s
 HOLD TO EXIT=MANTÉN PARA SALIR
 SAVING...=GUARDANDO...
 DISC CHANGE FAILED=FALLÓ EL CAMBIO DE DISCO
+TRAY OPEN=BANDEJA ABIERTA
+DISC INSERTED=DISCO INSERTADO
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Load autosave=Cargar autoguardado
