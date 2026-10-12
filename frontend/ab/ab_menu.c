@@ -55,6 +55,7 @@ static int ab_menu_handler(int id, int keys);
 static int ab_menu_pcsx_handler(int id, int keys);
 static int ab_disc_screen(void);
 static const char *ab_filter_name(int id, int *offs);
+static const char *ab_crt_mask_name(int id, int *offs);
 static void ab_menu_prepare_bg(void);
 
 /* (the texts are the language files' keys: no '=' in them) */
@@ -140,7 +141,7 @@ static menu_entry e_menu_ab[] =
 	mee_onoff_h   ("Screen halo",              MA_AB_HALO,          ab_screen_halo, 1, h_ab_halo),
 	mee_enum_h    ("Smoothing",                MA_OPT_SWFILTER,     soft_filter, men_ab_smooth, h_ab_smooth),
 	mee_cust_h    ("Filter",                   MA_AB_FILTER,        ab_menu_handler, ab_filter_name, h_ab_filter),
-	mee_enum_h    ("CRT mask",                 MA_AB_CRT_MASK,      ab_crt_mask, ab_crt_mask_names, h_ab_crt_mask),
+	mee_cust_h    ("CRT mask",                 MA_AB_CRT_MASK,      ab_menu_handler, ab_crt_mask_name, h_ab_crt_mask),
 	mee_enum_h    ("Scanlines",                MA_OPT_SCANLINES,    scanlines, men_ab_scanlines, h_ab_scanlines),
 	mee_range_h   ("Scanline brightness",      MA_OPT_SCANLINE_LEVEL, scanline_level, 0, 100, h_ab_scanline_l),
 	mee_label     ("Controllers"),
@@ -367,6 +368,18 @@ static int ab_menu_handler(int id, int keys)
 				"A CRT filter draws its own scanlines; smoothing is off with it" :
 				"A CRT filter draws its own scanlines");
 		break;
+	case MA_AB_CRT_MASK:
+		/* a value row like Filter, stepping past a mask this machine does not draw (the console's Slot) */
+		{
+			int i, m = ab_crt_mask_offered(ab_crt_mask) ? ab_crt_mask : AB_CRT_MASK_APERTURE;
+			for (i = 0; i < AB_CRT_MASK_COUNT; i++) {
+				m = (m + ((keys & PBTN_LEFT) ? AB_CRT_MASK_COUNT - 1 : 1)) % AB_CRT_MASK_COUNT;
+				if (ab_crt_mask_offered(m))
+					break;
+			}
+			ab_crt_mask = m;
+		}
+		break;
 	case MA_AB_SAVECFG:
 		menu_update_msg(ab_save_config() == 0 ? "Saved for this game" : "Failed to save the settings");
 		break;
@@ -384,6 +397,12 @@ static const char *ab_filter_name(int id, int *offs)
 	if (ab_crt43() && ab_filter_is_crt(plat_target.hwfilter))
 		return plat_target.hwfilters[AB_FILTER_LINEAR];
 	return plat_target.hwfilters[plat_target.hwfilter];
+}
+
+static const char *ab_crt_mask_name(int id, int *offs)
+{
+	/* a mask this machine does not draw shows what is drawn instead */
+	return ab_crt_mask_names[ab_crt_mask_offered(ab_crt_mask) ? ab_crt_mask : AB_CRT_MASK_APERTURE];
 }
 
 /* ---- the disc picker (docs/port-plan.md, phase 5) ----

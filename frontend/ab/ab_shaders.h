@@ -36,6 +36,9 @@ enum {
 	AB_CRT_MASK_COUNT
 };
 extern const char *ab_crt_mask_names[AB_CRT_MASK_COUNT + 1];
+/* the mask is drawn on this machine (the console's lite build has no Slot - ab_shaders.c); one that is not
+ * is drawn as Aperture and the menu steps past it */
+int ab_crt_mask_offered(int mask);
 
 /* the filter pass; crt_mask only matters to CRT (raster) */
 const struct plat_ab_shader *ab_filter_shader(int filter, int crt_mask);

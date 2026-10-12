@@ -39,6 +39,21 @@ gone, so they carry no mask.
 #define MASK_DARK    0.70   /* a phosphor stripe of another colour; the lit one is set from it */
 #define INPUT_GAMMA  2.4
 #define OUTPUT_GAMMA 2.2
+#define SIGMA_LITE   0.36   /* CRT_LITE: one beam height for every colour, between the dark and the bright one */
+
+/*
+Two lighter builds of the same picture for a weak GPU (the PSC's PowerVR fell under 40 fps in Tekken 3 at
+720p with the full one), chosen by the host with a define, as CRT_MASK is:
+- CRT_FAST_GAMMA: gamma 2.0 - a square in and a square root out instead of nine pow() a pixel - and the
+  colour maths in mediump, which that GPU runs at twice the rate (the coordinates stay highp: a 640 pixel
+  line needs more than mediump's 10 bits for its fractions).
+- CRT_LITE (implies the above): the beam's height no longer follows the colour, so its shape is the same
+  for every pixel of the draw: a smooth bump (1 - x^2)^2 of the Gaussian's variance and area 1, whose width
+  and scale the vertex shader works out once - no exp() and no inversesqrt() per pixel.
+*/
+#ifdef CRT_LITE
+#define CRT_FAST_GAMMA
+#endif
 
 #ifdef GL_ES
 #ifdef GL_FRAGMENT_PRECISION_HIGH
@@ -48,10 +63,20 @@ precision mediump float;
 #endif
 #endif
 
+#if defined(GL_ES) && defined(CRT_FAST_GAMMA)
+#define COLOR mediump vec3
+#else
+#define COLOR vec3
+#endif
+
 uniform vec2 TextureSize;
 uniform vec2 OutputSize;
 varying vec2 uv;
 varying float boxVar;
+#ifdef CRT_LITE
+varying float bumpInvW;	/* 1 / the bump's half-width, in lines */
+varying float bumpScale;	/* its peak, so that its area is 1 */
+#endif
 
 #if defined(VERTEX)
 uniform mat4 MVPMatrix;
@@ -62,6 +87,12 @@ void main()
 {
 	float h = TextureSize.y / OutputSize.y;	/* a screen pixel's height in lines */
 	boxVar = h * h / 12.0;
+#ifdef CRT_LITE
+	/* (1 - (x/w)^2)^2 has the variance w^2/7 and the area 16w/15 */
+	float w = sqrt(7.0 * (SIGMA_LITE * SIGMA_LITE + boxVar));
+	bumpInvW = 1.0 / w;
+	bumpScale = 15.0 / (16.0 * w);
+#endif
 	uv = TexCoord.xy;
 	gl_Position = MVPMatrix * VertexCoord;
 }
@@ -69,14 +100,71 @@ void main()
 
 uniform sampler2D Texture;
 
+#ifdef CRT_LITE
+/* a line's light at dy lines from its centre: the bump, the same for every colour */
+float beam(float dy, COLOR c)
+{
+	float b = 1.0 - min(dy * dy * bumpInvW * bumpInvW, 1.0);
+	return b * b * bumpScale;
+}
+#else
 /* a line's light at dy lines from its centre: a Gaussian of area 1, wider for a brighter colour c (as drawn) */
-float beam(float dy, vec3 c)
+float beam(float dy, COLOR c)
 {
 	float s = mix(SIGMA_DARK, SIGMA_BRIGHT, max(c.r, max(c.g, c.b)));
 	float v = s * s + boxVar;
 	return exp(-dy * dy / (2.0 * v)) * inversesqrt(6.2831853 * v);
 }
+#endif
 
+#ifdef CRT_FAST_GAMMA
+#define TO_LINEAR(c) ((c) * (c))
+#define TO_SCREEN(c) sqrt(c)
+#else
+#define TO_LINEAR(c) pow(c, vec3(INPUT_GAMMA))
+#define TO_SCREEN(c) pow(c, vec3(1.0 / OUTPUT_GAMMA))
+#endif
+
+#ifdef CRT_FAST_GAMMA
+COLOR mask(vec2 pos)
+{
+#if CRT_MASK == 3
+	return vec3(1.0);
+#else
+	float p = OutputSize.y >= 1600.0 ? 6.0 : OutputSize.y >= 900.0 ? 3.0 : 2.0;
+	float x = floor(pos.x), y = floor(pos.y);
+	COLOR m;
+	/* no mod() and no branch per pixel (p is the same for the whole draw): fract() of the pixel's centre
+	   over a period, (n + 0.5) / p, lands clear of the steps that a float's rounding could move */
+#if CRT_MASK == 2
+	/* delta: each row of dots a part of a triad over from the one above */
+	x += step(0.5, fract((floor(y / max(p / 3.0, 1.0)) + 0.5) * 0.5)) * floor(p / 2.0);
+#endif
+	if (p == 2.0) {
+		/* two pixels: green, then red and blue */
+		float lit = 2.0 - MASK_DARK;
+		m = mix(vec3(MASK_DARK, lit, MASK_DARK), vec3(lit, MASK_DARK, lit), step(0.5, fract((x + 0.5) * 0.5)));
+	} else {
+		float lit = 3.0 - 2.0 * MASK_DARK;
+		float i = floor(fract((x + 0.5) / p) * 3.0);	/* 0 1 2: red, green, blue */
+		vec3 on = vec3(1.0 - step(0.5, i), step(0.5, i) - step(1.5, i), step(1.5, i));
+		m = MASK_DARK + (lit - MASK_DARK) * on;
+	}
+#if CRT_MASK == 1
+	/* slot: each triad broken by a dark row every slot, the next triad's half a slot lower */
+	{
+		float rows = p == 6.0 ? 2.0 : 1.0, slot = 4.0 * rows;
+		float odd = step(0.5, fract((floor((x + 0.5) / p) + 0.5) * 0.5));
+		float r = fract((y + odd * slot * 0.5 + 0.5) / slot) * slot;	/* the row in the slot, + 0.5 */
+		m = mix(vec3(MASK_DARK), m, step(rows, r));
+		m *= slot / (slot - rows + rows * MASK_DARK);
+	}
+#endif
+	return m;
+#endif
+}
+#else
+/* the full build keeps the mask code the owner approved on the Pi, as it was */
 vec3 mask(vec2 pos)
 {
 #if CRT_MASK == 3
@@ -117,23 +205,28 @@ vec3 mask(vec2 pos)
 	return m;
 #endif
 }
+#endif
 
 void main()
 {
 	vec2 p = uv * TextureSize;
 	float line = floor(p.y - 0.5);	/* the line above the pixel's centre; the one below is line + 1 */
 	float f = p.y - 0.5 - line;	/* how far below that line's centre, in lines */
+#ifdef CRT_LITE
+	float u = uv.x;	/* across: the plain bilinear read */
+#else
 	float x = p.x - 0.5;
 	float fx = clamp((fract(x) - 0.5) * SHARPNESS + 0.5, 0.0, 1.0);
 	float u = (floor(x) + fx + 0.5) / TextureSize.x;
-	vec3 e0 = texture2D(Texture, vec2(u, (line + 0.5) / TextureSize.y)).rgb;
-	vec3 e1 = texture2D(Texture, vec2(u, (line + 1.5) / TextureSize.y)).rgb;
+#endif
+	COLOR e0 = texture2D(Texture, vec2(u, (line + 0.5) / TextureSize.y)).rgb;
+	COLOR e1 = texture2D(Texture, vec2(u, (line + 1.5) / TextureSize.y)).rgb;
 	/* no line above the first or below the last: the glass is black there */
-	vec3 c0 = pow(e0, vec3(INPUT_GAMMA)) * step(0.0, line);
-	vec3 c1 = pow(e1, vec3(INPUT_GAMMA)) * step(line + 1.5, TextureSize.y);
+	COLOR c0 = TO_LINEAR(e0) * step(0.0, line);
+	COLOR c1 = TO_LINEAR(e1) * step(line + 1.5, TextureSize.y);
 	/* the width from the colour as the game drew it: a mid grey is a mid-wide beam */
-	vec3 col = c0 * beam(f, e0) + c1 * beam(1.0 - f, e1);
+	COLOR col = c0 * beam(f, e0) + c1 * beam(1.0 - f, e1);
 	col *= mask(gl_FragCoord.xy);
-	gl_FragColor = vec4(pow(clamp(col, 0.0, 1.0), vec3(1.0 / OUTPUT_GAMMA)), 1.0);
+	gl_FragColor = vec4(TO_SCREEN(clamp(col, 0.0, 1.0)), 1.0);
 }
 #endif
