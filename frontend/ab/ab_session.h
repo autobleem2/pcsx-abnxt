@@ -35,4 +35,8 @@ void ab_session_exit(void);
 /* that "Please wait..." screen (ab_menu.c, the menu's look) */
 void ab_menu_wait_screen(void);
 
+/* the disc splash (ab_menu.c): "Loading the disc" while a real drive is opened and read, from main() before
+ * the plugins open, cleared by menu_prepare_emu() */
+void ab_menu_disc_splash(void);
+
 #endif

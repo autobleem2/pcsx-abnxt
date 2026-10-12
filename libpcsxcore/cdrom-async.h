@@ -14,6 +14,7 @@ int  rcdrom_getTD(void *stream, u32 total_lba, u8 track, u8 *rt);
 int  rcdrom_getStatus(void *stream, struct CdrStat *stat);
 int  rcdrom_readSector(void *stream, unsigned int lba, void *b);
 int  rcdrom_readSub(void *stream, unsigned int lba, void *b);
+int  rcdrom_probeSub(void *stream);
 int  rcdrom_isMediaInserted(void *stream);
 #endif
 
@@ -31,6 +32,7 @@ int  cdra_prefetch(unsigned char m, unsigned char s, unsigned char f, int is_cdd
 
 int  cdra_is_physical(void);
 void cdra_drop_subchannel(void);
+int  cdra_want_subchannel(void);
 int  cdra_check_eject(int *inserted);
 void cdra_stop_thread(void);
 void cdra_set_buf_count(int count);

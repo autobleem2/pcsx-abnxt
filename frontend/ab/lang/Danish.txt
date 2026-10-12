@@ -268,3 +268,5 @@ rescan complete.=Ny gennemsøgning fuldført.
 defaults restored=Standardindstillinger gendannet.
 failed to load cheats=Snydekoder kunne ikke indlæses.
 Please wait...=Vent venligst...
+# a real disc: shown while the drive is read, before the BIOS
+Loading the disc - please wait=Indlæser disken - vent venligst

@@ -266,3 +266,5 @@ rescan complete.=tarama tamamlandı.
 defaults restored=varsayılanlar geri yüklendi
 failed to load cheats=hileler yüklenemedi
 Please wait...=Lütfen bekleyin...
+# a real disc: shown while the drive is read, before the BIOS
+Loading the disc - please wait=Disk yükleniyor - lütfen bekleyin

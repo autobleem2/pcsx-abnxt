@@ -97,6 +97,8 @@ void ab_ui_cut_panel(struct ab_canvas *c, int x, int y, int w, int h, int cut, i
 /* skin/ab_background.jpg (AutoBleem 2's launcher art, 1280x720) scaled to cover w x h pixels of `dst`
  * (pitch w; bilinear, centred, the overhang cropped); 0 and `dst` untouched when there is no image */
 int ab_ui_background(unsigned short *dst, int w, int h);
+/* skin/<name> (a JPEG or PNG) the same way, into a canvas of pitch `pitch`; 0 and `dst` untouched without it */
+int ab_ui_skin_image(const char *name, unsigned short *dst, int w, int h, int pitch);
 
 #define AB_RGB565(r, g, b) ((unsigned short)((((r) & 0xf8) << 8) | (((g) & 0xfc) << 3) | ((b) >> 3)))
 

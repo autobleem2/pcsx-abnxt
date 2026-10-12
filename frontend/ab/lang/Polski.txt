@@ -267,3 +267,5 @@ defaults restored=Przywrócono ustawienia domyślne.
 failed to load cheats=Nie udało się wczytać kodów.
 # the way out (Reset, power-off, Exit): shown while the resume point is written
 Please wait...=Proszę czekać...
+# a real disc: shown while the drive is read, before the BIOS
+Loading the disc - please wait=Ładowanie płyty - proszę czekać

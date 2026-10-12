@@ -39,6 +39,7 @@ static int  rcdrom_getTD(void *stream, u32 total_lba, u8 track, u8 *rt) { return
 static int  rcdrom_getStatus(void *stream, struct CdrStat *stat) { return -1; }
 static int  rcdrom_readSector(void *stream, unsigned int lba, void *b) { return -1; }
 static int  rcdrom_readSub(void *stream, unsigned int lba, void *b) { return -1; }
+static int  rcdrom_probeSub(void *stream) { return 0; }
 static int  rcdrom_isMediaInserted(void *stream) { return 0; }
 
 #endif
@@ -428,6 +429,20 @@ void cdra_drop_subchannel(void)
    acdrom.have_subchannel = 0;
 }
 
+// a drive's subchannel is opened without it (the probe costs seconds): libcrypt_from_drive asks for it when it has to
+// read the marks from the drive - a LibCrypt disc with no .sbi of its own. 1 = cdra_readSub works now
+int cdra_want_subchannel(void)
+{
+   if (!g_cd_handle || acdrom.have_subchannel)
+      return acdrom.have_subchannel;
+   if (acdrom.read_lock)
+      slock_lock(acdrom.read_lock);
+   acdrom.have_subchannel = rcdrom_probeSub(g_cd_handle);
+   if (acdrom.read_lock)
+      slock_unlock(acdrom.read_lock);
+   return acdrom.have_subchannel;
+}
+
 int cdra_check_eject(int *inserted)
 {
    if (!g_cd_handle || acdrom.do_prefetch || acdrom.check_eject_delay-- > 0)
@@ -543,6 +558,7 @@ int cdra_getStatus(struct CdrStat *stat)
 
 int cdra_is_physical(void) { return 0; }
 void cdra_drop_subchannel(void) {}
+int cdra_want_subchannel(void) { return 0; }
 int cdra_check_eject(int *inserted) { return 0; }
 void cdra_stop_thread(void) {}
 void cdra_set_buf_count(int newcount) {}

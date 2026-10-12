@@ -804,36 +804,24 @@ static unsigned char *read_file(const char *path, long *size)
 	return data;
 }
 
-int ab_ui_background(unsigned short *dst, int w, int h)
+/* the image file decoded and scaled to cover w x h pixels of `dst` (pitch in pixels; bilinear, centred, the
+ * overhang cropped - on a 4:3 canvas all of it off the right); -1 without the file, 0 when it does not decode,
+ * 1 drawn */
+static int cover_from_file(const char *path, unsigned short *dst, int w, int h, int pitch)
 {
-	static int missing;
-	char path[MAXPATHLEN], end[96];
 	unsigned char *file, *img;
 	long size;
 	int iw, ih, n, x, y;
 	/* 16.16 fixed point: the source step per output pixel and the start of the crop */
 	int step, sx0, sy0;
 
-	if (missing || w <= 0 || h <= 0)
-		return 0;
-	snprintf(end, sizeof(end), "skin/%s", ab_ui_skin()->background);
-	data_path(path, sizeof(path), end);
 	file = read_file(path, &size);
-	if (file == NULL && strcmp(ab_ui_skin()->background, "ab_background.jpg") != 0) {
-		SysPrintf("autobleem: no %s, trying skin/ab_background.jpg\n", path);
-		data_path(path, sizeof(path), "skin/ab_background.jpg");
-		file = read_file(path, &size);
-	}
-	if (file == NULL) {
-		SysPrintf("autobleem: no %s, the menu has a plain background\n", path);
-		missing = 1;
-		return 0;
-	}
+	if (file == NULL)
+		return -1;
 	img = stbi_load_from_memory(file, (int)size, &iw, &ih, &n, 3);
 	free(file);
 	if (img == NULL) {
 		SysPrintf("autobleem: %s: %s\n", path, stbi_failure_reason());
-		missing = 1;
 		return 0;
 	}
 	/* cover: the axis that needs more scaling sets the factor, the other overhangs and is cropped */
@@ -862,9 +850,43 @@ int ab_ui_background(unsigned short *dst, int w, int h)
 				int bot = r1[ix * 3 + c] * (256 - fx) + r1[ix1 * 3 + c] * fx;
 				rgb[c] = (top * (256 - fy) + bot * fy) >> 16;
 			}
-			dst[(size_t)y * w + x] = AB_RGB565(rgb[0], rgb[1], rgb[2]);
+			dst[(size_t)y * pitch + x] = AB_RGB565(rgb[0], rgb[1], rgb[2]);
 		}
 	}
 	stbi_image_free(img);
 	return 1;
+}
+
+int ab_ui_background(unsigned short *dst, int w, int h)
+{
+	static int missing;
+	char path[MAXPATHLEN], end[96];
+	int ret;
+
+	if (missing || w <= 0 || h <= 0)
+		return 0;
+	snprintf(end, sizeof(end), "skin/%s", ab_ui_skin()->background);
+	data_path(path, sizeof(path), end);
+	ret = cover_from_file(path, dst, w, h, w);
+	if (ret < 0 && strcmp(ab_ui_skin()->background, "ab_background.jpg") != 0) {
+		SysPrintf("autobleem: no %s, trying skin/ab_background.jpg\n", path);
+		data_path(path, sizeof(path), "skin/ab_background.jpg");
+		ret = cover_from_file(path, dst, w, h, w);
+	}
+	if (ret < 0)
+		SysPrintf("autobleem: no %s, the menu has a plain background\n", path);
+	if (ret <= 0)
+		missing = 1;
+	return ret > 0;
+}
+
+int ab_ui_skin_image(const char *name, unsigned short *dst, int w, int h, int pitch)
+{
+	char path[MAXPATHLEN], end[96];
+
+	if (w <= 0 || h <= 0)
+		return 0;
+	snprintf(end, sizeof(end), "skin/%s", name);
+	data_path(path, sizeof(path), end);
+	return cover_from_file(path, dst, w, h, pitch) > 0;
 }

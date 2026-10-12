@@ -268,3 +268,5 @@ rescan complete.=Varredura concluída.
 defaults restored=Padrões restaurados
 failed to load cheats=Falha ao carregar os cheats
 Please wait...=Aguarde...
+# a real disc: shown while the drive is read, before the BIOS
+Loading the disc - please wait=Carregando o disco - aguarde

@@ -267,3 +267,5 @@ rescan complete.=Rescanare finalizată.
 defaults restored=Setările implicite au fost restaurate
 failed to load cheats=Încărcarea cheat-urilor a eșuat
 Please wait...=Vă rugăm așteptați...
+# a real disc: shown while the drive is read, before the BIOS
+Loading the disc - please wait=Se încarcă discul - vă rugăm așteptați

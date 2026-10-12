@@ -268,3 +268,5 @@ rescan complete.=Sökningen slutförd.
 defaults restored=Standardinställningar återställda
 failed to load cheats=Det gick inte att läsa in fusk
 Please wait...=Vänta...
+# a real disc: shown while the drive is read, before the BIOS
+Loading the disc - please wait=Läser in skivan - vänta

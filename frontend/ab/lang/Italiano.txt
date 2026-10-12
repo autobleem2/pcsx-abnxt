@@ -268,3 +268,5 @@ rescan complete.=Scansione completata.
 defaults restored=Impostazioni predefinite ripristinate
 failed to load cheats=Caricamento dei cheat non riuscito
 Please wait...=Attendere...
+# a real disc: shown while the drive is read, before the BIOS
+Loading the disc - please wait=Caricamento del disco - attendere prego

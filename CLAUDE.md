@@ -291,7 +291,7 @@ scalers (see "Smoothing"; `tools/vendor_hqx.py` regenerates `hqx/hq2x.c`/`hq3x.c
 grom358/hqx). Player 2's sticks: `in_adev[4]` ([2]/[3]), `update_analogs()` over both players.
 
 Upstream files edited so far (the whole list - keep it that way): `frontend/main.c` (`path_is_absolute()`
-for `C:\` paths and `cdrom://` drives - a candidate for an upstream PR; the `ab_*` hooks: the arguments, the exit, the action
+for `C:\` paths and `cdrom://` drives - a candidate for an upstream PR; the `ab_*` hooks: the arguments, the disc splash, the exit, the action
 default; `PCSX_MEMCARD_COUNT` instead of a fixed nine cards, 2 here), `frontend/libretro-cdrom.c` (the
 subchannel read - see "A real disc in a drive"), `frontend/main.h` (the macro's
 default, our three `SACTION_AB_*` values), `frontend/menu.c` (the `ab_config_loaded` hook, the `screen_halo` key, two action
@@ -436,7 +436,11 @@ which only its libretro build switched on; `PCSXAB_PHYSICAL_CDROM` (CMake, on wi
 Windows - not planned there, the owner) builds it here. On Linux driveN is `/dev/sgN` - the Nth SCSI device, so a USB stick in front of the drive moves it -
 read raw with SCSI READ CD, 2352 bytes a sector, the drive set to 4x. The subchannel (ours, upstream's
 `rcdrom_readSub` was a stub): raw P-W through READ CD, Q decoded as `DecodeRawSubData` does, so LibCrypt
-discs play without an `.sbi`. `probe_subchannel` at open tries sub-only, then sector + sub (2448 bytes) on
+discs play without an `.sbi`. **The subchannel is probed only when the marks have to come from the drive** - a
+LibCrypt game with no `<SERIAL>.sbi` handed over (`drive_key()` -> `cdra_want_subchannel()` -> `rcdrom_probeSub`),
+never at open: the LG GP20N's sub-only way takes ~9 s a try to fail, and a game opens the drive twice before it boots
+(main()'s `OpenPlugins`, then `menu_load_cd_image`'s reload) - RE3 with its `.sbi` waited 36 s for nothing (Pi 400,
+2026-10-12). The way found is the drive's, kept for the device name for the rest of the run. `probe_subchannel` tries sub-only, then sector + sub (2448 bytes) on
 sectors 16-19, three tries each (a drive spinning up fails the first reads), and keeps the way whose Q
 carries ADR 1 and an address within 2 of the sector - drives may hand a neighbour's Q (`sub_shift`; the
 LG GP20N: sub-only gives garbage, sector + sub is one ahead). A drive with no raw P-W, or one that
@@ -452,7 +456,7 @@ save folder (`.pcsx/` of the run folder), which the launcher fetches by serial w
 drive shows is taken (the 32 places read once); the drive's own marks are the offline failover. **The drive's tray is the lid** (`ab_disc.c`, 2026-10-12): `ab_disc_tick()` asks
 the drive now and then (`cdra_check_eject`, every ~100 frames, 1-2 ms, as upstream's libretro core does) and a
 change asks for `SACTION_AB_TRAY`, handled between CPU slices by `ab_disc_tray()`: open = the prefetch thread
-stops and the core's lid stays open; closed = the drive is opened again (the TOC, the subchannel probe - perhaps
+stops and the core's lid stays open; closed = the drive is opened again (the TOC - perhaps
 another disc) and the lid closes, whose own `CheckCdrom()` reads the new disc. HUD: "TRAY OPEN" / "DISC
 INSERTED". The Open button and "Change disc" show "Open the drive's tray and put in the next disc" instead of
 the picker (`AB_STR_DRIVE`). On a Linux with udev the system must not probe the disc: blkid's 2048-byte reads
@@ -462,7 +466,19 @@ tray closed, Pi 400, 2026-10-12) - autobleem-appliance's `autobleem-session.sh` 
 cwd was put in front of it. Verified on the Pi 400 (an LG GP20N slim behind a powered hub, SLES-02698:
 picture, sound, loading; SCES-02835, LibCrypt, from its subchannel); the kernel's own 2048-byte probes of the Mode 2 disc fail in dmesg (ASC 0x64) and
 do not matter. The console's stock 4.4.22 kernel has no `sr_mod`/`sg`/`cdrom`. The launcher has no entry
-for it yet.
+for it yet. **The disc splash** (2026-10-12, the owner's): opening the drive, its TOC, the LibCrypt places and
+the boot files take seconds before the BIOS draws anything, so with a `cdrom://` cdfile `main()` puts
+`ab_menu_disc_splash()` up right after `menu_init()` (a `PSCLASSIC` hook), before the plugins open the drive;
+`menu_prepare_emu()` clears it as the game starts. The art is `skin/disc_loading.jpg` (16:9) /
+`disc_loading_43.jpg` (4:3 outputs, `ab_layout43()`) - the logo and a neon disc, no text, approved by the
+owner as a still screen (a spinning disc would need a drawing thread, since the reads block the main one) -
+and the line "Loading the disc - please wait" is drawn in the launcher's language in the art's text box
+(1280x720: 128,578 1024x44, 30 px; 640x480: 64,385 512x29, 20 px), shrunk until it fits; without the art the
+menu's background with `ab_ui_disc`. `ab_ui_skin_image()` loads any skin image as `ab_ui_background` does. Its first version was never seen: it is the
+first frame after the output mode is set, and SDL's KMSDRM driver makes the new size's EGL surface only at the next
+swap, dropping what was drawn into the window's first 1280x720 one - libpicofe's `plat_ab_set_output_mode` /
+`plat_ab_set_fullscreen` now swap one black frame (`plat_ab_clear`) right after the change.
+A game from an image file never shows it.
 
 Also: `lastcdimg.txt` is not rewritten at start when it already names the disc, and stdout is
 line-buffered off Windows (`ab_args_take`).

@@ -129,7 +129,13 @@ static int q_lba(const unsigned char *sub)
 
 /* try both ways on data sectors with no LibCrypt marks (16..19, the system area): the Q must carry
  * ADR 1 and an address within 2 of the sector read, the same distance on every sector; a drive that
- * is still spinning up fails the first reads, so each way gets a few tries */
+ * is still spinning up fails the first reads, so each way gets a few tries.
+ * Only when the subchannel is wanted (rcdrom_probeSub: a LibCrypt disc with no .sbi of its own), never at
+ * open - a way that does not work costs ~9 s a try on some drives (the LG GP20N's sub only), and a game
+ * opens the drive twice before it boots. What works is the drive's, not the disc's: kept for the device
+ * name for the rest of the run, so a reopen or the next disc asks nothing. */
+static char probed_name[64];
+
 static void probe_subchannel(void *stream)
 {
    static const char *names[] = { "", "sub only", "sector + sub" };
@@ -164,6 +170,18 @@ static void probe_subchannel(void *stream)
    SysPrintf("CD subchannel: not readable, LibCrypt discs need an .sbi\n");
 }
 
+static char open_name[64];
+
+int rcdrom_probeSub(void *stream)
+{
+   if (sub_mode && !strcmp(probed_name, open_name))
+      return 1;
+   probe_subchannel(stream);
+   if (sub_mode)
+      snprintf(probed_name, sizeof(probed_name), "%s", open_name);
+   return sub_mode != 0;
+}
+
 void *rcdrom_open(const char *name, u32 *total_lba, u32 *have_subchannel)
 {
    void *g_cd_handle = retro_vfs_file_open_impl(name, RETRO_VFS_FILE_ACCESS_READ,
@@ -179,8 +197,10 @@ void *rcdrom_open(const char *name, u32 *total_lba, u32 *have_subchannel)
       const cdrom_track_t *last = &toc->track[toc->num_tracks - 1];
       unsigned int lba = MSF2SECT(last->min, last->sec, last->frame);
       *total_lba = lba + last->track_size;
-      probe_subchannel(g_cd_handle);
-      *have_subchannel = sub_mode != 0;
+      snprintf(open_name, sizeof(open_name), "%s", name);
+      *have_subchannel = 0; // asked for when wanted: rcdrom_probeSub
+      if (strcmp(probed_name, open_name))
+         sub_mode = 0;
       //cdrom_get_current_config_random_readable(acdrom.h);
       //cdrom_get_current_config_multiread(acdrom.h);
       //cdrom_get_current_config_cdread(acdrom.h);
