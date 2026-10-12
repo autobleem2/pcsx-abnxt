@@ -420,6 +420,14 @@ int cdra_is_physical(void)
    return !!g_cd_handle;
 }
 
+// the drive's subchannel is not read any more (the Q is then made from the address): a drive's raw Q carries
+// bad CRCs a real PS1 would not see (scratches - the subchannel has no error correction), so after the LibCrypt
+// marks are taken from it once (libcrypt_from_drive) it is not trusted during play; back with the next cdra_open
+void cdra_drop_subchannel(void)
+{
+   acdrom.have_subchannel = 0;
+}
+
 int cdra_check_eject(int *inserted)
 {
    if (!g_cd_handle || acdrom.do_prefetch || acdrom.check_eject_delay-- > 0)
@@ -534,6 +542,7 @@ int cdra_getStatus(struct CdrStat *stat)
 }
 
 int cdra_is_physical(void) { return 0; }
+void cdra_drop_subchannel(void) {}
 int cdra_check_eject(int *inserted) { return 0; }
 void cdra_stop_thread(void) {}
 void cdra_set_buf_count(int newcount) {}

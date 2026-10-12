@@ -440,8 +440,13 @@ discs play without an `.sbi`. `probe_subchannel` at open tries sub-only, then se
 sectors 16-19, three tries each (a drive spinning up fails the first reads), and keeps the way whose Q
 carries ADR 1 and an address within 2 of the sector - drives may hand a neighbour's Q (`sub_shift`; the
 LG GP20N: sub-only gives garbage, sector + sub is one ahead). A drive with no raw P-W, or one that
-recomputes the Q's CRC, cannot show LibCrypt's marks: those discs still need the `.sbi`. With sector + sub
-every sector is read twice. **The drive's tray is the lid** (`ab_disc.c`, 2026-10-12): `ab_disc_tick()` asks
+recomputes the Q's CRC, cannot show LibCrypt's marks: those discs still need the `.sbi`. The subchannel is read
+only once per disc (`libcrypt_from_drive`, database.c, run by `CheckCdrom`): for a LibCrypt game the 16 places'
+pairs (n, n+5) - a pair with both Qs bad is a mark, kept as an in-memory `.sbi` - then `cdra_drop_subchannel()`
+and the Q is made from the address during play. A drive's raw Q has bad CRCs of its own, the same on every read
+(scratches - the subchannel has no error correction): ~4% of a Spyro: Year of the Dragon PAL disc's sectors on the
+LG GP20N, two of them on LibCrypt's places, so the game took the wrong key and looped a cutscene (2026-10-12; the
+drive's marks matched redump's `.sbi` byte for byte). **The drive's tray is the lid** (`ab_disc.c`, 2026-10-12): `ab_disc_tick()` asks
 the drive now and then (`cdra_check_eject`, every ~100 frames, 1-2 ms, as upstream's libretro core does) and a
 change asks for `SACTION_AB_TRAY`, handled between CPU slices by `ab_disc_tray()`: open = the prefetch thread
 stops and the core's lid stays open; closed = the drive is opened again (the TOC, the subchannel probe - perhaps

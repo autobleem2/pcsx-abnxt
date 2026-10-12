@@ -542,6 +542,7 @@ int CheckCdrom() {
 	SysPrintf(_("CD-ROM EXE Name: %.255s\n"), exename);
 	
 	Apply_Hacks_Cdrom();
+	libcrypt_from_drive();
 
 	BuildPPFCache(NULL);
 
