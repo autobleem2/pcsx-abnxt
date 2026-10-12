@@ -133,32 +133,29 @@ COLOR mask(vec2 pos)
 	float p = OutputSize.y >= 1600.0 ? 6.0 : OutputSize.y >= 900.0 ? 3.0 : 2.0;
 	float x = floor(pos.x), y = floor(pos.y);
 	COLOR m;
+	/* no mod() and no branch per pixel (p is the same for the whole draw): fract() of the pixel's centre
+	   over a period, (n + 0.5) / p, lands clear of the steps that a float's rounding could move */
 #if CRT_MASK == 2
 	/* delta: each row of dots a part of a triad over from the one above */
-	x += mod(floor(y / max(p / 3.0, 1.0)), 2.0) * floor(p / 2.0);
+	x += step(0.5, fract((floor(y / max(p / 3.0, 1.0)) + 0.5) * 0.5)) * floor(p / 2.0);
 #endif
 	if (p == 2.0) {
 		/* two pixels: green, then red and blue */
 		float lit = 2.0 - MASK_DARK;
-		m = mod(x, 2.0) < 1.0 ? vec3(MASK_DARK, lit, MASK_DARK) : vec3(lit, MASK_DARK, lit);
+		m = mix(vec3(MASK_DARK, lit, MASK_DARK), vec3(lit, MASK_DARK, lit), step(0.5, fract((x + 0.5) * 0.5)));
 	} else {
 		float lit = 3.0 - 2.0 * MASK_DARK;
-		float i = floor(mod(x, p) * 3.0 / p);
-		m = vec3(MASK_DARK);
-		if (i < 0.5)
-			m.r = lit;
-		else if (i < 1.5)
-			m.g = lit;
-		else
-			m.b = lit;
+		float i = floor(fract((x + 0.5) / p) * 3.0);	/* 0 1 2: red, green, blue */
+		vec3 on = vec3(1.0 - step(0.5, i), step(0.5, i) - step(1.5, i), step(1.5, i));
+		m = MASK_DARK + (lit - MASK_DARK) * on;
 	}
 #if CRT_MASK == 1
 	/* slot: each triad broken by a dark row every slot, the next triad's half a slot lower */
 	{
 		float rows = p == 6.0 ? 2.0 : 1.0, slot = 4.0 * rows;
-		float t = floor(x / p);
-		if (mod(y + mod(t, 2.0) * slot * 0.5, slot) < rows)
-			m = vec3(MASK_DARK);
+		float odd = step(0.5, fract((floor((x + 0.5) / p) + 0.5) * 0.5));
+		float r = fract((y + odd * slot * 0.5 + 0.5) / slot) * slot;	/* the row in the slot, + 0.5 */
+		m = mix(vec3(MASK_DARK), m, step(rows, r));
 		m *= slot / (slot - rows + rows * MASK_DARK);
 	}
 #endif
@@ -171,9 +168,13 @@ void main()
 	vec2 p = uv * TextureSize;
 	float line = floor(p.y - 0.5);	/* the line above the pixel's centre; the one below is line + 1 */
 	float f = p.y - 0.5 - line;	/* how far below that line's centre, in lines */
+#ifdef CRT_LITE
+	float u = uv.x;	/* across: the plain bilinear read */
+#else
 	float x = p.x - 0.5;
 	float fx = clamp((fract(x) - 0.5) * SHARPNESS + 0.5, 0.0, 1.0);
 	float u = (floor(x) + fx + 0.5) / TextureSize.x;
+#endif
 	COLOR e0 = texture2D(Texture, vec2(u, (line + 0.5) / TextureSize.y)).rgb;
 	COLOR e1 = texture2D(Texture, vec2(u, (line + 1.5) / TextureSize.y)).rgb;
 	/* no line above the first or below the last: the glass is black there */
