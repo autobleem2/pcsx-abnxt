@@ -38,6 +38,7 @@ static const char *english[AB_STR_COUNT] = {
 	"OK",
 	"Select",
 	"Back",
+	"Open the drive's tray and put in the next disc",
 };
 
 /* where skin/, lang/ and fonts/ are: the run directory first - AutoBleem's launch scripts link them there

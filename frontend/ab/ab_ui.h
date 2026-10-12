@@ -25,6 +25,7 @@ enum ab_ui_str {
 	AB_STR_OK,
 	AB_STR_SELECT,
 	AB_STR_BACK,
+	AB_STR_DRIVE,		/* a real disc in a drive: the disc is changed at the drive, not here */
 	AB_STR_COUNT
 };
 

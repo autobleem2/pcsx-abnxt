@@ -12,6 +12,7 @@ You can't change discs now=Discul nu poate fi schimbat acum
 OK=OK
 Select=Alege
 Back=Înapoi
+Open the drive's tray and put in the next disc=Deschide tava unității și introdu discul următor
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Game=Joc
@@ -68,6 +69,8 @@ Back to AutoBleem - holding the menu button for 2 seconds in the game does the s
 HOLD TO EXIT=ȚINE APĂSAT PENTRU IEȘIRE
 SAVING...=SE SALVEAZĂ...
 DISC CHANGE FAILED=SCHIMBAREA DISCULUI A EȘUAT
+TRAY OPEN=TAVA DESCHISĂ
+DISC INSERTED=DISC INTRODUS
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Load autosave=Încarcă autozapis
 No autosave yet=Încă niciun autozapis

@@ -12,6 +12,7 @@ You can't change discs now=Je kunt nu niet van disc wisselen
 OK=OK
 Select=Kiezen
 Back=Terug
+Open the drive's tray and put in the next disc=Open de lade van de drive en plaats de volgende disc
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Game=Spel
@@ -68,6 +69,8 @@ Back to AutoBleem - holding the menu button for 2 seconds in the game does the s
 HOLD TO EXIT=INGEDRUKT HOUDEN OM AF TE SLUITEN
 SAVING...=OPSLAAN...
 DISC CHANGE FAILED=DISC WISSELEN MISLUKT
+TRAY OPEN=LADE OPEN
+DISC INSERTED=DISC GEPLAATST
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Load autosave=Automatische opslag laden

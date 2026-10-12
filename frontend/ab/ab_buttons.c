@@ -130,6 +130,9 @@ int ab_emu_action(int action)
 	case SACTION_AB_CD_CHANGE:
 		ab_disc_change();
 		return 1;
+	case SACTION_AB_TRAY:
+		ab_disc_tray();
+		return 1;
 	case SACTION_AB_AUTOSAVE:
 		/* between two CPU slices, as every state save; not while the game writes its card */
 		autosave_last = plat_get_ticks_ms();

@@ -441,7 +441,13 @@ sectors 16-19, three tries each (a drive spinning up fails the first reads), and
 carries ADR 1 and an address within 2 of the sector - drives may hand a neighbour's Q (`sub_shift`; the
 LG GP20N: sub-only gives garbage, sector + sub is one ahead). A drive with no raw P-W, or one that
 recomputes the Q's CRC, cannot show LibCrypt's marks: those discs still need the `.sbi`. With sector + sub
-every sector is read twice. `path_is_absolute` takes `cdrom://` as absolute, or the
+every sector is read twice. **The drive's tray is the lid** (`ab_disc.c`, 2026-10-12): `ab_disc_tick()` asks
+the drive now and then (`cdra_check_eject`, every ~100 frames, 1-2 ms, as upstream's libretro core does) and a
+change asks for `SACTION_AB_TRAY`, handled between CPU slices by `ab_disc_tray()`: open = the prefetch thread
+stops and the core's lid stays open; closed = the drive is opened again (the TOC, the subchannel probe - perhaps
+another disc) and the lid closes, whose own `CheckCdrom()` reads the new disc. HUD: "TRAY OPEN" / "DISC
+INSERTED". The Open button and "Change disc" show "Open the drive's tray and put in the next disc" instead of
+the picker (`AB_STR_DRIVE`). `path_is_absolute` takes `cdrom://` as absolute, or the
 cwd was put in front of it. Verified on the Pi 400 (an LG GP20N slim behind a powered hub, SLES-02698:
 picture, sound, loading; SCES-02835, LibCrypt, from its subchannel); the kernel's own 2048-byte probes of the Mode 2 disc fail in dmesg (ASC 0x64) and
 do not matter. The console's stock 4.4.22 kernel has no `sr_mod`/`sg`/`cdrom`. The launcher has no entry

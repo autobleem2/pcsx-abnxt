@@ -715,6 +715,11 @@ static int ab_disc_screen(void)
 	ab_ui_load(ab_opts.language);
 	n = ab_disc_count();
 	cur = ab_disc_current();
+	if (ab_disc_in_drive()) {
+		/* the drive's tray is the lid (ab_disc_tick): nothing to pick here */
+		ab_message_screen(ab_ui_str(AB_STR_DRIVE));
+		return 0;
+	}
 	if (!ab_disc_can_change() || n == 0) {
 		ab_message_screen(ab_ui_str(AB_STR_NOT_NOW));
 		return 0;

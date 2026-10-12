@@ -12,6 +12,7 @@ You can't change discs now=Impossible de cambiar de disc ara
 OK=D'acòrdi
 Select=Causir
 Back=Tornar
+Open the drive's tray and put in the next disc=Dobrissètz lo tirador del lector e metètz lo disc seguent
 
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Game=Jòc
@@ -89,6 +90,8 @@ Back to AutoBleem - holding the menu button for 2 seconds in the game does the s
 HOLD TO EXIT=TENETZ QUICHAT PER SORTIR
 SAVING...=ENREGISTRAMENT...
 DISC CHANGE FAILED=LO CANVIAMENT DE DISC A FRACASSAT
+TRAY OPEN=TIRADOR DUBÈRT
+DISC INSERTED=DISC INSERIT
 
 # the PCSX menu's pages (upstream's rows, drawn by our menu screen) - sections, pages, rows, values
 ON=ACTIVAT

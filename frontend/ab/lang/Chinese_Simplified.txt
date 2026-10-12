@@ -12,6 +12,7 @@ You can't change discs now=现在无法更换光盘
 OK=确定
 Select=选择
 Back=返回
+Open the drive's tray and put in the next disc=打开光驱托盘，放入下一张光盘
 |@font|=NotoSansSC-Regular.otf
 # the in-game menu (Home / Select+Start), its help and messages, the HUD's notices
 Game=游戏
@@ -89,6 +90,8 @@ Back to AutoBleem - holding the menu button for 2 seconds in the game does the s
 HOLD TO EXIT=按住以退出
 SAVING...=正在保存...
 DISC CHANGE FAILED=换盘失败
+TRAY OPEN=托盘已打开
+DISC INSERTED=光盘已放入
 
 # the PCSX menu's pages (upstream's rows, drawn by our menu screen) - sections, pages, rows, values
 ON=开
