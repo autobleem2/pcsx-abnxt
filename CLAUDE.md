@@ -123,8 +123,8 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   back. The pointer itself is hidden by relative mouse mode (KMSDRM ignores `SDL_ShowCursor`).
 - **the frame's way to the screen** (libpicofe `plat_sdl2_present`, the owner's pcsx-ab chain redone on
   the GPU, 2026-09-21 after the console showed the first version's uneven scanlines): the RGB565 frame is
-  scaled **once** into the backbuffer with the filter (`-filter 0..6`, an index into `ab_filter_names` since 2026-09-29 - the launcher's game
-  editor offers all seven; was 0..2: Off = nearest, Linear = bilinear,
+  scaled **once** into the backbuffer with the filter (`-filter 0..7`, an index into `ab_filter_names` since 2026-09-29 - the launcher's game
+  editor offers all eight; was 0..2: Off = nearest, Linear = bilinear,
   Sharp = whole-multiple prescale in a native 8888 render target then bilinear for the remainder - at 720p
   a 240-line game's Sharp equals Off, inherent), and the **scanlines go over the scaled picture**, never
   scaled again: a property of the screen like a CRT's, 240 lines over the picture's height whatever the
@@ -158,6 +158,13 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   CRT shaders soften their lines only where the line height is not whole (`frontend/ab/shaders/README.md`) -
   equal lines on the owner's Pi at 1080p, 1x and 2x, FPS/CPU unchanged. Prescaling the frame with nearest
   to a height 1080 divides (240 -> 270) was weighed and dropped: it doubles every 8th line, 4 and 8 px.
+  **CRT (raster)** (2026-10-12, the owner's: "symulować raster już po skalowaniu do rozdzielczości końcowej"),
+  filter 7, ours (`frontend/ab/shaders/crt-raster.glsl`, its README row): the beam per PlayStation line, the
+  phosphor mask per screen pixel - the menu's Picture -> "CRT mask" row under Filter (Aperture, the default /
+  Slot / Delta / Off; `pcsx.cfg` `crt_mask`, `ab_crt_mask`; greyed with any other filter), one program per
+  mask. A CRT filter as the other two (`ab_filter_is_crt`): our scanlines off, the tube falls back to Linear.
+  The mask goes on the picture only (the owner: not on the halo) - the halo's glow is a 16 x 16 average of
+  the filtered picture, so no extra pass was needed for that.
 - **Smoothing** (the menu row under Filter; upstream's `soft_filter`, `pcsx.cfg` 0-4, also the PCSX menu's
   "Software Filter"): None / Scale2x / Eagle2x / HQ2x / HQ3x, `frontend/ab/ab_scaler.c` hooked into
   `plugin_lib.c`'s blit - the BGR555 frame converted to RGB565 (NEON on 32-bit ARM) into a scratch buffer,

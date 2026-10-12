@@ -270,3 +270,10 @@ failed to load cheats=Cheats konnten nicht geladen werden.
 Please wait...=Bitte warten...
 # a real disc: shown while the drive is read, before the BIOS
 Loading the disc - please wait=Disc wird geladen - bitte warten
+# CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
+CRT mask=CRT-Maske
+Aperture=Streifenmaske
+Slot=Schlitzmaske
+Delta=Lochmaske
+The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots=Das Leuchtstoffmuster der Röhre über dem Bild: Streifenmaske sind die Streifen einer Trinitron, Schlitz- und Lochmaske die Punkte anderer Röhren
+Only with the CRT (raster) filter=Nur mit dem Filter CRT (raster)

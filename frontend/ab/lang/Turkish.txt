@@ -268,3 +268,10 @@ failed to load cheats=hileler yüklenemedi
 Please wait...=Lütfen bekleyin...
 # a real disc: shown while the drive is read, before the BIOS
 Loading the disc - please wait=Disk yükleniyor - lütfen bekleyin
+# CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
+CRT mask=CRT maskesi
+Aperture=Açıklık
+Slot=Yarık
+Delta=Delta
+The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots=Tüpün fosfor deseni görüntünün üzerinde: Açıklık bir Trinitron'un şeritleri, Yarık ve Delta diğer tüplerin noktaları
+Only with the CRT (raster) filter=Yalnızca CRT (raster) filtresiyle

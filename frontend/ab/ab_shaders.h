@@ -22,16 +22,28 @@ enum {
 	AB_FILTER_QUILEZ,
 	AB_FILTER_CRT_FAST,
 	AB_FILTER_CRT_PI,
+	AB_FILTER_CRT_RASTER,	/* ours: the beam per line, the phosphor mask per screen pixel (crt-raster.glsl) */
 	AB_FILTER_COUNT
 };
 extern const char *ab_filter_names[AB_FILTER_COUNT + 1];
 
-const struct plat_ab_shader *ab_filter_shader(int filter);
+/* CRT (raster)'s phosphor mask (the menu's "CRT mask", pcsx.cfg "crt_mask" - ab_config.h) */
+enum {
+	AB_CRT_MASK_APERTURE,	/* the aperture grille's stripes (Trinitron), the default */
+	AB_CRT_MASK_SLOT,
+	AB_CRT_MASK_DELTA,
+	AB_CRT_MASK_OFF,
+	AB_CRT_MASK_COUNT
+};
+extern const char *ab_crt_mask_names[AB_CRT_MASK_COUNT + 1];
+
+/* the filter pass; crt_mask only matters to CRT (raster) */
+const struct plat_ab_shader *ab_filter_shader(int filter, int crt_mask);
 /* a CRT filter draws its own scanlines: ours are off with it, and on the PSC so is the smoothing (inline:
  * the menu, built on every platform, asks too) */
 static inline int ab_filter_is_crt(int filter)
 {
-	return filter == AB_FILTER_CRT_FAST || filter == AB_FILTER_CRT_PI;
+	return filter == AB_FILTER_CRT_FAST || filter == AB_FILTER_CRT_PI || filter == AB_FILTER_CRT_RASTER;
 }
 /* the GPU pass for a soft_filter (SOFT_FILTER_*), NULL for none or one the CPU does (hq2x/hq3x) */
 const struct plat_ab_shader *ab_smooth_shader(int soft_filter);

@@ -269,3 +269,10 @@ failed to load cheats=nepodarilo sa načítať cheaty
 Please wait...=Čakajte prosím...
 # a real disc: shown while the drive is read, before the BIOS
 Loading the disc - please wait=Načítava sa disk - čakajte, prosím
+# CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
+CRT mask=Maska CRT
+Aperture=Apertúra
+Slot=Štrbinová
+Delta=Delta
+The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots=Vzor luminoforu obrazovky cez obraz: Apertúra sú pruhy Trinitronu, Štrbinová a Delta body iných obrazoviek
+Only with the CRT (raster) filter=Len s filtrom CRT (raster)

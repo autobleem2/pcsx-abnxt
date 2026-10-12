@@ -11,6 +11,15 @@ libretro's single-file GLSL shape (see libpicofe's `plat_autobleem.h`), embedded
 | `quilez.glsl` | filter | libretro glsl-shaders, after Inigo Quilez's "Improved texture interpolation" | no licence text in the file (to be checked before a release) |
 | `zfast_crt.glsl` | filter (CRT) | libretro glsl-shaders, Greg Hogan | GPLv2+ |
 | `crt-pi.glsl` | filter (CRT) | libretro glsl-shaders, davej | GPLv2+ |
+| `crt-raster.glsl` | filter (CRT) | ours | GPLv2+, as the rest of the frontend |
+
+`crt-raster.glsl` ("CRT (raster)", the owner's idea of 2026-10-12): a tube has no pixels, so the two parts
+of its look are drawn at different resolutions - the beam per line of the PlayStation's picture (a Gaussian
+of the line's colour, wider when brighter, its area kept so the picture's brightness is too, widened by a
+screen pixel's height so lines of 4 and 5 pixels stay even), and the phosphor mask per pixel of the screen
+(`gl_FragCoord`: aperture grille, slot, delta or none - the menu's "CRT mask", built as one program per
+mask through `CRT_MASK`, `ab_shaders.c`). Linear light in between. The mask is on the picture only: the
+screen halo's bands come from its 16 x 16 average, where a 2-3 pixel mask is gone.
 
 Changes to the libretro files: `quilez.glsl`'s credit line in ASCII, `zfast_crt.glsl` with LF line ends.
 The two CRT shaders soften their scanlines where a line's height on the screen is not a whole number of

@@ -267,3 +267,10 @@ failed to load cheats=cargament dels còdis de trichariá fracassat
 Please wait...=Esperatz...
 # a real disc: shown while the drive is read, before the BIOS
 Loading the disc - please wait=Cargament del disc - esperatz
+# CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
+CRT mask=Masca CRT
+Aperture=Grasilha
+Slot=Fendas
+Delta=Delta
+The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots=Lo motiu de luminofòrs del tub sus l'imatge: Grasilha, las bendas d'un Trinitron; Fendas e Delta, los punts d'autres tubs
+Only with the CRT (raster) filter=Sonque amb lo filtre CRT (raster)
