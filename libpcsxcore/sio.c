@@ -30,7 +30,23 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #ifdef PSCLASSIC
+#include <stdlib.h>
 #include "../frontend/ab/ab_memcard.h"
+
+/* AB_SIO_TRACE (any value): one log line per memory-card step - the start with the flag the card answers,
+ * the command, the sector, the end or where the BIOS dropped the transfer - for finding where a BIOS's card
+ * driver and this SIO disagree. Off without the variable; at most 3000 lines a run. */
+static int mcd_trace = -1;
+static unsigned int mcd_trace_lines;
+#define MCD_TRACE(fmt, ...) do { \
+	if (mcd_trace < 0) mcd_trace = getenv("AB_SIO_TRACE") != NULL; \
+	if (mcd_trace && mcd_trace_lines < 3000) { \
+		mcd_trace_lines++; \
+		SysPrintf("sio-mcd f%u pc %08x: " fmt "\n", frame_counter, psxRegs.pc, ##__VA_ARGS__); \
+	} \
+} while (0)
+#else
+#define MCD_TRACE(fmt, ...) do { } while (0)
 #endif
 
 #ifdef USE_LIBRETRO_VFS
@@ -157,6 +173,7 @@ void sioWrite8(unsigned char value) {
 				case 0x57: rdwr = 2; break;
 				default: mcdst = 0;
 			}
+			MCD_TRACE("port %d command %02x%s", port, value, mcdst ? "" : " (unknown, dropped)");
 			return;
 		case 2: // address H
 			set_event(PSXINT_SIO, SIO_CYCLES);
@@ -173,6 +190,7 @@ void sioWrite8(unsigned char value) {
 			parp = 0;
 			bufcount = 1;
 			mcdst = 4;
+			MCD_TRACE("port %d %s sector %d", port, rdwr == 1 ? "read" : "write", adrL | (adrH << 8));
 			return;
 		case 4:
 			set_event(PSXINT_SIO, SIO_CYCLES);
@@ -217,6 +235,8 @@ void sioWrite8(unsigned char value) {
 			if (//(rdwr == 1 && parp == 132) ||
 			    (rdwr == 2 && parp == 129)) {
 				// clear the "new card" flag
+				if (McdFlag[port] & 8)
+					MCD_TRACE("port %d new-card flag cleared", port);
 				McdFlag[port] &= ~8;
 			}
 			if (rdwr == 2) {
@@ -240,6 +260,7 @@ void sioWrite8(unsigned char value) {
 			set_event(PSXINT_SIO, SIO_CYCLES);
 			return;
 		case 0x81: // start memcard
+			MCD_TRACE("port %d start, %s flag %02x", port, McdDisable[port] ? "NO CARD" : "card", McdFlag[port]);
 			if (McdDisable[port])
 				goto no_device;
 			memcpy(buf, cardh, 4);
@@ -273,6 +294,9 @@ void sioWriteCtrl16(unsigned short value) {
 #endif
 	if (value & CTRL_ACK) StatReg &= SWAPu16(~IRQ);
 	if ((value & CTRL_RESET) || !(value & CTRL_SEL)) {
+		if (mcdst != 0)
+			MCD_TRACE("transfer dropped in state %d, byte %d of %d, %s", mcdst, parp, bufcount,
+				rdwr == 1 ? "read" : rdwr == 2 ? "write" : "no command yet");
 		padst = 0; mcdst = 0; parp = 0;
 		StatReg = SWAPu16(TX_RDY | TX_EMPTY);
 		psxRegs.interrupt &= ~(1 << PSXINT_SIO);
@@ -291,6 +315,7 @@ unsigned char sioRead8() {
 			StatReg &= SWAPu16(~RX_RDY);	// Receive is not Ready now
 			if (mcdst == 5) {
 				mcdst = 0;
+				MCD_TRACE("%s done, last byte %02x", rdwr == 1 ? "read" : "write", ret);
 				if (rdwr == 2) {
 					switch (ctrl & 0x2002) {
 						case 0x0002:
