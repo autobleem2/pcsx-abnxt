@@ -268,3 +268,5 @@ rescan complete.=Uudelleentarkistus valmis.
 defaults restored=Oletusasetukset palautettu
 failed to load cheats=Huijausten lataaminen epäonnistui
 Please wait...=Odota...
+# a real disc: shown while the drive is read, before the BIOS
+Loading the disc - please wait=Levyä ladataan - odota hetki

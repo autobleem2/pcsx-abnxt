@@ -269,3 +269,5 @@ defaults restored=defaults restored
 failed to load cheats=failed to load cheats
 # the way out (Reset, power-off, Exit): shown while the resume point is written
 Please wait...=Please wait...
+# a real disc: shown while the drive is read, before the BIOS
+Loading the disc - please wait=Loading the disc - please wait

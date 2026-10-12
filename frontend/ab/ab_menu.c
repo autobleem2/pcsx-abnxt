@@ -679,6 +679,49 @@ void ab_menu_wait_screen(void)
 	ab_debug_screen("wait");
 }
 
+/* The disc splash (2026-10-12, the owner's): a game from a real drive (-cdfile cdrom://) spends seconds
+ * opening the drive, reading its TOC, the LibCrypt places and the boot files before the BIOS draws anything -
+ * a black screen until now. main() puts this up once, before the plugins open the drive; it stays until
+ * menu_prepare_emu() clears the screen for the game. The art is skin/disc_loading.jpg (16:9) or
+ * disc_loading_43.jpg (4:3 outputs) - the logo and the disc, no text - and the line is drawn
+ * here in the launcher's language, in the art's text box (1280x720: 128,578 1024x44, 30 px; 640x480:
+ * 64,385 512x29, 20 px), shrunk until it fits. Without the art: the menu's art with a disc. */
+void ab_menu_disc_splash(void)
+{
+	struct ab_canvas c;
+	const char *msg;
+	int is43 = ab_layout43(), art, px, box_w, box_h, box_y;
+	float s;
+
+	plat_video_menu_enter(0);
+	ab_ui_load(ab_opts.language);
+	ab_menu_prepare_bg();
+	c = ab_screen_begin();
+	art = ab_ui_skin_image(is43 ? "disc_loading_43.jpg" : "disc_loading.jpg", c.fb, c.w, c.h, c.pitch);
+	if (is43) {
+		s = c.h / 480.0f;
+		box_w = (int)(512 * s);
+		box_h = (int)(29 * s);
+		box_y = (int)(385 * s);
+		px = (int)(20 * s);
+	} else {
+		s = c.h / 720.0f;
+		box_w = (int)(1024 * s);
+		box_h = (int)(44 * s);
+		box_y = (int)(578 * s);
+		px = (int)(30 * s);
+	}
+	if (!art)
+		ab_ui_disc(&c, c.w / 2, (int)(c.h * 0.48f), (int)(c.h * 0.2f), 1, 0);
+	msg = ab_ui_tr("Loading the disc - please wait");
+	while (px > 10 && ab_text_width(msg, px) > box_w)
+		px--;
+	ab_text_shadow(&c, c.w / 2, box_y + (box_h - px) / 2, AB_UI_CENTER, msg, px, ab_col_text);
+	menu_draw_end();
+	ab_debug_screen("disc-splash");
+	SysPrintf("autobleem: disc splash (%s)\n", art ? "art" : "no art, the menu's");
+}
+
 /* the buttons that got us here are not the screen's: wait only for those still held - in_menu_wait_any()
  * reads a key, so asking it when nothing is held ate the first press made as the screen came up (BUG-52:
  * the menu opened from the game, whose keys never reach the menus' key state, lost its first Down/Return) */

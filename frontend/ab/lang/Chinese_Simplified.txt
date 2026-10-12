@@ -265,3 +265,5 @@ rescan complete.=扫描完成。
 defaults restored=已恢复默认设置
 failed to load cheats=金手指加载失败
 Please wait...=请稍候...
+# a real disc: shown while the drive is read, before the BIOS
+Loading the disc - please wait=正在读取光盘 - 请稍候

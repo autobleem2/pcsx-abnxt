@@ -770,6 +770,11 @@ int main(int argc, char *argv[])
 	pl_init();
 	plat_init();
 	menu_init(); // loads config
+#ifdef PSCLASSIC
+	/* a real disc: the drive is opened and read for seconds before the BIOS draws anything */
+	if (cdfile != NULL && strncmp(cdfile, "cdrom://", 8) == 0)
+		ab_menu_disc_splash();
+#endif
 
 	if (nothread) {
 		ndrc_g.hacks |= NDHACK_THREAD_FORCE;

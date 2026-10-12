@@ -267,3 +267,5 @@ rescan complete.=vyhľadávanie dokončené.
 defaults restored=predvolené nastavenia obnovené
 failed to load cheats=nepodarilo sa načítať cheaty
 Please wait...=Čakajte prosím...
+# a real disc: shown while the drive is read, before the BIOS
+Loading the disc - please wait=Načítava sa disk - čakajte, prosím

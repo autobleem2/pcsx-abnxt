@@ -291,7 +291,7 @@ scalers (see "Smoothing"; `tools/vendor_hqx.py` regenerates `hqx/hq2x.c`/`hq3x.c
 grom358/hqx). Player 2's sticks: `in_adev[4]` ([2]/[3]), `update_analogs()` over both players.
 
 Upstream files edited so far (the whole list - keep it that way): `frontend/main.c` (`path_is_absolute()`
-for `C:\` paths and `cdrom://` drives - a candidate for an upstream PR; the `ab_*` hooks: the arguments, the exit, the action
+for `C:\` paths and `cdrom://` drives - a candidate for an upstream PR; the `ab_*` hooks: the arguments, the disc splash, the exit, the action
 default; `PCSX_MEMCARD_COUNT` instead of a fixed nine cards, 2 here), `frontend/libretro-cdrom.c` (the
 subchannel read - see "A real disc in a drive"), `frontend/main.h` (the macro's
 default, our three `SACTION_AB_*` values), `frontend/menu.c` (the `ab_config_loaded` hook, the `screen_halo` key, two action
@@ -462,7 +462,16 @@ tray closed, Pi 400, 2026-10-12) - autobleem-appliance's `autobleem-session.sh` 
 cwd was put in front of it. Verified on the Pi 400 (an LG GP20N slim behind a powered hub, SLES-02698:
 picture, sound, loading; SCES-02835, LibCrypt, from its subchannel); the kernel's own 2048-byte probes of the Mode 2 disc fail in dmesg (ASC 0x64) and
 do not matter. The console's stock 4.4.22 kernel has no `sr_mod`/`sg`/`cdrom`. The launcher has no entry
-for it yet.
+for it yet. **The disc splash** (2026-10-12, the owner's): opening the drive, its TOC, the LibCrypt places and
+the boot files take seconds before the BIOS draws anything, so with a `cdrom://` cdfile `main()` puts
+`ab_menu_disc_splash()` up right after `menu_init()` (a `PSCLASSIC` hook), before the plugins open the drive;
+`menu_prepare_emu()` clears it as the game starts. The art is `skin/disc_loading.jpg` (16:9) /
+`disc_loading_43.jpg` (4:3 outputs, `ab_layout43()`) - the logo and a neon disc, no text, approved by the
+owner as a still screen (a spinning disc would need a drawing thread, since the reads block the main one) -
+and the line "Loading the disc - please wait" is drawn in the launcher's language in the art's text box
+(1280x720: 128,578 1024x44, 30 px; 640x480: 64,385 512x29, 20 px), shrunk until it fits; without the art the
+menu's background with `ab_ui_disc`. `ab_ui_skin_image()` loads any skin image as `ab_ui_background` does.
+A game from an image file never shows it.
 
 Also: `lastcdimg.txt` is not rewritten at start when it already names the disc, and stdout is
 line-buffered off Windows (`ab_args_take`).
