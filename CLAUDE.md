@@ -432,8 +432,8 @@ says `dithering=N`.
 
 **A real disc in a drive** (2026-10-12, the owner's probe): `-cdfile cdrom://driveN.cue` plays the disc in
 the Nth drive - upstream's own code (`frontend/libretro-cdrom.c`, libretro-common's VFS, `cdrom-async.c`),
-which only its libretro build switched on; `PCSXAB_PHYSICAL_CDROM` (CMake, on with the threads) builds it
-here. On Linux driveN is `/dev/sgN` - the Nth SCSI device, so a USB stick in front of the drive moves it -
+which only its libretro build switched on; `PCSXAB_PHYSICAL_CDROM` (CMake, on with the threads, off on
+Windows - not planned there, the owner) builds it here. On Linux driveN is `/dev/sgN` - the Nth SCSI device, so a USB stick in front of the drive moves it -
 read raw with SCSI READ CD, 2352 bytes a sector, the drive set to 4x. The subchannel (ours, upstream's
 `rcdrom_readSub` was a stub): raw P-W through READ CD, Q decoded as `DecodeRawSubData` does, so LibCrypt
 discs play without an `.sbi`. `probe_subchannel` at open tries sub-only, then sector + sub (2448 bytes) on
