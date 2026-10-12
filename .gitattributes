@@ -6,6 +6,7 @@ CMakeLists.txt text eol=lf
 docs/** text eol=lf
 docs/reference/*.patch -text
 frontend/ab/** text eol=lf
+frontend/ab/**/*.png -text
 toolchains/** text eol=lf
 ci/** text eol=lf
 CLAUDE.md text eol=lf
