@@ -39,7 +39,7 @@ No quick save yet=Încă nicio salvare rapidă
 Integer 2x=Întreg 2x
 Integer 4:3=Întreg 4:3
 Fullscreen=Ecran complet
-None=Niciuna
+None=Niciunul
 Off=Oprit
 Nearest=Cel mai apropiat
 Linear=Liniar
@@ -209,7 +209,7 @@ CRT-Pi is too heavy for the console at 1080p: choose 720p in AutoBleem's setting
 
 # the PCSX menu pages' help texts and messages (upstream's, drawn by our menu screen)
 Maps nub-like analog controls to PSX ones better Might cause problems with real analog sticks=Mapează mai bine comenzile analogice de tip nub pe cele PSX. Poate cauza probleme cu manetele analogice reale.
-Experimental, keep this OFF if unsure. Select rescan after change.=Experimental, lasă OPRIT dacă nu ești sigur. Selectează "Rescanează" după modificare.
+Experimental, keep this OFF if unsure. Select rescan after change.=Experimental, lasă OPRIT dacă nu ești sigur. Selectează "Recaută dispozitivele" după modificare.
 Don't trigger (shoot) when touching screen in gun games.=Nu trage la atingerea ecranului în jocurile cu pistol.
 Must select analog above and enable this ingame too.=Trebuie selectat "analogic" mai sus și activat și acest lucru în joc.
 int. 2x - scales w. or h. 2x if it fits on screen int. 4:3 - uses integer if possible, else fractional=int. 2x - mărește lățimea sau înălțimea de 2 ori dacă încape pe ecran. int. 4:3 - folosește o valoare întreagă dacă e posibil, altfel fracționară.
@@ -240,7 +240,7 @@ Configure P.E.Op.S. MesaGL Driver V1.78=Configurează driverul P.E.Op.S. MesaGL 
 Configure Unai/PCSX4ALL Team plugin (new)=Configurează plugin-ul Unai/PCSX4ALL Team (nou)
 Configure built-in P.E.Op.S. Sound Driver V1.7=Configurează driverul audio integrat P.E.Op.S. V1.7
 Disables game-specific compatibility hacks=Dezactivează hack-urile de compatibilitate specifice jocului
-Will cause crashes when loading, break memcards=Va provoca blocări la încărcare și va strica memory card-urile.
+Will cause crashes when loading, break memcards=Va provoca blocări la încărcare și va strica cardurile de memorie.
 May cause graphical glitches=Poate provoca glitch-uri grafice
 Will cause graphical glitches=Va provoca glitch-uri grafice
 Will cause some games to run too fast=Va face unele jocuri să ruleze prea repede
@@ -256,19 +256,19 @@ Emulate some PSX's debug hw like breakpoints and exceptions (slow, interpreter o
 Try enabling this if the game misses some graphics causes a performance hit=Încearcă să activezi asta dacă jocului îi lipsesc elemente grafice; provoacă o scădere de performanță.
 Instead of 50/60fps for PAL/NTSC use ~49.75/59.81 Closer to real hw but doesn't match modern displays.=În loc de 50/60 fps pentru PAL/NTSC, folosește ~49.75/59.81. Mai apropiat de hardware-ul real, dar nu se potrivește cu ecranele moderne.
 Greatly reduce CD load times. Breaks some games.=Reduce mult timpii de încărcare de pe CD. Strică unele jocuri.
-Ask for confirmation when overwriting save, loading state or both=Cere confirmare la suprascrierea unei salvări, la încărcarea unui state sau ambele
+Ask for confirmation when overwriting save, loading state or both=Cere confirmare la suprascrierea unei salvări, la încărcarea unei stări sau ambele
 Switches back to default / recommended configuration=Revine la configurația implicită/recomandată
 Warning: frameskip sometimes causes glitches=Atenție: frameskip-ul provoacă uneori glitch-uri
-Change CD, manage memcards..=Schimbă CD-ul, gestionează memory card-urile...
+Change CD, manage memcards..=Schimbă CD-ul, gestionează cardurile de memorie...
 saved for this game=Salvat pentru acest joc
 config saved=Configurație salvată
 failed to write config=Scrierea configurației a eșuat
-rescan complete.=Rescanare finalizată.
+rescan complete.=Căutare finalizată.
 defaults restored=Setările implicite au fost restaurate
-failed to load cheats=Încărcarea cheat-urilor a eșuat
-Please wait...=Vă rugăm așteptați...
+failed to load cheats=Încărcarea codurilor a eșuat
+Please wait...=Așteaptă...
 # a real disc: shown while the drive is read, before the BIOS
-Loading the disc - please wait=Se încarcă discul - vă rugăm așteptați
+Loading the disc - please wait=Se încarcă discul - așteaptă
 # CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
 CRT mask=Mască CRT
 Aperture=Apertură

@@ -84,7 +84,7 @@ Resolution=Risoluzione
 Remove seams=Rimuovi le giunture
 The resolution the screen is driven at; only what the TV or monitor offers is listed=La risoluzione a cui lavora lo schermo; è elencato solo ciò che offre il televisore o il monitor
 2x draws the PlayStation's 3D at double resolution (not in high resolution games); costs speed=Il 2x disegna il 3D della PlayStation a risoluzione doppia (non nei giochi ad alta risoluzione); costa in velocità
-No 1-pixel gaps between pictures made of several parts at 2x=Nessuna giuntura di 1 pixel tra immagini composte da più parti in 2x
+No 1-pixel gaps between pictures made of several parts at 2x=Nessuno spazio di 1 pixel tra immagini composte da più parti in 2x
 Dithering=Dithering
 On=Attivato
 Always=Sempre
@@ -96,8 +96,8 @@ Starts the game over from the beginning, as the console's Reset did=Riavvia il g
 The console's resolution is chosen in AutoBleem's settings=La risoluzione della console si sceglie nelle impostazioni di AutoBleem
 
 # the PCSX menu's pages (upstream's rows, drawn by our menu screen) - sections, pages, rows, values
-ON=ATTIVO
-OFF=DISATTIVO
+ON=ATTIVATO
+OFF=DISATTIVATO
 General=Generale
 More=Altro
 Filters=Filtri
@@ -210,7 +210,7 @@ CRT-Pi is too heavy for the console at 1080p: choose 720p in AutoBleem's setting
 
 # the PCSX menu pages' help texts and messages (upstream's, drawn by our menu screen)
 Maps nub-like analog controls to PSX ones better Might cause problems with real analog sticks=Mappa meglio i controlli analogici tipo nub sui controlli PSX. Può causare problemi con le levette analogiche reali.
-Experimental, keep this OFF if unsure. Select rescan after change.=Sperimentale, tienilo su OFF se non sei sicuro. Seleziona "Ripeti scansione" dopo la modifica.
+Experimental, keep this OFF if unsure. Select rescan after change.=Sperimentale, tienilo su DISATTIVATO se non sei sicuro. Seleziona "Ricerca dispositivi" dopo la modifica.
 Don't trigger (shoot) when touching screen in gun games.=Non spara quando si tocca lo schermo nei giochi con pistola.
 Must select analog above and enable this ingame too.=Devi selezionare "analogico" sopra e attivare anche questa opzione in gioco.
 int. 2x - scales w. or h. 2x if it fits on screen int. 4:3 - uses integer if possible, else fractional=int. 2x - scala larghezza o altezza di 2x se entra nello schermo. int. 4:3 - usa un valore intero se possibile, altrimenti frazionario.
@@ -222,7 +222,7 @@ Scanline brightness, 0-100%=Luminosità delle scanline, 0-100%
 Renders in double resolution at perf. cost (not available for high resolution games)=Esegue il rendering a doppia risoluzione con un costo prestazionale (non disponibile per i giochi ad alta risoluzione).
 Speed hack for above option (glitches some games)=Trucco di velocità per l'opzione precedente (causa glitch in alcuni giochi)
 Solves some Enh. res. texture issues, some perf hit=Risolve alcuni problemi con le texture della risoluzione avanzata, con un lieve impatto sulle prestazioni.
-No 1-pixel gaps between pictures made of several parts (Enh. res.), no perf hit=Nessun vuoto di 1 pixel tra immagini composte da più parti (risoluzione avanzata), senza impatto sulle prestazioni.
+No 1-pixel gaps between pictures made of several parts (Enh. res.), no perf hit=Nessuno spazio di 1 pixel tra immagini composte da più parti (risoluzione avanzata), senza impatto sulle prestazioni.
 Needed for Chrono Cross=Necessario per Chrono Cross
 Capcom fighting games=Giochi di combattimento Capcom
 Black screens in Lunar=Schermate nere in Lunar
@@ -266,7 +266,7 @@ config saved=Configurazione salvata
 failed to write config=Scrittura della configurazione non riuscita
 rescan complete.=Scansione completata.
 defaults restored=Impostazioni predefinite ripristinate
-failed to load cheats=Caricamento dei cheat non riuscito
+failed to load cheats=Caricamento dei trucchi non riuscito
 Please wait...=Attendere...
 # a real disc: shown while the drive is read, before the BIOS
 Loading the disc - please wait=Caricamento del disco - attendere prego
