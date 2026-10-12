@@ -65,16 +65,80 @@ static int raster_variant(void)
 	return variant;
 }
 
+/* GLES 3: the mask is a texture (CRT_MASK_TEXTURE, crt_mask_pattern below) - one read a pixel, the same for
+ * every mask; GLES 2 cannot repeat a texture 3 or 6 texels wide, so it works the mask out per pixel */
+static int raster_mask_texture(void)
+{
+	return plat_ab_gles_version() >= 3;
+}
+
 int ab_crt_mask_offered(int mask)
 {
-	/* the lite build has no slot mask: its dark rows cost the console's GPU the frames it had left */
-	return mask >= 0 && mask < AB_CRT_MASK_COUNT && !(mask == AB_CRT_MASK_SLOT && raster_variant() == 2);
+	/* the lite build's own mask maths has no slot mask: its dark rows cost the console's GPU the frames it had
+	 * left; as a texture it costs what the others do */
+	return mask >= 0 && mask < AB_CRT_MASK_COUNT &&
+		!(mask == AB_CRT_MASK_SLOT && raster_variant() == 2 && !raster_mask_texture());
 }
 
 /* crt-raster.glsl once per mask (its CRT_MASK), made the first time it is asked for: a program per mask,
  * so the mask costs no branch per pixel */
-static char raster_src[AB_CRT_MASK_COUNT][sizeof(ab_glsl_crt_raster) + 64];
+static char raster_src[AB_CRT_MASK_COUNT][sizeof(ab_glsl_crt_raster) + 96];
 static struct plat_ab_shader raster[AB_CRT_MASK_COUNT];
+
+#define MASK_DARK 0.70f	/* crt-raster.glsl's */
+
+/* CRT (raster)'s mask as a pattern of 2p x 16 screen pixels, which every mask repeats in (p the triad's width,
+ * the slot mask's two staggered columns of triads, delta's rows of dots and the slot's 4 or 8 rows): the
+ * shader's CRT_FAST_GAMMA mask maths for pixel (x, y), y counted from the bottom as gl_FragCoord is, stored
+ * halved (the lit stripes go above 1) */
+static int crt_mask_pattern(const struct plat_ab_shader *sh, int out_w, int out_h, unsigned char *rgb, int *pw,
+	int *ph)
+{
+	int mask = (int)(sh - raster);
+	int p = out_h >= 1600 ? 6 : out_h >= 900 ? 3 : 2;
+	int w = 2 * p, h = 16, x, y, c;
+
+	(void)out_w;
+	if (mask < 0 || mask >= AB_CRT_MASK_COUNT || mask == AB_CRT_MASK_OFF)
+		return 0;
+	for (y = 0; y < h; y++) {
+		for (x = 0; x < w; x++) {
+			float m[3];
+			int xx = x;
+			if (mask == AB_CRT_MASK_DELTA) {
+				/* each row of dots a part of a triad over from the one above */
+				int g = p / 3 > 1 ? p / 3 : 1;
+				xx += ((y / g) & 1) * (p / 2);
+			}
+			if (p == 2) {
+				/* two pixels: green, then red and blue */
+				float lit = 2.0f - MASK_DARK;
+				m[0] = m[2] = (xx & 1) ? lit : MASK_DARK;
+				m[1] = (xx & 1) ? MASK_DARK : lit;
+			} else {
+				float lit = 3.0f - 2.0f * MASK_DARK;
+				m[0] = m[1] = m[2] = MASK_DARK;
+				m[(xx % p) * 3 / p] = lit;
+			}
+			if (mask == AB_CRT_MASK_SLOT) {
+				/* each triad broken by a dark row every slot, the next triad's half a slot lower */
+				int rows = p == 6 ? 2 : 1, slot = 4 * rows;
+				int odd = (x / p) & 1;
+				float k = (float)slot / (slot - rows + rows * MASK_DARK);
+				int dark = (y + odd * slot / 2) % slot < rows;
+				for (c = 0; c < 3; c++)
+					m[c] = (dark ? MASK_DARK : m[c]) * k;
+			}
+			for (c = 0; c < 3; c++) {
+				float v = m[c] * 0.5f * 255.0f + 0.5f;
+				rgb[(y * w + x) * 3 + c] = (unsigned char)(v > 255.0f ? 255.0f : v);
+			}
+		}
+	}
+	*pw = w;
+	*ph = h;
+	return 1;
+}
 
 static const struct plat_ab_shader *raster_shader(int mask)
 {
@@ -85,12 +149,14 @@ static const struct plat_ab_shader *raster_shader(int mask)
 	if (!ab_crt_mask_offered(mask))
 		mask = AB_CRT_MASK_APERTURE;	/* a game saved with Slot on another machine: the console's default */
 	if (raster[mask].src == NULL) {
-		snprintf(raster_src[mask], sizeof(raster_src[mask]), "#define CRT_MASK %d\n%s%s", mask,
-			defines[raster_variant()], ab_glsl_crt_raster);
+		int tex = raster_mask_texture() && mask != AB_CRT_MASK_OFF;
+		snprintf(raster_src[mask], sizeof(raster_src[mask]), "#define CRT_MASK %d\n%s%s%s", mask,
+			tex ? "#define CRT_MASK_TEXTURE\n" : "", defines[raster_variant()], ab_glsl_crt_raster);
 		raster[mask].name = names[mask];
 		raster[mask].src = raster_src[mask];
 		raster[mask].scale = 0;
 		raster[mask].linear = 1;
+		raster[mask].aux = tex ? crt_mask_pattern : NULL;
 	}
 	return &raster[mask];
 }

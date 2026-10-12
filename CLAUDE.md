@@ -121,7 +121,7 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
 - a pcsx-ab-era cfg says `plat_target.vout_fullscreen = 0`: on the console and the Pi the frontend forces
   fullscreen (`check_fullscreen`) - it used to drop to a 1280x720 window inside 1080p and the pointer came
   back. The pointer itself is hidden by relative mouse mode (KMSDRM ignores `SDL_ShowCursor`).
-- **the frame's way to the screen** (libpicofe `plat_sdl2_present`, the owner's pcsx-ab chain redone on
+- **the frame's way to the screen** (libpicofe `plat_autobleem.c` `plat_ab_present`, the owner's pcsx-ab chain redone on
   the GPU, 2026-09-21 after the console showed the first version's uneven scanlines): the RGB565 frame is
   scaled **once** into the backbuffer with the filter (`-filter 0..7`, an index into `ab_filter_names` since 2026-09-29 - the launcher's game
   editor offers all eight; was 0..2: Off = nearest, Linear = bilinear,
@@ -171,6 +171,19 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   unchanged. `AB_CRT_RASTER=full|light|lite` overrides the choice (light = `CRT_FAST_GAMMA` alone). A CRT filter as the other two (`ab_filter_is_crt`): our scanlines off, the tube falls back to Linear.
   The mask goes on the picture only (the owner: not on the halo) - the halo's glow is a 16 x 16 average of
   the filtered picture, so no extra pass was needed for that.
+  **GLES 3** (2026-10-12, the owner's: "zróbmy GLES3 na branchu do przetestowania", the render sequence
+  unchanged, no sRGB, no CPU work per frame): `plat_ab_init` asks for a GLES 3 context first, then GLES 2.0,
+  then desktop GL 2.1 (`plat_ab_gles_version()` says which; one stderr line). The shaders stay GLSL ES 1.00
+  (`#version 100`), valid in both. With GLES 3: the frame goes up through a pixel-unpack buffer (two,
+  alternating, orphaned and mapped - the driver copies it to the texture without stalling the CPU;
+  `AB_GL_PBO=0` turns it off) and a frame wider than its picture (pitch > w) goes up in one call
+  (`GL_UNPACK_ROW_LENGTH`) instead of a call per row. CRT (raster)'s mask becomes a texture: a pass may
+  have an `aux` callback (`struct plat_ab_shader`), which draws a small pattern for the pass's output size
+  - libpicofe puts it on texture unit 1 (`MaskTexture`, `MaskSize`, nearest, repeated: a repeated texture 3
+  or 6 texels wide needs GLES 3), made again only when the output size changes. `ab_shaders.c`
+  `crt_mask_pattern` draws the `CRT_FAST_GAMMA` mask maths into 2p x 16 texels (every mask repeats in that),
+  halved into RGB8, and the shader (`CRT_MASK_TEXTURE`) reads one texel a pixel - every mask the same cost,
+  so the console offers Slot again. GLES 2 keeps the per-pixel mask maths and the lite build's no-Slot rule.
 - **Smoothing** (the menu row under Filter; upstream's `soft_filter`, `pcsx.cfg` 0-4, also the PCSX menu's
   "Software Filter"): None / Scale2x / Eagle2x / HQ2x / HQ3x, `frontend/ab/ab_scaler.c` hooked into
   `plugin_lib.c`'s blit - the BGR555 frame converted to RGB565 (NEON on 32-bit ARM) into a scratch buffer,

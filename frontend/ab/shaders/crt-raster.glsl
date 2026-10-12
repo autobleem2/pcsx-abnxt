@@ -22,7 +22,9 @@ game drew. So the two things are drawn separately here:
 - the mask, per pixel of the screen (gl_FragCoord): CRT_MASK picks the raster (0 aperture grille,
   1 slot mask, 2 delta, 3 none); its period is 3 screen pixels from 900 lines up, 2 below (720p, where a
   triad does not fit: green and magenta), 6 from 1600 up. The lit and dark levels are chosen so the mask
-  averages 1 - the picture keeps its brightness, only white clips.
+  averages 1 - the picture keeps its brightness, only white clips. With CRT_MASK_TEXTURE (GLES 3) the host
+  draws it once into a pattern the mask repeats in (MaskTexture, MaskSize - ab_shaders.c) and each pixel
+  reads it back.
 
 Both in linear light (INPUT_GAMMA / OUTPUT_GAMMA). This pass draws only the picture's own rectangle: the
 screen halo's bands are drawn from it averaged 16 x 16 (libpicofe's glow pass), where a 2-3 pixel mask is
@@ -125,7 +127,17 @@ float beam(float dy, COLOR c)
 #define TO_SCREEN(c) pow(c, vec3(1.0 / OUTPUT_GAMMA))
 #endif
 
-#ifdef CRT_FAST_GAMMA
+#ifdef CRT_MASK_TEXTURE
+/* GLES 3: the host drew the mask below (CRT_FAST_GAMMA's) into a small pattern the mask repeats in, stored
+   halved, repeated over the screen by the texture unit - one read a pixel, every mask the same cost */
+uniform sampler2D MaskTexture;
+uniform vec2 MaskSize;	/* the pattern's place stays highp: a half-float's step at 1920 is 1.5 of its texels */
+
+COLOR mask(vec2 pos)
+{
+	return texture2D(MaskTexture, pos / MaskSize).rgb * 2.0;
+}
+#elif defined(CRT_FAST_GAMMA)
 COLOR mask(vec2 pos)
 {
 #if CRT_MASK == 3
