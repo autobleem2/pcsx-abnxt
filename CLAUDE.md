@@ -448,7 +448,8 @@ and the Q is made from the address during play. A drive's raw Q has bad CRCs of 
 LG GP20N, two of them on LibCrypt's places, so the game took the wrong key and looped a cutscene (2026-10-12; the
 drive's marks matched redump's `.sbi` byte for byte). First choice, before the drive: `<SERIAL>.sbi` in the game's
 save folder (`.pcsx/` of the run folder), which the launcher fetches by serial when it has a network (the owner,
-2026-10-12); the drive's own marks are the offline failover. **The drive's tray is the lid** (`ab_disc.c`, 2026-10-12): `ab_disc_tick()` asks
+2026-10-12); several versions under one serial come as `<SERIAL>.1.sbi`, `.2.sbi`... and the one whose key the
+drive shows is taken (the 32 places read once); the drive's own marks are the offline failover. **The drive's tray is the lid** (`ab_disc.c`, 2026-10-12): `ab_disc_tick()` asks
 the drive now and then (`cdra_check_eject`, every ~100 frames, 1-2 ms, as upstream's libretro core does) and a
 change asks for `SACTION_AB_TRAY`, handled between CPU slices by `ab_disc_tray()`: open = the prefetch thread
 stops and the core's lid stays open; closed = the drive is opened again (the TOC, the subchannel probe - perhaps
