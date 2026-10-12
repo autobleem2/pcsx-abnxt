@@ -441,6 +441,7 @@ static const struct {
 	CE_INTVAL(scanline_level),
 #ifdef PSCLASSIC
 	CE_INTVAL_N("sonyhacks", ab_opts.sonyhacks),	/* the launcher's per-game switch, or -sonyhacks (ab_hacks.h) */
+	CE_INTVAL_N("screen_halo", ab_screen_halo),	/* the bands filled from the picture (ab_config.h) */
 #endif
 	CE_INTVAL(plat_target.vout_method),
 	CE_INTVAL(plat_target.hwfilter),

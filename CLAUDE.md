@@ -137,7 +137,27 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   builds without NEON32 all the same). The launcher's GFX Filter sends 0/1. A game with
   `gpu_neon.enhancement_enable = 1` (Crash's PC-era cfg) is 2x before any of this, which is why the owner
   saw no difference between Off and Linear on it. What is outside the picture (a 4:3 game's side bands) is
-  the backbuffer, free for anything drawn before the present.
+  the backbuffer, free for anything drawn before the present. **The screen halo** (2026-10-11, the owner's:
+  the Picture tab's "Screen halo", `pcsx.cfg` `screen_halo`, `AB_SCREEN_HALO`) fills those bands from the
+  end of the chain, as the owner asked - the filter pass goes into an 8888 texture dst's size
+  (`halo_targets`), which is copied 1:1 into dst and averaged down to 1/16 (`glow` pass: 16 bilinear reads
+  per pixel, so a small detail does not flicker); the bands are drawn from that with uv running past 0..1,
+  folded back at the picture's edges in the `halo` pass (a mirror, repeated where a band is wider than the
+  picture) and spread by four reads - a glow of the edges' colours, 50 % bright next to the picture and
+  fading (squared) to black at the screen's edge. The owner's first look on the Pi (a sharp mirror at half
+  brightness, as the launcher's mirrored CRT margin) asked for blurred, darker and fading; 40 % then was
+  "a little brighter". The scanlines and the HUD go over it as before. Off = the old path untouched; no bands (a fullscreen layer, the tube's
+  720x480) = no extra pass. Its cost with it on: one copy of the picture, a 1/16 pass and the bands' area -
+  no FPS/CPU change on the Pi 400 for the first version.
+  **The CRT filters at 1080p** (2026-10-12, the owner's: "they look awful", worst with 2x): a CRT shader
+  draws one scanline per row of what it is told its input is - 480 of a 2x or smoothed frame, 2.25 px each,
+  and even 240 at 1080p is 4.5 px a line, rows of 4 and 5 that show as a pattern (720p's 3 px and
+  Integer 4:3's 4 px are whole and always looked right). Now `update_pipeline` tells a CRT filter the
+  PlayStation's own picture size (`pl_psx_pic_w/h` from `pl_vout_set_mode`'s raw size, through libpicofe's
+  `plat_ab_set_filter_picture`; every other filter keeps the real input size, its sampling grid), and both
+  CRT shaders soften their lines only where the line height is not whole (`frontend/ab/shaders/README.md`) -
+  equal lines on the owner's Pi at 1080p, 1x and 2x, FPS/CPU unchanged. Prescaling the frame with nearest
+  to a height 1080 divides (240 -> 270) was weighed and dropped: it doubles every 8th line, 4 and 8 px.
 - **Smoothing** (the menu row under Filter; upstream's `soft_filter`, `pcsx.cfg` 0-4, also the PCSX menu's
   "Software Filter"): None / Scale2x / Eagle2x / HQ2x / HQ3x, `frontend/ab/ab_scaler.c` hooked into
   `plugin_lib.c`'s blit - the BGR555 frame converted to RGB565 (NEON on 32-bit ARM) into a scratch buffer,
@@ -273,14 +293,14 @@ grom358/hqx). Player 2's sticks: `in_adev[4]` ([2]/[3]), `update_analogs()` over
 Upstream files edited so far (the whole list - keep it that way): `frontend/main.c` (`path_is_absolute()`
 for `C:\` paths - a candidate for an upstream PR; the `ab_*` hooks: the arguments, the exit, the action
 default; `PCSX_MEMCARD_COUNT` instead of a fixed nine cards, 2 here), `frontend/main.h` (the macro's
-default, our three `SACTION_AB_*` values), `frontend/menu.c` (the `ab_config_loaded` hook, two action
+default, our three `SACTION_AB_*` values), `frontend/menu.c` (the `ab_config_loaded` hook, the `screen_halo` key, two action
 names, the game's own config - its name, load order, the merging save and binary files, see "A game's
 config" -, the save leaving out the HUD bits `AB_PERF_OVERLAY` turned on, `men_soft_filter`'s five names on every platform; `menu_init` keeps the "Video output mode" row off
 when the platform has no `vout_methods` - ours has none, and upstream's `MENU_SHOW_VOUTMODE` default of 1
 re-enabled the row with a NULL name list, which crashed the PCSX menu's [Display] page on every target,
 found on the console with r26-alpha1 - a PR candidate), `frontend/menu.h` (`SOFT_FILTER_HQ2X/HQ3X`),
 `frontend/plugin_lib.c` (`ab_frame_tick()`; the analog tables at 4 and `update_analogs()` over both
-players; `pl_scanlines_by_plat`; the smoothing: `ab_soft_scale_factor()` in `pl_vout_set_mode`,
+players; `pl_scanlines_by_plat`; `pl_psx_pic_w/h`, the picture's own size for the CRT filters; the smoothing: `ab_soft_scale_factor()` in `pl_vout_set_mode`,
 `ab_soft_blit()` in the flip in place of the `HAVE_NEON32` scalers, `resolution_ok()` against
 `PL_VOUT_MAX_*`, the 4:3 layer rule from the PSX line count), `frontend/plugin_lib.h` (the same tables,
 `pl_scanlines_by_plat`, `PL_VOUT_MAX_W/H`), `frontend/menu.c` also `#include`s `ab/ab_menu.c` and
@@ -369,6 +389,9 @@ launcher reads the **`abfeatures`** file next to the binary (`frontend/ab/abfeat
   one value for the tube and VGA, default 0 - the menu's canvas and the HUD's screen get that many rows more (fewer),
   laid out at their own rows (never stretched), centred, and may run past the output (cropped: a tube's overscan); `crt_compose()` copies the canvas row for row,
   `ab_hud_put()` the HUD's. The canvas width and the game's layer (`layer_h`) keep the safe rect's.
+- `AB_SCREEN_HALO=0|1` (`screenhalo`, 2026-10-11): the launcher's "Screen halo" (see "the frame's way to the
+  screen"), beating `pcsx.cfg`'s `screen_halo` but not the game's own `pcsx.custom.cfg`; unset = the file's.
+  Not used on the tube (greyed in the menu like Scaling).
 
 **CRT 4:3** (2026-10-06, the owner's, checked on a real tube behind an HDMI converter): an output of exactly
 720x480 is the launcher's "CRT 4:3" - a 4:3 picture in 720 wide pixels (8:9). `plat_autobleem.c`'s `resize_cb`

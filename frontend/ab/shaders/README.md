@@ -13,3 +13,9 @@ libretro's single-file GLSL shape (see libpicofe's `plat_autobleem.h`), embedded
 | `crt-pi.glsl` | filter (CRT) | libretro glsl-shaders, davej | GPLv2+ |
 
 Changes to the libretro files: `quilez.glsl`'s credit line in ASCII, `zfast_crt.glsl` with LF line ends.
+The two CRT shaders soften their scanlines where a line's height on the screen is not a whole number of
+pixels (`soft` / `lineAA.x`: 0 at 720p's 3 px or 4K's 9 px, 1 at 1080p's 4.5 px): `crt-pi.glsl` lighter
+gaps and a wider beam, `zfast_crt.glsl` its scanline averaged over three points of the pixel (crt-pi's
+MULTISAMPLE) and a little softer - lines of 4 and 5 pixels showed as a pattern. A whole scale draws as the
+originals do. The platform tells both the PlayStation's line count (libpicofe `plat_ab_set_filter_picture`),
+not the 2x or smoothed frame's.
