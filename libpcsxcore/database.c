@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "misc.h"
 #include "sio.h"
 #include "ppf.h"
@@ -381,30 +382,83 @@ static int drive_q_bad(int lba)
  * sectors of a Spyro: Year of the Dragon PAL disc on an LG GP20N, the same on every read, two of them on LibCrypt's
  * places - the game took the wrong key and looped a cutscene, 2026-10-12). A real mark is a pair, the sector and the
  * one 5 after, both bad - a lone bad Q is a scratch. Not a LibCrypt game: no subchannel at all. */
+// the 16 bits of LibCrypt's key in the loaded .sbi: a bit is a pair n, n+5 both marked
+static u16 loaded_key(void)
+{
+	u16 key = 0;
+	int i, n;
+
+	for (i = 0; i < 16; i++) {
+		n = libcrypt_sectors[i] - 2*75;
+		if (CheckSBI(n) && CheckSBI(n + 5))
+			key |= 1u << (15 - i);
+	}
+	return key;
+}
+
+// the key as the drive shows it: a pair with both Qs bad (a lone bad Q is a scratch)
+static u16 drive_key(void)
+{
+	u16 key = 0;
+	int i, n;
+
+	for (i = 0; i < 16; i++) {
+		n = libcrypt_sectors[i] - 2*75;
+		if (drive_q_bad(n) && drive_q_bad(n + 5))
+			key |= 1u << (15 - i);
+	}
+	return key;
+}
+
+#define SBI_SECTORS (80 * 60 * 75)
+
 void libcrypt_from_drive(void)
 {
-	int i, n, marks = 0, last = libcrypt_sectors[ARRAY_SIZE(libcrypt_sectors) - 1] - 2*75 + 5;
-	u16 key = 0;
+	int i, n, last = libcrypt_sectors[ARRAY_SIZE(libcrypt_sectors) - 1] - 2*75 + 5;
+	u16 key;
+	char sbi[64];
 
 	if (!cdra_is_physical())
 		return;
 	UnloadSBI();
-	if (is_libcrypt_game()) {
-		sbi_len = (last + 8) / 8;
-		sbi_sectors = calloc(1, sbi_len);
-		for (i = 0; sbi_sectors != NULL && i < 16; i++) {
-			n = libcrypt_sectors[i] - 2*75;
-			if (drive_q_bad(n) && drive_q_bad(n + 5)) {
-				sbi_sectors[n >> 3] |= 1 << (n & 7);
-				sbi_sectors[(n + 5) >> 3] |= 1 << ((n + 5) & 7);
-				key |= 1u << (15 - i);
-				marks++;
-			}
-		}
-		if (marks == 0)
-			UnloadSBI();
-		SysPrintf("LibCrypt from the drive: %d of 16 marks, key %04X\n", marks, key);
+	if (!is_libcrypt_game()) {
+		cdra_drop_subchannel();
+		return;
 	}
+	// the launcher's copies of the game's .sbi (fetched by serial from our site when it has a network), in the game's
+	// save folder (the run folder's .pcsx): <ID>.sbi = the one version, used as an image's .sbi is, nothing read from
+	// the drive; <ID>.1.sbi, <ID>.2.sbi... = several versions under one serial, the one whose key the drive shows
+	snprintf(sbi, sizeof(sbi), ".pcsx/%.9s.sbi", CdromId);
+	if (LoadSBI(sbi, SBI_SECTORS) == 0) {
+		SysPrintf("LibCrypt: %s, key %04X\n", sbi, loaded_key());
+		cdra_drop_subchannel();
+		return;
+	}
+	key = drive_key();
+	for (i = 1; i <= 9; i++) {
+		snprintf(sbi, sizeof(sbi), ".pcsx/%.9s.%d.sbi", CdromId, i);
+		if (LoadSBI(sbi, SBI_SECTORS) != 0)
+			continue;
+		if (loaded_key() == key) {
+			SysPrintf("LibCrypt: %s, key %04X as the drive shows\n", sbi, key);
+			cdra_drop_subchannel();
+			return;
+		}
+		UnloadSBI();
+	}
+	// no file, or none with the drive's key: the drive's own marks
+	sbi_len = (last + 8) / 8;
+	sbi_sectors = calloc(1, sbi_len);
+	for (i = 0; sbi_sectors != NULL && i < 16; i++) {
+		n = libcrypt_sectors[i] - 2*75;
+		if (key & (1u << (15 - i))) {
+			sbi_sectors[n >> 3] |= 1 << (n & 7);
+			sbi_sectors[(n + 5) >> 3] |= 1 << ((n + 5) & 7);
+		}
+	}
+	if (key == 0)
+		UnloadSBI();
+	SysPrintf("LibCrypt from the drive: key %04X\n", key);
 	cdra_drop_subchannel();
 }
 
