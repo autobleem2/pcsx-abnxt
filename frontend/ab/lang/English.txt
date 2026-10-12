@@ -271,3 +271,10 @@ failed to load cheats=failed to load cheats
 Please wait...=Please wait...
 # a real disc: shown while the drive is read, before the BIOS
 Loading the disc - please wait=Loading the disc - please wait
+# CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
+CRT mask=CRT mask
+Aperture=Aperture
+Slot=Slot
+Delta=Delta
+The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots=The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots
+Only with the CRT (raster) filter=Only with the CRT (raster) filter

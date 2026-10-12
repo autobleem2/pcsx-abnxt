@@ -146,6 +146,9 @@ extern int ab_crt_vsize;
  * below the picture are filled with the picture as presented - after the filter - mirrored at its edges, at half
  * brightness (libpicofe's plat_ab_set_halo); 0 = black bands. Not on a CRT (the game fills the tube). */
 extern int ab_screen_halo;
+/* CRT (raster)'s phosphor mask (the menu's Picture -> "CRT mask", pcsx.cfg "crt_mask"): AB_CRT_MASK_* of
+ * ab_shaders.h - 0 the aperture grille (the default), 1 slot, 2 delta, 3 none. Only that filter uses it. */
+extern int ab_crt_mask;
 const char *ab_load_state(void);
 /* order[0]/order[1] = the PS1 port (0-based) SDL pad index 0/1 lands on; {0, 1} (AB_PAD_ORDER unset,
  * malformed, or not a permutation of {0, 1}) is the original, unswapped order. Says nothing about how many

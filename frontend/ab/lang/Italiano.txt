@@ -270,3 +270,10 @@ failed to load cheats=Caricamento dei cheat non riuscito
 Please wait...=Attendere...
 # a real disc: shown while the drive is read, before the BIOS
 Loading the disc - please wait=Caricamento del disco - attendere prego
+# CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
+CRT mask=Maschera CRT
+Aperture=Apertura
+Slot=A fessura
+Delta=Delta
+The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots=Il motivo dei fosfori del tubo sull'immagine: Apertura sono le strisce di un Trinitron, A fessura e Delta i punti di altri tubi
+Only with the CRT (raster) filter=Solo con il filtro CRT (raster)

@@ -270,3 +270,10 @@ failed to load cheats=Huijausten lataaminen epäonnistui
 Please wait...=Odota...
 # a real disc: shown while the drive is read, before the BIOS
 Loading the disc - please wait=Levyä ladataan - odota hetki
+# CRT (raster)'s phosphor mask row (the in-game menu's Picture tab)
+CRT mask=CRT-maski
+Aperture=Aukko
+Slot=Rako
+Delta=Delta
+The tube's phosphor pattern over the picture: Aperture is a Trinitron's stripes, Slot and Delta other tubes' dots=Kuvaputken loisteainekuvio kuvan päällä: Aukko on Trinitronin raidat, Rako ja Delta muiden kuvaputkien pisteet
+Only with the CRT (raster) filter=Vain CRT (raster) -suodattimen kanssa

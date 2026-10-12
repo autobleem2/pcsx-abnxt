@@ -686,7 +686,7 @@ static void update_pipeline(void)
   smooth = ab_smooth_shader(soft_filter);
   if (console && crt)
     smooth = NULL;
-  plat_ab_set_pipeline(smooth, ab_filter_shader(filter));
+  plat_ab_set_pipeline(smooth, ab_filter_shader(filter, ab_crt_mask));
   /* a CRT draws the PlayStation's lines - 240, not the 480 of a 2x or smoothed frame */
   plat_ab_set_filter_picture(crt ? pl_psx_pic_w : 0, crt ? pl_psx_pic_h : 0);
   level = crt || ab_crt43() ? 0 : scanlines < 0 ? 0 : scanlines > 3 ? 3 : scanlines;
