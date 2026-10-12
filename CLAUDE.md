@@ -189,7 +189,9 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   `hqx.glsl` (HQX_SCALE 2/3: libretro's single-pass hqx rewritten - 9 neighbours to a pattern and a crossing,
   the weights from a lookup table, `frontend/ab/hqx/hq{2,3}x.png` -> `ab_hqx_lut.h` by `hqx/lut_embed.py`,
   given to the pass as its aux input, clamped). The same picture as the CPU's hqx to under one RGB565 step.
-  The console offers all four, and smoothing stays on with a CRT filter. The paragraph below is the CPU way,
+  The console's test (the owner, 2026-10-12, GLES 3): HQ2x/HQ3x are too heavy for its GPU, and smoothing
+  under a CRT filter slowed CRT (fast) and CRT-Pi - so the console keeps Scale2x/Eagle2x only and no
+  smoothing with a CRT filter, as before. The paragraph below is the CPU way,
   `ab_scaler.c`, kept for a platform without the passes.
 - **Smoothing** (the menu row under Filter; upstream's `soft_filter`, `pcsx.cfg` 0-4, also the PCSX menu's
   "Software Filter"): None / Scale2x / Eagle2x / HQ2x / HQ3x, `frontend/ab/ab_scaler.c` hooked into
