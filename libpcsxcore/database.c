@@ -396,12 +396,15 @@ static u16 loaded_key(void)
 	return key;
 }
 
-// the key as the drive shows it: a pair with both Qs bad (a lone bad Q is a scratch)
+// the key as the drive shows it: a pair with both Qs bad (a lone bad Q is a scratch). The only place the drive's
+// subchannel is probed for (seconds on some drives): no .sbi came with the disc
 static u16 drive_key(void)
 {
 	u16 key = 0;
 	int i, n;
 
+	if (!cdra_want_subchannel())
+		return 0;
 	for (i = 0; i < 16; i++) {
 		n = libcrypt_sectors[i] - 2*75;
 		if (drive_q_bad(n) && drive_q_bad(n + 5))

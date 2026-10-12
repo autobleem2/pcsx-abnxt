@@ -436,7 +436,11 @@ which only its libretro build switched on; `PCSXAB_PHYSICAL_CDROM` (CMake, on wi
 Windows - not planned there, the owner) builds it here. On Linux driveN is `/dev/sgN` - the Nth SCSI device, so a USB stick in front of the drive moves it -
 read raw with SCSI READ CD, 2352 bytes a sector, the drive set to 4x. The subchannel (ours, upstream's
 `rcdrom_readSub` was a stub): raw P-W through READ CD, Q decoded as `DecodeRawSubData` does, so LibCrypt
-discs play without an `.sbi`. `probe_subchannel` at open tries sub-only, then sector + sub (2448 bytes) on
+discs play without an `.sbi`. **The subchannel is probed only when the marks have to come from the drive** - a
+LibCrypt game with no `<SERIAL>.sbi` handed over (`drive_key()` -> `cdra_want_subchannel()` -> `rcdrom_probeSub`),
+never at open: the LG GP20N's sub-only way takes ~9 s a try to fail, and a game opens the drive twice before it boots
+(main()'s `OpenPlugins`, then `menu_load_cd_image`'s reload) - RE3 with its `.sbi` waited 36 s for nothing (Pi 400,
+2026-10-12). The way found is the drive's, kept for the device name for the rest of the run. `probe_subchannel` tries sub-only, then sector + sub (2448 bytes) on
 sectors 16-19, three tries each (a drive spinning up fails the first reads), and keeps the way whose Q
 carries ADR 1 and an address within 2 of the sector - drives may hand a neighbour's Q (`sub_shift`; the
 LG GP20N: sub-only gives garbage, sector + sub is one ahead). A drive with no raw P-W, or one that
@@ -452,7 +456,7 @@ save folder (`.pcsx/` of the run folder), which the launcher fetches by serial w
 drive shows is taken (the 32 places read once); the drive's own marks are the offline failover. **The drive's tray is the lid** (`ab_disc.c`, 2026-10-12): `ab_disc_tick()` asks
 the drive now and then (`cdra_check_eject`, every ~100 frames, 1-2 ms, as upstream's libretro core does) and a
 change asks for `SACTION_AB_TRAY`, handled between CPU slices by `ab_disc_tray()`: open = the prefetch thread
-stops and the core's lid stays open; closed = the drive is opened again (the TOC, the subchannel probe - perhaps
+stops and the core's lid stays open; closed = the drive is opened again (the TOC - perhaps
 another disc) and the lid closes, whose own `CheckCdrom()` reads the new disc. HUD: "TRAY OPEN" / "DISC
 INSERTED". The Open button and "Change disc" show "Open the drive's tray and put in the next disc" instead of
 the picker (`AB_STR_DRIVE`). On a Linux with udev the system must not probe the disc: blkid's 2048-byte reads
