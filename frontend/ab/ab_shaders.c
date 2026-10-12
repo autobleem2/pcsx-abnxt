@@ -9,6 +9,8 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "../libpicofe/plat_autobleem.h"
 #include "../menu.h"
@@ -38,9 +40,35 @@ const char *ab_filter_names[AB_FILTER_COUNT + 1] = {
 
 const char *ab_crt_mask_names[AB_CRT_MASK_COUNT + 1] = { "Aperture", "Slot", "Delta", "Off", NULL };
 
+/* CRT (raster)'s weight (crt-raster.glsl's header): 0 the full one, 1 light (CRT_FAST_GAMMA), 2 lite
+ * (CRT_LITE). The target's default is PCSXAB_CRT_RASTER (CMake: lite on the PSC, whose GPU could not hold
+ * 60 fps with the full one); AB_CRT_RASTER=full|light|lite in the environment overrides it. */
+#ifndef PCSXAB_CRT_RASTER
+#define PCSXAB_CRT_RASTER 0
+#endif
+#define RASTER_VARIANTS 3
+
+static int raster_variant(void)
+{
+	static int variant = -1;
+	if (variant < 0) {
+		const char *v = getenv("AB_CRT_RASTER");
+		variant = PCSXAB_CRT_RASTER;
+		if (v != NULL && strcmp(v, "full") == 0)
+			variant = 0;
+		else if (v != NULL && strcmp(v, "light") == 0)
+			variant = 1;
+		else if (v != NULL && strcmp(v, "lite") == 0)
+			variant = 2;
+		if (variant < 0 || variant >= RASTER_VARIANTS)
+			variant = 0;
+	}
+	return variant;
+}
+
 /* crt-raster.glsl once per mask (its CRT_MASK), made the first time it is asked for: a program per mask,
  * so the mask costs no branch per pixel */
-static char raster_src[AB_CRT_MASK_COUNT][sizeof(ab_glsl_crt_raster) + 32];
+static char raster_src[AB_CRT_MASK_COUNT][sizeof(ab_glsl_crt_raster) + 64];
 static struct plat_ab_shader raster[AB_CRT_MASK_COUNT];
 
 static const struct plat_ab_shader *raster_shader(int mask)
@@ -48,11 +76,12 @@ static const struct plat_ab_shader *raster_shader(int mask)
 	static const char *names[AB_CRT_MASK_COUNT] = {
 		"crt-raster (aperture)", "crt-raster (slot)", "crt-raster (delta)", "crt-raster (no mask)"
 	};
+	static const char *defines[RASTER_VARIANTS] = { "", "#define CRT_FAST_GAMMA\n", "#define CRT_LITE\n" };
 	if (mask < 0 || mask >= AB_CRT_MASK_COUNT)
 		mask = AB_CRT_MASK_APERTURE;
 	if (raster[mask].src == NULL) {
-		snprintf(raster_src[mask], sizeof(raster_src[mask]), "#define CRT_MASK %d\n%s", mask,
-			ab_glsl_crt_raster);
+		snprintf(raster_src[mask], sizeof(raster_src[mask]), "#define CRT_MASK %d\n%s%s", mask,
+			defines[raster_variant()], ab_glsl_crt_raster);
 		raster[mask].name = names[mask];
 		raster[mask].src = raster_src[mask];
 		raster[mask].scale = 0;
