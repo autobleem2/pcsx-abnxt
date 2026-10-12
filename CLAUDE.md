@@ -447,10 +447,7 @@ change asks for `SACTION_AB_TRAY`, handled between CPU slices by `ab_disc_tray()
 stops and the core's lid stays open; closed = the drive is opened again (the TOC, the subchannel probe - perhaps
 another disc) and the lid closes, whose own `CheckCdrom()` reads the new disc. HUD: "TRAY OPEN" / "DISC
 INSERTED". The Open button and "Change disc" show "Open the drive's tray and put in the next disc" instead of
-the picker (`AB_STR_DRIVE`). `rcdrom_open` turns the kernel's disc polling off for the drive
-(`events_poll_msecs` = 0, runtime only): udev's 60-block.rules sets it to 2 s, and on a new disc udev's blkid
-reads 2048-byte sectors of the Mode 2 disc, each timing out after 30 s, with our READ CD queued behind them -
-the game stood ~2 minutes after the tray closed (Pi 400, 2026-10-12). `path_is_absolute` takes `cdrom://` as absolute, or the
+the picker (`AB_STR_DRIVE`). `path_is_absolute` takes `cdrom://` as absolute, or the
 cwd was put in front of it. Verified on the Pi 400 (an LG GP20N slim behind a powered hub, SLES-02698:
 picture, sound, loading; SCES-02835, LibCrypt, from its subchannel); the kernel's own 2048-byte probes of the Mode 2 disc fail in dmesg (ASC 0x64) and
 do not matter. The console's stock 4.4.22 kernel has no `sr_mod`/`sg`/`cdrom`. The launcher has no entry
