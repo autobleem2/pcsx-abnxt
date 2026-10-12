@@ -53,6 +53,17 @@ static int raster_variant(void)
 	static int variant = -1;
 	if (variant < 0) {
 		const char *v = getenv("AB_CRT_RASTER");
+		static char test_v[16]; /* TEST ONLY (PSC fps comparison): /tmp/ab_crt_raster when no environment */
+		if (v == NULL) {
+			FILE *f = fopen("/tmp/ab_crt_raster", "r");
+			if (f != NULL) {
+				if (fscanf(f, "%15s", test_v) == 1)
+					v = test_v;
+				fclose(f);
+			}
+		}
+		if (v != NULL)
+			fprintf(stderr, "autobleem: crt-raster build %s\n", v);
 		variant = PCSXAB_CRT_RASTER;
 		if (v != NULL && strcmp(v, "full") == 0)
 			variant = 0;
