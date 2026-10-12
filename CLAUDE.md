@@ -474,7 +474,10 @@ the boot files take seconds before the BIOS draws anything, so with a `cdrom://`
 owner as a still screen (a spinning disc would need a drawing thread, since the reads block the main one) -
 and the line "Loading the disc - please wait" is drawn in the launcher's language in the art's text box
 (1280x720: 128,578 1024x44, 30 px; 640x480: 64,385 512x29, 20 px), shrunk until it fits; without the art the
-menu's background with `ab_ui_disc`. `ab_ui_skin_image()` loads any skin image as `ab_ui_background` does.
+menu's background with `ab_ui_disc`. `ab_ui_skin_image()` loads any skin image as `ab_ui_background` does. Its first version was never seen: it is the
+first frame after the output mode is set, and SDL's KMSDRM driver makes the new size's EGL surface only at the next
+swap, dropping what was drawn into the window's first 1280x720 one - libpicofe's `plat_ab_set_output_mode` /
+`plat_ab_set_fullscreen` now swap one black frame (`plat_ab_clear`) right after the change.
 A game from an image file never shows it.
 
 Also: `lastcdimg.txt` is not rewritten at start when it already names the disc, and stdout is
