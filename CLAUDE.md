@@ -162,7 +162,13 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   filter 7, ours (`frontend/ab/shaders/crt-raster.glsl`, its README row): the beam per PlayStation line, the
   phosphor mask per screen pixel - the menu's Picture -> "CRT mask" row under Filter (Aperture, the default /
   Slot / Delta / Off; `pcsx.cfg` `crt_mask`, `ab_crt_mask`; greyed with any other filter), one program per
-  mask. A CRT filter as the other two (`ab_filter_is_crt`): our scanlines off, the tube falls back to Linear.
+  mask. **The same menu choice, a build per machine** (the owner, 2026-10-12: the console's PowerVR fell under
+  40 fps in Tekken 3 at 720p): the console (`ab_console_present()`) compiles the shader with `CRT_LITE` - gamma
+  2.0 by square/sqrt, mediump colour, one beam height for every colour (a bump worked out in the vertex
+  shader, no `exp()`), a plain bilinear read across, the mask by `fract()`/`step()` - and has no Slot mask
+  (it still dropped frames there; the menu steps past it and a saved Slot is drawn as Aperture,
+  `ab_crt_mask_offered()`); everything else keeps the full build, the mask code the owner approved on the Pi
+  unchanged. `AB_CRT_RASTER=full|light|lite` overrides the choice (light = `CRT_FAST_GAMMA` alone). A CRT filter as the other two (`ab_filter_is_crt`): our scanlines off, the tube falls back to Linear.
   The mask goes on the picture only (the owner: not on the halo) - the halo's glow is a 16 x 16 average of
   the filtered picture, so no extra pass was needed for that.
 - **Smoothing** (the menu row under Filter; upstream's `soft_filter`, `pcsx.cfg` 0-4, also the PCSX menu's
