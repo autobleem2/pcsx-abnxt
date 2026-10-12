@@ -386,9 +386,19 @@ void libcrypt_from_drive(void)
 	int i, n, marks = 0, last = libcrypt_sectors[ARRAY_SIZE(libcrypt_sectors) - 1] - 2*75 + 5;
 	u16 key = 0;
 
+	char sbi[64];
+
 	if (!cdra_is_physical())
 		return;
 	UnloadSBI();
+	// the launcher's copy of the game's .sbi (fetched by serial when it has a network), in the game's save folder
+	// (the run folder's .pcsx): taken as an image's .sbi is, nothing is read from the drive's subchannel
+	snprintf(sbi, sizeof(sbi), ".pcsx/%.9s.sbi", CdromId);
+	if (is_libcrypt_game() && LoadSBI(sbi, 80 * 60 * 75) == 0) {
+		SysPrintf("LibCrypt: %s\n", sbi);
+		cdra_drop_subchannel();
+		return;
+	}
 	if (is_libcrypt_game()) {
 		sbi_len = (last + 8) / 8;
 		sbi_sectors = calloc(1, sbi_len);
