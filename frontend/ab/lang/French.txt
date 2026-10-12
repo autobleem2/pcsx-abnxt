@@ -96,8 +96,8 @@ Starts the game over from the beginning, as the console's Reset did=Recommence l
 The console's resolution is chosen in AutoBleem's settings=La résolution de la console se choisit dans les réglages d'AutoBleem
 
 # the PCSX menu's pages (upstream's rows, drawn by our menu screen) - sections, pages, rows, values
-ON=ACTIVÉ
-OFF=DÉSACTIVÉ
+ON=MARCHE
+OFF=ARRÊT
 General=Général
 More=Plus
 Filters=Filtres
