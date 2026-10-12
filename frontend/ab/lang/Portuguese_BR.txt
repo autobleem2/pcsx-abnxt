@@ -84,7 +84,7 @@ Resolution=Resolução
 Remove seams=Remover costuras
 The resolution the screen is driven at; only what the TV or monitor offers is listed=A resolução em que a tela funciona; só é listado o que a TV ou monitor oferece
 2x draws the PlayStation's 3D at double resolution (not in high resolution games); costs speed=O 2x desenha o 3D do PlayStation em resolução dupla (não em jogos de alta resolução); custa velocidade
-No 1-pixel gaps between pictures made of several parts at 2x=Sem falhas de 1 pixel entre imagens formadas por várias partes em 2x
+No 1-pixel gaps between pictures made of several parts at 2x=Sem espaços de 1 pixel entre imagens formadas por várias partes em 2x
 Dithering=Dithering
 On=Ligado
 Always=Sempre
@@ -156,7 +156,7 @@ Player 2=Jogador 2
 Emulator/Gun controls=Controles do emulador/pistola
 Port 1 device=Dispositivo da porta 1
 Port 2 device=Dispositivo da porta 2
-Nubs as buttons=Gatilhos analógicos como botões
+Nubs as buttons=Analógicos como botões
 Vibration=Vibração
 Analog deadzone=Zona morta analógica
 No TS Gun trigger=Sem gatilho de pistola na tela sensível ao toque
@@ -210,7 +210,7 @@ CRT-Pi is too heavy for the console at 1080p: choose 720p in AutoBleem's setting
 
 # the PCSX menu pages' help texts and messages (upstream's, drawn by our menu screen)
 Maps nub-like analog controls to PSX ones better Might cause problems with real analog sticks=Mapeia melhor os controles analógicos tipo nub para os controles do PSX. Pode causar problemas com analógicos reais.
-Experimental, keep this OFF if unsure. Select rescan after change.=Experimental; deixe DESLIGADO se tiver dúvida. Selecione "Refazer varredura" após a mudança.
+Experimental, keep this OFF if unsure. Select rescan after change.=Experimental; deixe DESLIGADO se tiver dúvida. Selecione "Detectar dispositivos novamente" após a mudança.
 Don't trigger (shoot) when touching screen in gun games.=Não dispara ao tocar a tela em jogos de pistola.
 Must select analog above and enable this ingame too.=É preciso selecionar "analógico" acima e ativar isso no jogo também.
 int. 2x - scales w. or h. 2x if it fits on screen int. 4:3 - uses integer if possible, else fractional=int. 2x - amplia a largura ou a altura em 2x se couber na tela. int. 4:3 - usa um valor inteiro se possível, senão fracionário.
@@ -241,7 +241,7 @@ Configure P.E.Op.S. MesaGL Driver V1.78=Configurar o driver P.E.Op.S. MesaGL V1.
 Configure Unai/PCSX4ALL Team plugin (new)=Configurar o plugin Unai/PCSX4ALL Team (novo)
 Configure built-in P.E.Op.S. Sound Driver V1.7=Configurar o driver de áudio embutido P.E.Op.S. V1.7
 Disables game-specific compatibility hacks=Desativa os hacks de compatibilidade específicos de cada jogo
-Will cause crashes when loading, break memcards=Vai causar travamentos ao carregar e corromper os memory cards.
+Will cause crashes when loading, break memcards=Vai causar travamentos ao carregar e corromper os cartões de memória.
 May cause graphical glitches=Pode causar falhas gráficas
 Will cause graphical glitches=Vai causar falhas gráficas
 Will cause some games to run too fast=Vai fazer alguns jogos rodarem rápido demais
@@ -257,16 +257,16 @@ Emulate some PSX's debug hw like breakpoints and exceptions (slow, interpreter o
 Try enabling this if the game misses some graphics causes a performance hit=Tente ativar isso se o jogo estiver com gráficos faltando; causa perda de desempenho.
 Instead of 50/60fps for PAL/NTSC use ~49.75/59.81 Closer to real hw but doesn't match modern displays.=Em vez de 50/60 fps para PAL/NTSC, usa ~49.75/59.81. Mais próximo do hardware real, mas não corresponde às telas modernas.
 Greatly reduce CD load times. Breaks some games.=Reduz muito os tempos de carregamento do CD. Quebra alguns jogos.
-Ask for confirmation when overwriting save, loading state or both=Pede confirmação ao sobrescrever um save, carregar um estado ou ambos
+Ask for confirmation when overwriting save, loading state or both=Pede confirmação ao sobrescrever um salvamento, carregar um estado ou ambos
 Switches back to default / recommended configuration=Volta para a configuração padrão/recomendada
 Warning: frameskip sometimes causes glitches=Aviso: o frameskip às vezes causa falhas
-Change CD, manage memcards..=Trocar CD, gerenciar memory cards...
+Change CD, manage memcards..=Trocar CD, gerenciar cartões de memória...
 saved for this game=Salvo para este jogo
 config saved=Configuração salva
 failed to write config=Falha ao gravar a configuração
 rescan complete.=Varredura concluída.
 defaults restored=Padrões restaurados
-failed to load cheats=Falha ao carregar os cheats
+failed to load cheats=Falha ao carregar as trapaças
 Please wait...=Aguarde...
 # a real disc: shown while the drive is read, before the BIOS
 Loading the disc - please wait=Carregando o disco - aguarde
