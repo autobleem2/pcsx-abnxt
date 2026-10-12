@@ -176,7 +176,7 @@ void ab_disc_tick(void)
 	 * is under way); a change is acted on between two CPU slices, never from here - inside a slice */
 	if (cdra_is_physical() && !tray_pending) {
 		int inserted;
-		if (cdra_check_eject(&inserted) > 0 && !inserted != tray_open &&
+		if (cdra_check_eject(&inserted) > 0 && (!inserted) != tray_open &&
 		    emu_action == SACTION_NONE) {
 			tray_now = !inserted;
 			tray_pending = 1;
