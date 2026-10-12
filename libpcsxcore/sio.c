@@ -163,6 +163,8 @@ void sioWrite8(unsigned char value) {
 			return;
 	}
 
+	if (mcdst != 0)
+		MCD_TRACE("  wr %02x state %d byte %d cyc %u", value, mcdst, parp, psxRegs.cycle);
 	switch (mcdst) {
 		case 1:
 			set_event(PSXINT_SIO, SIO_CYCLES);
@@ -308,6 +310,9 @@ unsigned char sioRead8() {
 	u16 ctrl = SWAPu16(CtrlReg);
 	u8 ret = 0;
 
+	if (mcdst != 0)
+		MCD_TRACE("  rd %02x state %d byte %d%s cyc %u", (StatReg & SWAPu16(RX_RDY)) ? buf[parp] : 0, mcdst,
+			parp, (StatReg & SWAPu16(RX_RDY)) ? "" : " (nothing received: 00)", psxRegs.cycle);
 	if (StatReg & SWAPu16(RX_RDY)) {
 //		StatReg &= SWAPu16(~RX_OVERRUN);
 		ret = buf[parp];
