@@ -2,6 +2,8 @@
 #include "../deps/libretro-common/cdrom/cdrom.c"
 #if defined(__linux__) && !defined(ANDROID)
 //#include <linux/cdrom.h>
+#include <stdio.h>
+#include <dirent.h>
 #endif
 
 #include "../libpcsxcore/psxcommon.h"
@@ -164,8 +166,44 @@ static void probe_subchannel(void *stream)
    SysPrintf("CD subchannel: not readable, LibCrypt discs need an .sbi\n");
 }
 
+/* udev (60-block.rules) has the kernel poll the drive for a new disc every 2 s; on a change it runs blkid,
+ * whose 2048-byte reads of a PS1 disc (Mode 2) each time out after 30 s - and every READ CD of ours waits behind
+ * them, minutes after the tray closes. Polling off for this drive (runtime only, back on a replug): nothing
+ * here needs it, the tray is asked with TEST UNIT READY. */
+static void quiet_media_poll(const char *name)
+{
+#if defined(__linux__) && !defined(ANDROID)
+   char path[256];
+   struct dirent *ent;
+   DIR *d;
+   int n;
+
+   if (sscanf(name, "cdrom://drive%d", &n) != 1)
+      return;
+   snprintf(path, sizeof(path), "/sys/class/scsi_generic/sg%d/device/block", n);
+   d = opendir(path);
+   if (d == NULL)
+      return;
+   while ((ent = readdir(d)) != NULL) {
+      FILE *f;
+      char poll[512];
+      if (ent->d_name[0] == '.')
+         continue;
+      snprintf(poll, sizeof(poll), "%s/%s/events_poll_msecs", path, ent->d_name);
+      f = fopen(poll, "w");
+      if (f == NULL)
+         continue;
+      fputs("0", f);
+      if (fclose(f) == 0)
+         SysPrintf("CD: the kernel's disc polling off for %s\n", ent->d_name);
+   }
+   closedir(d);
+#endif
+}
+
 void *rcdrom_open(const char *name, u32 *total_lba, u32 *have_subchannel)
 {
+   quiet_media_poll(name);
    void *g_cd_handle = retro_vfs_file_open_impl(name, RETRO_VFS_FILE_ACCESS_READ,
         RETRO_VFS_FILE_ACCESS_HINT_NONE);
    if (!g_cd_handle) {
