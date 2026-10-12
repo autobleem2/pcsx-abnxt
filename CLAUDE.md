@@ -291,8 +291,9 @@ scalers (see "Smoothing"; `tools/vendor_hqx.py` regenerates `hqx/hq2x.c`/`hq3x.c
 grom358/hqx). Player 2's sticks: `in_adev[4]` ([2]/[3]), `update_analogs()` over both players.
 
 Upstream files edited so far (the whole list - keep it that way): `frontend/main.c` (`path_is_absolute()`
-for `C:\` paths - a candidate for an upstream PR; the `ab_*` hooks: the arguments, the exit, the action
-default; `PCSX_MEMCARD_COUNT` instead of a fixed nine cards, 2 here), `frontend/main.h` (the macro's
+for `C:\` paths and `cdrom://` drives - a candidate for an upstream PR; the `ab_*` hooks: the arguments, the exit, the action
+default; `PCSX_MEMCARD_COUNT` instead of a fixed nine cards, 2 here), `frontend/libretro-cdrom.c` (the
+subchannel read - see "A real disc in a drive"), `frontend/main.h` (the macro's
 default, our three `SACTION_AB_*` values), `frontend/menu.c` (the `ab_config_loaded` hook, the `screen_halo` key, two action
 names, the game's own config - its name, load order, the merging save and binary files, see "A game's
 config" -, the save leaving out the HUD bits `AB_PERF_OVERLAY` turned on, `men_soft_filter`'s five names on every platform; `menu_init` keeps the "Video output mode" row off
@@ -428,6 +429,23 @@ classic pcsx-ab ignores the key (its own dither lives in `gpu_peops.iUseDither`)
 (`ab_rows_take`/`ab_rows_commit`, like Scaling) that is written back before a save and when the menu closes,
 only if it was moved; the GPU takes it when the game goes on (`plugin_call_rearmed_cbs`). The config log line
 says `dithering=N`.
+
+**A real disc in a drive** (2026-10-12, the owner's probe): `-cdfile cdrom://driveN.cue` plays the disc in
+the Nth drive - upstream's own code (`frontend/libretro-cdrom.c`, libretro-common's VFS, `cdrom-async.c`),
+which only its libretro build switched on; `PCSXAB_PHYSICAL_CDROM` (CMake, on with the threads) builds it
+here. On Linux driveN is `/dev/sgN` - the Nth SCSI device, so a USB stick in front of the drive moves it -
+read raw with SCSI READ CD, 2352 bytes a sector, the drive set to 4x. The subchannel (ours, upstream's
+`rcdrom_readSub` was a stub): raw P-W through READ CD, Q decoded as `DecodeRawSubData` does, so LibCrypt
+discs play without an `.sbi`. `probe_subchannel` at open tries sub-only, then sector + sub (2448 bytes) on
+sectors 16-19, three tries each (a drive spinning up fails the first reads), and keeps the way whose Q
+carries ADR 1 and an address within 2 of the sector - drives may hand a neighbour's Q (`sub_shift`; the
+LG GP20N: sub-only gives garbage, sector + sub is one ahead). A drive with no raw P-W, or one that
+recomputes the Q's CRC, cannot show LibCrypt's marks: those discs still need the `.sbi`. With sector + sub
+every sector is read twice. `path_is_absolute` takes `cdrom://` as absolute, or the
+cwd was put in front of it. Verified on the Pi 400 (an LG GP20N slim behind a powered hub, SLES-02698:
+picture, sound, loading; SCES-02835, LibCrypt, from its subchannel); the kernel's own 2048-byte probes of the Mode 2 disc fail in dmesg (ASC 0x64) and
+do not matter. The console's stock 4.4.22 kernel has no `sr_mod`/`sg`/`cdrom`. The launcher has no entry
+for it yet.
 
 Also: `lastcdimg.txt` is not rewritten at start when it already names the disc, and stdout is
 line-buffered off Windows (`ab_args_take`).
