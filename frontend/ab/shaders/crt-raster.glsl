@@ -125,6 +125,7 @@ float beam(float dy, COLOR c)
 #define TO_SCREEN(c) pow(c, vec3(1.0 / OUTPUT_GAMMA))
 #endif
 
+#ifdef CRT_FAST_GAMMA
 COLOR mask(vec2 pos)
 {
 #if CRT_MASK == 3
@@ -162,6 +163,49 @@ COLOR mask(vec2 pos)
 	return m;
 #endif
 }
+#else
+/* the full build keeps the mask code the owner approved on the Pi, as it was */
+vec3 mask(vec2 pos)
+{
+#if CRT_MASK == 3
+	return vec3(1.0);
+#else
+	float p = OutputSize.y >= 1600.0 ? 6.0 : OutputSize.y >= 900.0 ? 3.0 : 2.0;
+	float x = floor(pos.x), y = floor(pos.y);
+	vec3 m;
+#if CRT_MASK == 2
+	/* delta: each row of dots a part of a triad over from the one above */
+	x += mod(floor(y / max(p / 3.0, 1.0)), 2.0) * floor(p / 2.0);
+#endif
+	if (p == 2.0) {
+		/* two pixels: green, then red and blue */
+		float lit = 2.0 - MASK_DARK;
+		m = mod(x, 2.0) < 1.0 ? vec3(MASK_DARK, lit, MASK_DARK) : vec3(lit, MASK_DARK, lit);
+	} else {
+		float lit = 3.0 - 2.0 * MASK_DARK;
+		float i = floor(mod(x, p) * 3.0 / p);
+		m = vec3(MASK_DARK);
+		if (i < 0.5)
+			m.r = lit;
+		else if (i < 1.5)
+			m.g = lit;
+		else
+			m.b = lit;
+	}
+#if CRT_MASK == 1
+	/* slot: each triad broken by a dark row every slot, the next triad's half a slot lower */
+	{
+		float rows = p == 6.0 ? 2.0 : 1.0, slot = 4.0 * rows;
+		float t = floor(x / p);
+		if (mod(y + mod(t, 2.0) * slot * 0.5, slot) < rows)
+			m = vec3(MASK_DARK);
+		m *= slot / (slot - rows + rows * MASK_DARK);
+	}
+#endif
+	return m;
+#endif
+}
+#endif
 
 void main()
 {
