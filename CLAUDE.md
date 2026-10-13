@@ -74,7 +74,8 @@ directory first** (`data_path`): the launch scripts copy the binary to `/tmp/pcs
 and a **2 s hold is Reset** (the HUD says "HOLD TO EXIT" from 0.5 s; the Exit row's help says so). On every
 platform since 2026-09-24 - the console used to open the menu at once, leaving Reset to the front button,
 but its pad has no Home and Select+Start held is the way out players reach for (`in_sdl2gc` turns
-Select+Start into Home on a pad whose mapping has no `guide`). `tools/win_drive.ps1` holds a key with `name:ms`.
+Select+Start into Home on every pad, one with a `guide` too - the one way out of every game, emulator
+and App: a short press is the menu, a 2 s hold of Home or Select+Start goes back to the launcher). `tools/win_drive.ps1` holds a key with `name:ms`.
 
 **The disc picker and the emulator's own language** (2026-09-20, phase 5 complete): the Open button and
 the menu's "Change disc" open `ab_disc_screen()` (`ab_menu.c`) over the menu's screen - the set's discs in
@@ -279,8 +280,8 @@ input, no `SDL_Renderer`. The GPU plugin draws into a shadow RGB565 buffer (`sha
 plugin_lib works out (`g_layer_*`; `plat_target.hwfilter` indexes `ab_filter_names`); the menu draws into a buffer the size of the
 window (the 2x font from 640x480 up). Fullscreen-desktop on the ARM targets, a resizable 1280x720 window on a
 PC (`plat_target.vout_fullscreen` / F11 toggles). Keys are SDL scancodes named in lower case ("escape", "f1",
-"eject", "reset"); pads are `sdl2gc:pad N` with fixed PlayStation button names, Select+Start = Home on a pad
-without a Guide button, player 1's sticks wired to `in_adev[]` at probe time. `PCSXAB_GLES` (libpicofe's own
+"eject", "reset"); pads are `sdl2gc:pad N` with fixed PlayStation button names, Select+Start = Home on every
+pad (with or without a Guide button), player 1's sticks wired to `in_adev[]` at probe time. `PCSXAB_GLES` (libpicofe's own
 EGL output) is off on every target.
 
 **`frontend/ab/`** is ours. `ab_config`: the launch script's arguments taken out of argv (`ab_args_take`),
