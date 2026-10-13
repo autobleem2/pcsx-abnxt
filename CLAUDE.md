@@ -12,7 +12,7 @@ change (commit messages are prose).
 
 **The port plan is complete** (the owner's call, 2026-09-20 night; the plan itself, `docs/port-plan.md`,
 is deleted as finished plans are - `git show 82d77a16:docs/port-plan.md` has it): the repositories, the CMake
-build for every target (psc, rpi, rpi64, pcusb, win64), the SDL2 platform, the launcher's contract
+build for every target (psc, rpi, rpi64, pcusb, win64), the AutoBleem platform (`plat_autobleem.c`: GL video, SDL2 for the window and the input), the launcher's contract
 (arguments, config, exit files), the front buttons and the power daemon, the disc
 change with its picker (below), the in-game menu with every launcher option. All of it verified on Windows
 first; **running on the Pi 400 since 2026-09-20** (64-bit, `Autobleem/bin/emunxt/`, the launcher's
@@ -26,7 +26,7 @@ Sony's 131 per-title hacks are needed; **the console runs pcsx-abnxt since 2026-
 r26-56, died at the game's first frame - SIGSEGV inside SDL 2.0.12's `SDL_SetTextureScaleMode()` on an
 RGB565 texture, which the GLES2 renderer wraps around a native 8888 one and 2.0.12 forgets to unwrap, fixed
 in 2.0.14 - libpicofe `e487c91` dropped the call; then the video chain was redone, see "the frame's way to
-the screen"; games, the menu, filters, scanlines and the smoothing verified there the same day; drop the
+the screen" - history: no SDL texture or renderer is involved in the picture any more; games, the menu, filters, scanlines and the smoothing verified there the same day; drop the
 psc tarball over `Autobleem/bin/emunxt/` to update); and phase 8, the release - nxt as *the* emulator in `emu/`, `pcsx-ab2`
 archived on GitHub - which only makes sense after that pass. Out of scope by decision: the libretro core
 build, Sony's `UI_INTEGRATION`/`.sts`/the Pandora-Maemo-Caanoo platforms, GPU/SPU features beyond
@@ -64,7 +64,7 @@ rule a 1 px accent line. **The paused game's frame is not shown any more**: `men
 of `pl_vout_buf` at `last_vout_w/h` was garbage on the console whenever the GPU rendered at another size
 than it reported (the 2x enhancement, say) - `ab_menu_prepare_bg()` covers it at every menu entry and
 gives libpicofe's `g_menubg_*` a darkened copy of the same art, which is what the PCSX menu beneath and
-its pages draw over, in upstream's own 8x10 font. `plat_sdl2.c`'s `resize_cb` re-allocates the
+its pages draw over, in upstream's own 8x10 font. `frontend/plat_autobleem.c`'s `resize_cb` re-allocates the
 `g_menubg_*` buffers with the canvas (F11 on a PC used to read past them). The picker and the message
 screens draw on the same screen (`ab_screen_begin`, the discs on a panel, the hints on the bar).
 `make_rpi*.sh`'s dist step ships `skin/` + `lang/` like `ci/build.sh`'s. **`ab_ui` looks in the run
@@ -121,18 +121,23 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
 - a pcsx-ab-era cfg says `plat_target.vout_fullscreen = 0`: on the console and the Pi the frontend forces
   fullscreen (`check_fullscreen`) - it used to drop to a 1280x720 window inside 1080p and the pointer came
   back. The pointer itself is hidden by relative mouse mode (KMSDRM ignores `SDL_ShowCursor`).
-- **the frame's way to the screen** (libpicofe `plat_autobleem.c` `plat_ab_present`, the owner's pcsx-ab chain redone on
-  the GPU, 2026-09-21 after the console showed the first version's uneven scanlines): the RGB565 frame is
-  scaled **once** into the backbuffer with the filter (`-filter 0..7`, an index into `ab_filter_names` since 2026-09-29 - the launcher's game
-  editor offers all eight; was 0..2: Off = nearest, Linear = bilinear,
-  Sharp = whole-multiple prescale in a native 8888 render target then bilinear for the remainder - at 720p
-  a 240-line game's Sharp equals Off, inherent), and the **scanlines go over the scaled picture**, never
-  scaled again: a property of the screen like a CRT's, 240 lines over the picture's height whatever the
-  game's mode (3 px each at 720p, 4/5 alternating at 1080p), one ARGB overlay texture made on the CPU when
-  size/thickness/level change and blended in one copy (Scanlines 1-3 = thickness/4 of a line, at least 1 px,
-  a pixel of picture kept - 1/2/2 px at 720p; brightness = what shows through). Not fill rects: back when
-  the console shipped SDL 2.0.12, its GLES2 drew those 1 px high whatever was asked - not retested since
-  the move to 2.0.14, so the blended-overlay approach stays. The menu never has them (`dst == NULL`), FMV does.
+- **the frame's way to the screen** (libpicofe `plat_autobleem.c` `plat_ab_present`, our own GL passes - SDL
+  gives only the window, the GL context and the input; the owner's pcsx-ab chain redone on the GPU, 2026-09-21
+  after the console showed the first version's uneven scanlines): `plat_gvideo_flip()` (`frontend/plat_autobleem.c`)
+  runs `update_pipeline()` and hands the shadow RGB565 frame to `plat_ab_present()`, which uploads it to a
+  texture and runs the passes: the smoothing pass if the soft filter is one the GPU does (Scale2x/Eagle2x,
+  into a texture 2x the input), then the filter pass **once** into the layer rectangle of the backbuffer
+  (`-filter 0..7`, an index into `ab_filter_names` since 2026-09-29 - the launcher's game editor offers all
+  eight: Nearest, Linear, Sharp, Sharp (simple), Quilez, CRT (fast), CRT-Pi, CRT (raster); `frontend/ab/shaders/`
+  has the passes, `ab_filter_shader()` picks one; before the shaders - history - the filters were Off =
+  nearest, Linear = bilinear, Sharp = a whole-multiple prescale in a native 8888 render target then bilinear),
+  and the **scanlines go over the scaled picture**, never scaled again: a property of the screen like a CRT's,
+  in screen rows over the whole screen (`plat_ab_set_scanlines(dark, bright, alpha)`: dark rows then bright
+  rows from the top, Scanlines 1/2/3 = 1+1, 1+2, 2+1 screen pixels, `scanline_level` the alpha), one 1 x H texture
+  made on the CPU when the screen's height, the pattern or the alpha change and blended over the screen by
+  `draw_scanlines()`. Not fill rects: back when the console shipped SDL 2.0.12, its GLES2 renderer drew those
+  1 px high whatever was asked (history - there is no SDL renderer now). The menu never has them (`dst == NULL`:
+  its buffer is copied 1:1 over the window), FMV does.
   `pl_scanlines_by_plat` keeps plugin_lib's own row-darkening off (a C `bgr555_to_rgb565_b` exists for the
   builds without NEON32 all the same). The launcher's GFX Filter sends 0/1. A game with
   `gpu_neon.enhancement_enable = 1` (Crash's PC-era cfg) is 2x before any of this, which is why the owner
@@ -187,8 +192,10 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
 - **Smoothing** (the menu row under Filter; upstream's `soft_filter`, `pcsx.cfg` 0-4, also the PCSX menu's
   "Software Filter"): None / Scale2x / Eagle2x / HQ2x / HQ3x, `frontend/ab/ab_scaler.c` hooked into
   `plugin_lib.c`'s blit - the BGR555 frame converted to RGB565 (NEON on 32-bit ARM) into a scratch buffer,
-  scaled 2x/3x into the frame buffer, then the chain above. Scale2x/Eagle2x are libpicofe's NEON asm on
-  32-bit ARM and C in `ab_scaler.c` elsewhere; HQ2x/HQ3x are grom358's **hqx** (LGPL 2.1, vendored in
+  scaled 2x/3x into the frame buffer, then the chain above. On our platform Scale2x/Eagle2x are GPU passes
+  (`scale2x.glsl`, `eagle2x.glsl`; `plat_smooths()` tells plugin_lib to keep the frame 1x); the CPU versions -
+  libpicofe's NEON asm on 32-bit ARM, C in `ab_scaler.c` elsewhere - serve a platform that does not smooth;
+  HQ2x/HQ3x are grom358's **hqx** (LGPL 2.1, vendored in
   `frontend/ab/hqx/`, generated for RGB565 in and out by a script - the pattern switches verbatim, the driver
   loops and the 16M-entry RGB->YUV table replaced by two 64K tables; regenerate rather than patch). The
   scaled frame must fit `PL_VOUT_MAX_W/H` = 1600x1024 (`plugin_lib.h`; the platform's frame buffers are
@@ -198,8 +205,8 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   HQ2x/HQ3x run at 30 fps** (the owner's call: left as is, off by default; a scaler thread on a spare core
   is the follow-up if it ever matters); Scale2x/Eagle2x cost nothing visible. xBRZ was ruled out: GPL-3.
 - SDL falls back to the **offscreen** driver when the DRM master is not free yet (the launcher's window,
-  or the previous emulator, for a few seconds): `plat_sdl2_init` retries video init for up to 6 s
-  instead of rendering into nothing.
+  or the previous emulator, for a few seconds): `plat_ab_init` (libpicofe) retries the video init, 12 tries
+  half a second apart (6 s), instead of rendering into nothing - unless `SDL_VIDEODRIVER` asked for that driver.
 - `Config.PluginsDir` = `./plugins` when it exists, like `bios/` - the launch scripts put it next to `.pcsx`
   (upstream's exe-relative dir was `/tmp/plugins`, empty).
 - the AutoBleem menu has Controller 1/2 (standard/analog/guns/none), Scanlines + brightness and Screen
@@ -208,7 +215,7 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   `DebugDriver`): `AB_DEBUG_PORT=<port>` starts a TCP line server on the loopback that pushes keys into
   SDL's event queue (so they take the real path: in_sdl2 -> the binds -> the menu or the game) and hands
   frames back - `press/down/up <key>`, `wait`, `shot <file.bmp>` (the readback happens in the present that
-  follows the request, `plat_sdl2_shot_*` in libpicofe; a menu presents only when it redraws, so the shot
+  follows the request, `plat_ab_shot_request/serial/save` and `plat_ab_frame_cache` in libpicofe; a menu presents only when it redraws, so the shot
   pushes an expose first - `PBTN_RDRAW`), `screen` (boot/game/menu/pcsx/disc/message, set where our menus
   draw), `row` (the highlighted row's name - libpicofe's `menu_sel_name`, kept by every `me_draw`),
   `status`, `frames`, `fps` (2026-09-29, a permanent command for any client, the launcher's too: `ok fps=F
@@ -221,7 +228,7 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   by row name instead of counting keypresses, and a crash comes back as the connection dying with the tail
   of `build_win/run/err.txt`. Nothing of it runs without the variable. On a Pi or the console: start the
   emulator with `AB_DEBUG_PORT` and `ssh -L`, then `--host/--port`.
-- **debugging a display one cannot see**: `PLAT_SDL2_SHOT=/tmp/shot%d.bmp` saves the presented frame every
+- **debugging a display one cannot see**: `PLAT_SDL2_SHOT=/tmp/shot%d.bmp` (the name is the old platform's, kept; `plat_ab_debug_shot`) saves the presented frame every
   5 s (the emulator's own screenshot is the raw PSX frame); `AB_err.txt` has one line per video mode
   (`video mode: 1024x480 (psx 512x240)`) and per loaded config (`autobleem: game config: filter=... boot
   logo=... scanlines=...`), and the cursor calls. On the Pi: stop `autobleem.service`, run
@@ -237,10 +244,16 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   `arm-linux-gnueabihf-gdb` (SysGCC's, `C:\SysGCC\raspberry\bin`) reads it with `set sysroot .`,
   `set solib-search-path psc-libs`, `file <unstripped>`, `core-file pcsx-core`, `bt` - the unstripped
   `build_psc/pcsx-ab` stays on the build server (`~/pcsx-abnxt/build_psc/`; check the GNU build id against
-  the shipped one with `readelf -n`). **The console runs the SDL 2.0.14 of AutoBleem's `libs.tar.gz`**
+  the shipped one with `readelf -n`). **The console runs the SDL 2.0.18 of AutoBleem's `libs.tar.gz`**
   (unpacked to `/tmp/lib` at boot, `LD_LIBRARY_PATH` inherited from the launcher; the firmware's own
-  `/usr/lib` SDL is 2.0.4) - the same build the emulator links against in the Docker image, so SDL
-  functions newer than 2.0.14 do not exist there and 2.0.14's own bugs do. Kernel 4.4.22 armv7l, Weston,
+  `/usr/lib` SDL is 2.0.4). Source of the version (checked 2026-10-13): `autobleem2/autobleem_sdl` - the SDL the
+  build image's `/opt/psc/sdl2` is built from and the launcher's package ships - is upstream `release-2.0.18` plus
+  three patches (`VERSION` = 2.0.18-1, tag `v2.0.18-1`), and `autobleem`'s `docs/developer-guide.md` says
+  the console's SDL moved from 2.0.14 to 2.0.18 (2.0.18 is the ceiling: Weston 1.11 offers only `wl_shell`, which patch 0001
+  brings back after 2.0.16 dropped it). **Not proved from a binary**: the `payload/Autobleem/lib/libs.tar.gz` checked
+  in to `autobleem` still unpacks to `libSDL2-2.0.so.0.14.0` built from `SDL2-2.0.14` (develop, 2026-10-13), and the
+  Docker image was out of reach - the 2.0.18 pack comes from the image at package time. The owner confirmed
+  2.0.18 on 2026-10-12. Kernel 4.4.22 armv7l, Weston,
   the PowerVR GLES2 driver (`libGLESv2_PVR_MESA.so`); "PVR:(Error): glBufferSubData: No memory for object
   data" in the log is the driver's noise at the first present, not a failure.
 
@@ -249,18 +262,21 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
 | Repository | `github.com/autobleem2/pcsx-abnxt`, a **public GitHub fork** of `notaz/pcsx_rearmed` (GPL-2; a fork of a public repo cannot be private - the owner's call, 2026-09-20) |
 | Base | upstream tag **`r26`** (2026-03-29, `56fef013`), the latest stable; `develop` starts there |
 | Branches | `master` mirrors upstream master (fast-forward only, never committed to); `develop` is ours; `feature/<slug>` off `develop`, merged `--no-ff` (gitflow, as in every AutoBleem repo); `upstream` remote = notaz |
-| libpicofe | submodule `frontend/libpicofe` -> **`github.com/autobleem2/libpicofe`** (our fork of notaz's), branch `develop`: r26's commit plus our SDL2 files (`plat_sdl2.*`, `in_sdl2.*`, `in_sdl2gc.*`); `upstream` remote there too. The other submodules (`deps/libchdr`, `lightrec`, `lightning`, `libretro-common`, `mman`, `frontend/warm`) are upstream's, untouched |
+| libpicofe | submodule `frontend/libpicofe` -> **`github.com/autobleem2/libpicofe`** (our fork of notaz's), branch `develop`: r26's commit plus our files (`plat_autobleem.*` - the GL video, `in_sdl2.*`, `in_sdl2gc.*`); `upstream` remote there too. The other submodules (`deps/libchdr`, `lightrec`, `lightning`, `libretro-common`, `mman`, `frontend/warm`) are upstream's, untouched |
 | Build | `CMakeLists.txt`: upstream's `configure`/`Makefile` as CMake options (`PCSXAB_*`), the plugins, libchdr/lightrec/lightning/mman compiled from `deps/`; upstream's own build files stay untouched. `PCSXAB_PLATFORM=sdl2` (ours, the default) or `headless` (a link check, no video: `frontend/ab/ab_plat_headless.c` stands in for the sdl2 platform's debug-driver and output-mode hooks - BUG-50); upstream's SDL 1.2 frontend (`frontend/plat_sdl.c`) stays in the tree but is not a build option any more |
 | Windows | `./make_win.sh` -> `build_win/pcsx-ab.exe`: **lightrec + C-SIMD gpu_neon, plays games** - Crash Bandicoot's intro in a 1280x720 window, Esc opens the menu, `tools/emu_drive.py` drives it over the debug driver's socket (see "the debug driver"); `tools/win_drive.ps1` is the older way, keys posted to the window |
 | Pi 32-bit / 64-bit | `./make_rpi.sh`, `./make_rpi64.sh` -> `build_rpi*/dist/`: Ari64 ARM / ARM64 dynarec, NEON asm / C-SIMD GPU, the SDL2 platform - **the 64-bit build runs on the Pi 400** (2026-09-20), 32-bit built, unrun |
-| PlayStation Classic | `ci/build.sh psc` in the Docker image (gcc-6, `/opt/psc`, SDL 2.0.14): builds and links, GLIBC <= 2.24, no RPATH, ARM dynarec + NEON - **runs on the console since 2026-09-21** (`build_psc/dist/` on the PC holds the last fetch; the console's SDL is 2.0.14, see "a crash on the console"); `make_psc.sh` is the Sony-toolchain path over ssh, untested here |
+| PlayStation Classic | `ci/build.sh psc` in the Docker image (gcc-6, `/opt/psc`, SDL 2.0.18 from `autobleem_sdl`): builds and links, GLIBC <= 2.24, no RPATH, ARM dynarec + NEON - **runs on the console since 2026-09-21** (`build_psc/dist/` on the PC holds the last fetch; the console's SDL is 2.0.18 with the proof and its gap said in "a crash on the console"); `make_psc.sh` is the Sony-toolchain path over ssh, untested here |
 | Local checkout | `E:\Programming\pcsx-abnxt` |
-| Packages | `tools/make_packages.sh` -> `dist/packages/pcsx-abnxt-<git describe>-{psc,rpi-armhf,rpi-arm64}.tar.gz`, `-win64.zip` (from `build_win_rel`, a Release configure of the same tree) and a manifest json; the Linux dists come from the build server (`ssh psc-build`, `~/pcsx-abnxt` an rsync copy without `.git`: `AB_GIT_DESCRIBE=$(git describe)` in the environment is what CMake bakes into `REV` there, through `docker/run.sh`'s `AB_*` pass-through - without it the menu's build line says "(no version)"); published with autobleem-develop's `tools/repo_publish.sh pcsx <version> dist/packages/*` to **`https://autobleem.retromenele.pl/emu/pcsx-abnxt/`** (`latest.json`, the newest kept; first publish `r26-20-gb9801962`, 2026-09-20, marked a development build; **`r26-alpha1`, 2026-09-21, the first alpha** - an annotated tag on `develop`, so `git describe` reads `r26-alpha1-N-g...` from there: the upstream base stays visible). **The build server's clock is ~5 min behind this PC's**: rsynced files just edited here have mtimes in its future and ninja loops on them ("manifest still dirty") - `find . -newermt now -exec touch {} +` in `~/pcsx-abnxt` before a build |
+| Packages | `tools/make_packages.sh` -> `dist/packages/pcsx-abnxt-<git describe>-{psc,rpi-armhf,rpi-arm64}.tar.gz`, `-win64.zip` (from `build_win_rel`, a Release configure of the same tree) and a manifest json; the Linux dists come from the build server (`ssh psc-build`, `~/pcsx-abnxt` an rsync copy without `.git`: `AB_GIT_DESCRIBE=$(git describe)` in the environment is what CMake bakes into `REV` there, through the `docker/run.sh` (the autobleem repo's, not this one) `AB_*` pass-through - without it the menu's build line says "(no version)"); published with autobleem-develop's `tools/repo_publish.sh pcsx <version> dist/packages/*` to **`https://autobleem.retromenele.pl/emu/pcsx-abnxt/`** (`latest.json`, the newest kept; first publish `r26-20-gb9801962`, 2026-09-20, marked a development build; **`r26-alpha1`, 2026-09-21, the first alpha** - an annotated tag on `develop`, so `git describe` reads `r26-alpha1-N-g...` from there: the upstream base stays visible). **The build server's clock is ~5 min behind this PC's**: rsynced files just edited here have mtimes in its future and ninja loops on them ("manifest still dirty") - `find . -newermt now -exec touch {} +` in `~/pcsx-abnxt` before a build |
 
-**The SDL2 platform** (`frontend/plat_sdl2.c` over libpicofe's `plat_sdl2`/`in_sdl2`/`in_sdl2gc`): one window
-and one accelerated renderer everywhere; the GPU plugin draws into a shadow RGB565 buffer that
-`plat_gvideo_flip()` uploads to a streaming texture and presents into the layer plugin_lib works out
-(`g_layer_*`; `plat_target.hwfilter` 0 = linear, 1 = nearest); the menu draws into a buffer the size of the
+**The AutoBleem platform** (`frontend/plat_autobleem.c` over libpicofe's `plat_autobleem` (`plat_ab_*`),
+`in_sdl2` and `in_sdl2gc`; it was `plat_sdl2` until the render pipeline of 2026-09-28 - history, `docs/render-pipeline-plan.md`): one SDL window
+with one GL context everywhere - `plat_ab_init` asks for GLES 3, then GLES 2.0, then desktop GL 2.1
+(`plat_ab_gles_version()`) - and our own GL passes draw into it; SDL keeps the window, the context and the
+input, no `SDL_Renderer`. The GPU plugin draws into a shadow RGB565 buffer (`shadow_fb`) that
+`plat_gvideo_flip()` hands to `plat_ab_present()` (see "the frame's way to the screen"), into the layer
+plugin_lib works out (`g_layer_*`; `plat_target.hwfilter` indexes `ab_filter_names`); the menu draws into a buffer the size of the
 window (the 2x font from 640x480 up). Fullscreen-desktop on the ARM targets, a resizable 1280x720 window on a
 PC (`plat_target.vout_fullscreen` / F11 toggles). Keys are SDL scancodes named in lower case ("escape", "f1",
 "eject", "reset"); pads are `sdl2gc:pad N` with fixed PlayStation button names, Select+Start = Home on a pad
@@ -541,8 +557,8 @@ line-buffered off Windows (`ab_args_take`).
   not ported), applied in `ab_config_loaded(1)` **only with `-sonyhacks`** and logged per override
   (`autobleem: sony hack SLUS00708 (...): spu interpolation gaussian`). A lever for the compatibility
   pass - most of it is probably obsolete against upstream's SPU and region detection - not a default.
-- **Layout rule**: our behaviour lives in new files - `frontend/ab/` and `frontend/plat_sdl2.c` (+ libpicofe's
-  SDL2 files in our fork) - and upstream files get hooks only: a call, an enum value, a config entry. No
+- **Layout rule**: our behaviour lives in new files - `frontend/ab/` and `frontend/plat_autobleem.c` (+ libpicofe's
+  `plat_autobleem.*`, `in_sdl2*` in our fork) - and upstream files get hooks only: a call, an enum value, a config entry. No
   `#ifdef PSC` in `cdrom.c`. A platform difference is a runtime check or a CMake option, never a second copy
   of a file. This is what keeps `git merge upstream/master` cheap; merge at upstream release tags.
 - **We are a platform of upstream's, `psclassic`** (2026-09-21, the owner's ask, a dry run that held): the
@@ -562,9 +578,12 @@ line-buffered off Windows (`ab_args_take`).
   `input.c`/`input.h`: `in_set_menu_quit_check()` and `in_set_menu_emu_key()`, hooks that do nothing until a
   platform sets them (EMU-18), and `in_menu_keys_held()`, the menus' key state read without reading a key (BUG-52). The CMake build stays the
   one the scripts and CI use; the Makefile path is the shape a future PR to notaz would take.
-- **Video**: one SDL2 platform everywhere - window + `SDL_GL_CreateContext` (Wayland on the console, KMSDRM
-  on the Pi, WGL on Windows) into libpicofe's `gl.c`, SDL_Renderer as the fallback. No hand-written Wayland
-  code (Sony's `gl_platform.c` is in the reference patch if the PowerVR ever needs it back).
+- **Video**: one platform everywhere, `plat_autobleem.c` - an SDL window + `SDL_GL_CreateContext` (Wayland on
+  the console, KMSDRM on the Pi, WGL on Windows), a GLES 3 -> GLES 2 -> desktop GL 2.1 context, and our own GL
+  passes in libpicofe's `plat_autobleem.c` (not `gl.c`, not `SDL_Renderer` - there is no fallback renderer; a
+  context that cannot be made is `exit(1)`). SDL is for the window, the context and the input only. No
+  hand-written Wayland code (Sony's `gl_platform.c` is in the reference patch if the PowerVR ever needs it
+  back). (History: until the render pipeline of 2026-09-28 this was an SDL renderer on the window.)
 - **Engines per target** (CMake pins them): PSC and Pi 32-bit = Ari64 ARM + gpu_neon (NEON asm); Pi 64-bit =
   Ari64 ARM64 + gpu_neon (C SIMD); Windows and Linux = lightrec + gpu_neon (C SIMD). peops/unai stay as options.
 - **The contract with AutoBleem does not change**: the run directory (`.pcsx`, `bios`, `plugins` links), the
@@ -584,8 +603,10 @@ line-buffered off Windows (`ab_args_take`).
   binary must need nothing above **GLIBC 2.24** and no RPATH (`tools/check_psc_binary.sh` from
   autobleem-develop gates it).
 - **Wayland via SDL2**: `SDL_SysWMinfo::version` must be set before `SDL_GetWindowWMInfo` - unset it read
-  uninitialised stack and pcsx-ab segfaulted at its first frame on the console (pcsx-ab2 `70c5dcb`).
-- **A window has a surface or a renderer, never both** (SDL >= 2.28 refuses).
+  uninitialised stack and pcsx-ab segfaulted at its first frame on the console (pcsx-ab2 `70c5dcb`). Nothing
+  in this tree calls `SDL_GetWindowWMInfo` now; the rule is for whoever adds it.
+- **A window has a surface or a renderer, never both** (SDL >= 2.28 refuses). Our window has a GL context
+  only (`plat_ab_init`), so it does not arise here; it is for any tool that opens an SDL window.
 - **`SDL_CONTROLLER_BUTTON_MAX` grew** (15 -> 21): an unmapped default of `0` in the GameController key map
   cleared d-pad UP on every new button; the default is `-1`.
 - **`SysLibError()` must return NULL on success** - `plugins.c`'s `CheckErr` treats any non-NULL as failure.
