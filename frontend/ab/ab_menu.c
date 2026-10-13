@@ -111,8 +111,8 @@ static const char h_ab_noseams[] = "No 1-pixel gaps between pictures made of sev
  * asks for it, 2 on everything) - an unsigned char there, so the row edits a copy (ab_menu_loop_d) */
 static int ab_dither_sel;
 static const char *men_ab_dither[] = { "Off", "On", "Always", NULL };
-static const char h_ab_dither[] = "The PlayStation's fine dot pattern that hides colour steps. On: where the"
-                                  " game uses it. Always: on everything. Off: flat colours";
+static const char h_ab_dither[] = "The PlayStation's fine dot pattern that hides color steps. On: where the"
+                                  " game uses it. Always: on everything. Off: flat colors";
 /* why a row is greyed */
 static const char ab_why_crt[]   = "Off while a CRT filter is on";
 static const char ab_why_1x[]    = "Only with the 2x resolution";
