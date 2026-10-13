@@ -250,10 +250,10 @@ disc. Keyboard: F9 = Open, F10 = Reset (the console's `eject`/`reset` keys are b
   build image's `/opt/psc/sdl2` is built from and the launcher's package ships - is upstream `release-2.0.18` plus
   three patches (`VERSION` = 2.0.18-1, tag `v2.0.18-1`), and `autobleem`'s `docs/developer-guide.md` says
   the console's SDL moved from 2.0.14 to 2.0.18 (2.0.18 is the ceiling: Weston 1.11 offers only `wl_shell`, which patch 0001
-  brings back after 2.0.16 dropped it). **Not proved from a binary**: the `payload/Autobleem/lib/libs.tar.gz` checked
-  in to `autobleem` still unpacks to `libSDL2-2.0.so.0.14.0` built from `SDL2-2.0.14` (develop, 2026-10-13), and the
-  Docker image was out of reach - the 2.0.18 pack comes from the image at package time. The owner confirmed
-  2.0.18 on 2026-10-12. Kernel 4.4.22 armv7l, Weston,
+  brings back after 2.0.16 dropped it). Seen on the console 2026-10-13: `/tmp/lib/libSDL2-2.0.so.0.18.0`. The
+  `payload/Autobleem/lib/libs.tar.gz` checked in to `autobleem` still carries 2.0.14, but it is only the base:
+  `publish-launcher.yml` drops its `libSDL2*` and packs the image's SDL build (2.0.18) in their place, so a
+  published package and the console have 2.0.18. Kernel 4.4.22 armv7l, Weston,
   the PowerVR GLES2 driver (`libGLESv2_PVR_MESA.so`); "PVR:(Error): glBufferSubData: No memory for object
   data" in the log is the driver's noise at the first present, not a failure.
 
